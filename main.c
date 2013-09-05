@@ -15,6 +15,11 @@
 #include "semphr.h"
 #include "portmacro.h"
 
+#include "compilation.h"
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+#include "motorController.h"
+#endif
+
 #include "main.h"
 #include "commands.h"
 #include "priorities.h"
@@ -195,9 +200,46 @@ volatile FunctionalState globalLogTelemetry = DISABLE;
 volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+volatile FunctionalState globalControllerVoltageCorrection = ENABLE;
+#endif
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
 volatile bool globalIMUHang = false;
+
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	MotorControllerParameters_Struct globalLeftMotorParams = {
+		.threshold = 1.7164f,
+		.A  = 1.2885f,
+		.B  = 0.9323f,
+		.C  = 0.1427f,
+		.KP = 0.05f, // TODO: value TBD experimentally
+		.A_t  = 19.6755f,
+		.B_t  = 14.2360f,
+		.KP_t = 0.05f//TODO: value TBD experimentally
+	};
+	MotorControllerParameters_Struct globalRightMotorParams = {
+		.threshold = 1.5510f,
+		.A  = 1.3758f,
+		.B  = 1.4037f,
+		.C  = 0.1150f,
+		.KP = 0.05f, // TODO: value TBD experimentally
+		.A_t  = 17.2120f,
+		.B_t  = 17.5611f,
+		.KP_t = 0.05f //TODO: value TBD experimentally
+	};
+#else
+	arm_pid_instance_f32 globalPidLeft = {
+		.Kp = 0.08f,
+		.Ki = 0.005f,
+		.Kd = 0.0f
+	};
+	arm_pid_instance_f32 globalPidRight = {
+		.Kp = 0.08f,
+		.Ki = 0.005f,
+		.Kd = 0.0f
+	};
+#endif
 
 int main(void)
 {
@@ -581,7 +623,8 @@ void TaskMotorCtrl(void * p) {
 	/* Speed is given in radians per second */
 	MotorSpeed_Struct motorSpeed = {0.0f, 0.0f};
 
-	const float maxSpeedAllowed = 6300.0f * IMPS_TO_RAD; // 6300 is max ticks per second on both motors
+	//const float maxSpeedAllowed = 6300.0f * IMPS_TO_RAD; // 6300 is max ticks per second on both motors
+	const float maxSpeedAllowed = 10.0f;  // 10 rad/s - It looks like this is the limit for motor controllers' parameters to hold
 	const uint16_t delayMsPerPeriod = 10;
 
 	float errorLeft, errorRight;
@@ -593,17 +636,20 @@ void TaskMotorCtrl(void * p) {
 	TelemetryUpdate_Struct telemetryUpdate = {.Source = TelemetryUpdate_Source_Odometry};
 	TelemetryData_Struct telemetryData;
 
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	/*
+	 * Custom controller
+	 * input - speed [rad/s]
+	 * output - PWM
+	 */
+#else
 	/*
 	 * Input to PID controller is error of rotational velocity in rad/sec
 	 * Output is normalized speed scaled linearly to PWM
 	 */
-	arm_pid_instance_f32 pidLeft, pidRight;
-	pidLeft.Kp = 0.08f;
-	pidLeft.Ki = 0.005f;
-	pidLeft.Kd = 0.0f;
-	pidRight = pidLeft;
-	arm_pid_init_f32(&pidLeft, 1);
-	arm_pid_init_f32(&pidRight, 1);
+	arm_pid_init_f32(&globalPidLeft, 1);
+	arm_pid_init_f32(&globalPidRight, 1);
+#endif
 
 	enableMotors(ENABLE);
 
@@ -667,20 +713,33 @@ void TaskMotorCtrl(void * p) {
 				errorLeft = speedLeft - motorSpeed.LeftSpeed;
 				errorRight = speedRight - motorSpeed.RightSpeed;
 
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+				/* Use Ferdek's controllers */
+				float voltage = 8.0f; //calculations were made for voltage normalized to 8V
+				if(globalControllerVoltageCorrection) voltage = getAvgBatteryVoltage();
+				outLeft = motorController(motorSpeed.LeftSpeed, errorLeft, voltage, &globalLeftMotorParams);
+				outRight = motorController(motorSpeed.RightSpeed, errorRight, voltage, &globalRightMotorParams);
+#else
 				/* Invoke PID functions and compute output speed values */
-				outLeft = arm_pid_f32(&pidLeft, errorLeft);
-				outRight = arm_pid_f32(&pidRight, errorRight);
+				outLeft = arm_pid_f32(&globalPidLeft, errorLeft);
+				outRight = arm_pid_f32(&globalPidRight, errorRight);
+#endif
 
 				/* Set motors speed; minus is necessary to drive in the right direction */
 				if (motorSpeed.LeftSpeed == 0.0f && fabsf(errorLeft) < 0.001f) {
 					setMotorLBrake();
-					arm_pid_reset_f32(&pidLeft);
+#ifndef USE_CUSTOM_MOTOR_CONTROLLER
+					arm_pid_reset_f32(&globalPidLeft);
+#endif
 				}
 				else setMotorLSpeed(-outLeft);
 
+				//TODO: if motors' speeds are set to 0, change mode to servo-controller
 				if (motorSpeed.RightSpeed == 0.0f && fabsf(errorRight) < 0.001f) {
 					setMotorRBrake();
-					arm_pid_reset_f32(&pidRight);
+#ifndef USE_CUSTOM_MOTOR_CONTROLLER
+					arm_pid_reset_f32(&globalPidRight);
+#endif
 				}
 				else setMotorRSpeed(-outRight);
 			}
@@ -1297,6 +1356,9 @@ void COMHandle(const char * command) {
 	MotorSpeed_Struct ms;
 	TelemetryData_Struct td;
 	float temp_float;
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	MotorControllerParameters_Struct* ptrParams;
+#endif
 
 	const char wrongComm[] = "Incorrect command\n";
 
@@ -1478,6 +1540,44 @@ void COMHandle(const char * command) {
 		break;
 	case CPU_USAGE:
 		safePrint(19, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
+		break;
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	case SPEER_REGULATOR_VOLTAGE_CORRECTION:
+		if (commandCheck( strlen(command) >= 3 )) {
+			globalControllerVoltageCorrection = (command[2] != '0');
+		}
+		break;
+	case SPEED_REGULATOR_CUSTOM_PARAMS:
+		if (commandCheck (strlen(command) >= 19 && (command[2] == 'l' || command[2] == 'r') )) {
+			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
+			else ptrParams = &globalRightMotorParams;
+			taskENTER_CRITICAL();
+			{
+				ptrParams->threshold = strtof((char*)&command[4], &last);
+				ptrParams->A = strtof(last+1, &last);
+				ptrParams->B = strtof(last+1, &last);
+				ptrParams->C = strtof(last+1, &last);
+				ptrParams->KP = strtof(last+1, &last);
+				ptrParams->A_t = strtof(last+1, &last);
+				ptrParams->B_t = strtof(last+1, &last);
+				ptrParams->KP_t = strtof(last+1, &last);
+			}
+			taskEXIT_CRITICAL();
+		}
+		break;
+#else
+	case SPEED_REGULATOR_PID_PARAMS:
+		if(commandCheck (strlen(command) >= 7) ) {
+			taskENTER_CRITICAL();
+			{
+				globalPidLeft.Kp = globalPidRight.Kp = strtof((char*)&command[2], &last);
+				globalPidLeft.Ki = globalPidRight.Ki = strtof(last+1, &last);
+				globalPidLeft.Kd = globalPidRight.Kd = strtof(last+1, &last);
+			}
+			taskEXIT_CRITICAL();
+		}
+		break;
+#endif
 	default:
 		if (globalLogEvents) safePrint(18, "No such command\n");
 		break;

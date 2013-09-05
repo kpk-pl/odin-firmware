@@ -116,6 +116,7 @@ int32_t getEncoderR(void);
  * @retval Battery voltage in volts
  */
 float getBatteryVoltage(void);
+float getAvgBatteryVoltage(void);
 
 void enableLantern(FunctionalState state);
 FunctionalState getLanternState();

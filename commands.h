@@ -1,6 +1,8 @@
 #ifndef __ODIN_COMMANDS_H
 #define __ODIN_COMMANDS_H
 
+#include "compilation.h"
+
 /*
  * Command form as should be transmitted:
  * <{one byte, letter as below}:{optional params delimited by ':'}>
@@ -52,7 +54,7 @@
 										 * e - events
 										 */
 
-#define IMPORT_TRAJECTORY_POINTS	'P' /*
+#define IMPORT_TRAJECTORY_POINTS 'P' 	/*
 										 * One param: number of points (<P:#>) After this command reception goes into DMA mode to receive # points
 										 * This does not work now
 										 */
@@ -90,5 +92,34 @@
 										 * Side effects: this command turns on logging speed and disables speed regulator.
 										 * 	Speed regulator can be enabled with another command.
 										 */
+
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+#define SPEER_REGULATOR_VOLTAGE_CORRECTION 'B'
+										/* One param: 1 - enable, 0 - disable | enables or disables voltage regulation for custom motor controller */
+
+#define SPEED_REGULATOR_CUSTOM_PARAMS 'g'
+										/*
+										 * 9 params:
+										 * 1) l / r - left or right motor parameters config
+										 * 2) threshold
+										 * 3) A
+										 * 4) B
+										 * 5) C
+										 * 6) KP
+										 * 7) A_t
+										 * 8) B_t
+										 * 9) KP_t
+										 * Sets new set of parameters for custom speed controller for specified motor.
+										 * Refer to motorController.h for more info
+										 */
+#else
+#define SPEED_REGULATOR_PID_PARAMS 'p'	/*
+										 * 3 params:
+										 * 1) Kp
+										 * 2) Ki
+										 * 3) Kd
+										 * Sets new set of parameters for PID speed controller
+										 */
+#endif
 
 #endif

@@ -207,6 +207,11 @@ float getBatteryVoltage(void) {
 	return (float)(ADC_GetConversionValue(BATTLVL_ADC) & 0x0FFF) * BATTLVL_CONV_2_VOLTAGE;
 }
 
+float getAvgBatteryVoltage(void) {
+	return 8.0f;
+	//TODO
+}
+
 void enableLantern(FunctionalState state) {
 	assert_param(IS_FUNCTIONAL_STATE(state));
 	GPIO_InitTypeDef GPIO_InitStructure;
