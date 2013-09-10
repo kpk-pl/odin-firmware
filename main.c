@@ -36,8 +36,8 @@
 #define M_PI 				(3.14159265358979323846f)			/*<< PI */
 #define IMPS_PER_REV 		(3592.0f)							/*<< Number of encoder impulses per wheel revolution */
 #define IMPS_TO_RAD 		(2.0f * M_PI / IMPS_PER_REV)		/*<< Coefficient to convert encoder impulses to radians */
-#define ROBOT_DIAM			(187.0f)//(184.9f)					/*<< Distance between two wheels */
-#define WHEEL_DIAM 			(70.0f)								/*<< Wheel diameter */
+#define ROBOT_DIAM			(187.3f)//(187.0f)//(184.9f)		/*<< Distance between two wheels */
+#define WHEEL_DIAM 			(69.76f)//(70.0f)					/*<< Wheel diameter */
 #define IMPS_TO_MM_TRAVELED (WHEEL_DIAM * M_PI / IMPS_PER_REV)	/*<< Coefficient to convert encoder inpulses to distance traveled on wheel */
 #define RAD_TO_MM_TRAVELED	(WHEEL_DIAM / 2.0f)					/*<< Coefficient to convert radians to distance traveled on wheel */
 #define DEGREES_TO_RAD		(M_PI / 180.0f)						/*<< Coefficient to convert degrees to radians */
@@ -201,7 +201,7 @@ volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-volatile FunctionalState globalControllerVoltageCorrection = ENABLE;
+volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
 #endif
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
