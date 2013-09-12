@@ -41,7 +41,6 @@
 #define IMPS_TO_MM_TRAVELED (WHEEL_DIAM * M_PI / IMPS_PER_REV)	/*<< Coefficient to convert encoder inpulses to distance traveled on wheel */
 #define RAD_TO_MM_TRAVELED	(WHEEL_DIAM / 2.0f)					/*<< Coefficient to convert radians to distance traveled on wheel */
 #define DEGREES_TO_RAD		(M_PI / 180.0f)						/*<< Coefficient to convert degrees to radians */
-
 #define BUF_RX_LEN 20											/*<< Maximum length of UART command */
 
 /* Type of drive command to perform */
@@ -710,8 +709,8 @@ void TaskMotorCtrl(void * p) {
 		{
 			if (globalSpeedRegulatorOn) {
 				/* Compute error by simple substraction */
-				errorLeft = speedLeft - motorSpeed.LeftSpeed;
-				errorRight = speedRight - motorSpeed.RightSpeed;
+				errorLeft = -(speedLeft - motorSpeed.LeftSpeed);
+				errorRight = -(speedRight - motorSpeed.RightSpeed);
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 				/* Use Ferdek's controllers */
@@ -721,8 +720,8 @@ void TaskMotorCtrl(void * p) {
 				outRight = motorController(motorSpeed.RightSpeed, errorRight, voltage, &globalRightMotorParams);
 #else
 				/* Invoke PID functions and compute output speed values, minus is necessary for PID */
-				outLeft = -arm_pid_f32(&globalPidLeft, errorLeft);
-				outRight = -arm_pid_f32(&globalPidRight, errorRight);
+				outLeft = arm_pid_f32(&globalPidLeft, errorLeft);
+				outRight = arm_pid_f32(&globalPidRight, errorRight);
 #endif
 
 				/* Set motors speed; minus is necessary to drive in the right direction */

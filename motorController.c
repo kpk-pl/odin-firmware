@@ -1,5 +1,5 @@
 #include <stm32f4xx.h>
-
+#include <math.h>
 #include "motorController.h"
 
 float motorController(float speed, float error, float voltage, MotorControllerParameters_Struct *params) {
