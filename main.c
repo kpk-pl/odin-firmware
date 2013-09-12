@@ -720,9 +720,9 @@ void TaskMotorCtrl(void * p) {
 				outLeft = motorController(motorSpeed.LeftSpeed, errorLeft, voltage, &globalLeftMotorParams);
 				outRight = motorController(motorSpeed.RightSpeed, errorRight, voltage, &globalRightMotorParams);
 #else
-				/* Invoke PID functions and compute output speed values */
-				outLeft = arm_pid_f32(&globalPidLeft, errorLeft);
-				outRight = arm_pid_f32(&globalPidRight, errorRight);
+				/* Invoke PID functions and compute output speed values, minus is necessary for PID */
+				outLeft = -arm_pid_f32(&globalPidLeft, errorLeft);
+				outRight = -arm_pid_f32(&globalPidRight, errorRight);
 #endif
 
 				/* Set motors speed; minus is necessary to drive in the right direction */
@@ -732,7 +732,7 @@ void TaskMotorCtrl(void * p) {
 					arm_pid_reset_f32(&globalPidLeft);
 #endif
 				}
-				else setMotorLSpeed(-outLeft);
+				else setMotorLSpeed(outLeft);
 
 				//TODO: if motors' speeds are set to 0, change mode to servo-controller
 				if (motorSpeed.RightSpeed == 0.0f && fabsf(errorRight) < 0.001f) {
@@ -741,7 +741,7 @@ void TaskMotorCtrl(void * p) {
 					arm_pid_reset_f32(&globalPidRight);
 #endif
 				}
-				else setMotorRSpeed(-outRight);
+				else setMotorRSpeed(outRight);
 			}
 			else {
 				// if regulator was turned off, keep target speed at 0 so that motors will break after regulator is on again
