@@ -29,8 +29,8 @@
 #include "vector.h"
 #include "rc5_tim_exti.h"
 #include "hwinterface.h"
-#include "kalman.h"
 #include "complementary.h"
+#include "pointsBuffer.h"
 
 /* Useful defines for motor control */
 #define M_PI 				(3.14159265358979323846f)			/*<< PI */
@@ -1326,27 +1326,9 @@ void WiFiDMANotify() {
 	portEND_SWITCHING_ISR(contextSwitch);
 }
 
-uint32_t tab1[4];
-uint32_t tab2[4];
-uint8_t num = 0;
-
 /* ISR for COM DMA Rx */
 void COMDMAIncoming(void) {
-	portBASE_TYPE contextSwitch = pdFALSE;
-
-	uint32_t *ptr = DMA_GetCurrentMemoryTarget(COM_RX_DMA_STREAM) == 0 ? tab1 : tab2;
-	if (num <= 1) {
-		USART_DMACmd(COM_USART, USART_DMAReq_Rx, DISABLE);
-		DMA_Cmd(COM_RX_DMA_STREAM, DISABLE);
-		USART_ITConfig(COM_USART, USART_IT_RXNE, ENABLE);
-	}
-	else {
-		num--;
-	}
-
-	DMA_ClearFlag(COM_RX_DMA_STREAM, COM_RX_DMA_FLAG_TCIF);
-	safePrintFromISR(6, "%c", *(char*)ptr);
-	portEND_SWITCHING_ISR(contextSwitch);
+	TBDMATransferCompletedSlot();
 }
 
 void COMHandle(const char * command) {
@@ -1379,10 +1361,9 @@ void COMHandle(const char * command) {
 		safePrint(32, "Available memory: %dkB\n", xPortGetFreeHeapSize());
 		break;
 	case IMPORT_TRAJECTORY_POINTS:
-		num = 3;
-		USART_ITConfig(COM_USART, USART_IT_RXNE, DISABLE);
-		DMA_Cmd(COM_RX_DMA_STREAM, ENABLE);
-		USART_DMACmd(COM_USART, USART_DMAReq_Rx, ENABLE);
+		if (commandCheck( strlen(command) >= 3) ) {
+			TBloadNewPoints(strtol((char*)&command[2], NULL, 10));
+		}
 		break;
 	case BATTERY_VOLTAGE:
 		safePrint(26, "Battery voltage: %.2fV\n", getBatteryVoltage());
@@ -1539,6 +1520,13 @@ void COMHandle(const char * command) {
 		break;
 	case CPU_USAGE:
 		safePrint(19, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
+		break;
+	case '#':
+		temp_float = strtof((char*)&command[2], NULL);
+		safePrint(60, "Float %f: %x %x %x %x\n", temp_float, *((uint8_t*)(&temp_float)), *(((uint8_t*)(&temp_float)+1)), *(((uint8_t*)(&temp_float)+2)), *(((uint8_t*)(&temp_float))+3));
+		break;
+	case '=':
+		magic();
 		break;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	case SPEER_REGULATOR_VOLTAGE_CORRECTION:
@@ -1863,20 +1851,21 @@ void Initialize() {
 	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
 	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
 	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
+	//DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
 	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&COM_USART -> DR);
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_INC16;
+	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;//DMA_PeripheralBurst_INC16;
 	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
 	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
 	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
 	DMA_InitStructure.DMA_Channel = COM_RX_DMA_CHANNEL;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	DMA_InitStructure.DMA_BufferSize = 4;
+	DMA_InitStructure.DMA_BufferSize = 1; // just so it passes asserts
 	DMA_Init(COM_RX_DMA_STREAM, &DMA_InitStructure);
-	/* Enabling double buffer mode */
-	DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
-	DMA_DoubleBufferModeCmd(COM_RX_DMA_STREAM, ENABLE);
+	DMA_FlowControllerConfig(COM_RX_DMA_STREAM, DMA_FlowCtrl_Memory);
+	/* Enabling double buffer mode */ /* Not now */
+	//DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
+	//DMA_DoubleBufferModeCmd(COM_RX_DMA_STREAM, ENABLE);
 	/* Enabling interrupt after receiving */
 	NVIC_InitStructure.NVIC_IRQChannel = COM_RX_DMA_NVIC_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -1972,7 +1961,7 @@ void Initialize() {
 	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
 	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
 	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
+	//DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
 	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&COM_USART -> DR);
 	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_INC16;
@@ -1981,7 +1970,7 @@ void Initialize() {
 	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
 	DMA_InitStructure.DMA_Channel = COM_RX_DMA_CHANNEL;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	DMA_InitStructure.DMA_BufferSize = 4;
+	DMA_InitStructure.DMA_BufferSize = 1;
 	//DMA_Init(COM_RX_DMA_STREAM, &DMA_InitStructure);
 	/* Enabling double buffer mode */
 	//DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
