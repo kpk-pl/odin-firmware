@@ -16,8 +16,13 @@
 #include "portmacro.h"
 
 #include "compilation.h"
+
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #include "motorController.h"
+#endif
+
+#ifdef FOLLOW_TRAJECTORY
+#include "pointsBuffer.h"
 #endif
 
 #include "main.h"
@@ -30,7 +35,6 @@
 #include "rc5_tim_exti.h"
 #include "hwinterface.h"
 #include "complementary.h"
-#include "pointsBuffer.h"
 
 /* Useful defines for motor control */
 #define M_PI 				(3.14159265358979323846f)			/*<< PI */
@@ -43,6 +47,7 @@
 #define DEGREES_TO_RAD		(M_PI / 180.0f)						/*<< Coefficient to convert degrees to radians */
 #define BUF_RX_LEN 20											/*<< Maximum length of UART command */
 
+#ifndef FOLLOW_TRAJECTORY
 /* Type of drive command to perform */
 typedef enum {
 	DriveCommand_Type_Line =  'l',		/*<< Drive straight line; need one parameter - length */
@@ -59,6 +64,7 @@ typedef struct {
 	float Param1;					/*<< Command param #1 */
 	float Param2;					/*<< Command param #2 */
 } DriveCommand_Struct;
+#endif
 
 /* Struct holding motors' speeds. Choosen unit is rad/sec */
 typedef struct {
@@ -149,7 +155,9 @@ void TaskLED(void *);					// Blinking LED task; indication that scheduler is run
 void TaskCommandHandler(void *);		// Task handling incomming commands
 void TaskIMU(void *);					// Task for reading from IMU and calculating orientation based on IMU readings
 void TaskRC5(void *);					// Task for handling commands from RC5 remote
+#ifndef FOLLOW_TRAJECTORY
 void TaskDrive(void *);					// Task controlling trajectory. Issues wheel's speed commands, checks if target is reached, calculates best route
+#endif
 void TaskMotorCtrl(void *);				// Motors' speed regulator
 void TaskTelemetry(void *);				// Task calculating global position and orientation based on all available sources (IMU, odometry, camera, etc. )
 void TaskUSBWiFiBridge(void *);			// Task for USB-WiFi bridge to transfer commands between two UARTs
@@ -157,7 +165,9 @@ void TaskInputBuffer(void *);			// Task to handle input characters from any sour
 
 xQueueHandle printfQueue;				// Queue for safePrint strings to send via active interfaces
 xQueueHandle commandQueue;				// Queue for storing commands to do
+#ifndef FOLLOW_TRAJECTORY
 xQueueHandle driveQueue;				// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
+#endif
 xQueueHandle motorCtrlQueue;			// One-element queue for setting wheel's speed
 xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 xQueueHandle WiFi2USBBufferQueue;		// Buffer for WiFi to USB characters
@@ -168,7 +178,9 @@ xQueueHandle commInputBufferQueue;		// Buffer for input characters
 xTaskHandle printfConsumerTask;
 xTaskHandle commandHandlerTask;
 xTaskHandle imuTask;
+#ifndef FOLLOW_TRAJECTORY
 xTaskHandle driveTask;
+#endif
 xTaskHandle motorCtrlTask;
 xTaskHandle RC5Task;
 xTaskHandle telemetryTask;
@@ -253,7 +265,9 @@ int main(void)
 
 	printfQueue 		 = xQueueCreate(50, 	sizeof(char*)					);
 	commandQueue 		 = xQueueCreate(15, 	sizeof(char*)					);
+#ifndef FOLLOW_TRAJECTORY
 	driveQueue 			 = xQueueCreate(100, 	sizeof(DriveCommand_Struct*)	);		// holding pointers because there's a lot of big structures that are processed rather slowly. Memory is allocated dynamically
+#endif
 	motorCtrlQueue 		 = xQueueCreate(1,		sizeof(MotorSpeed_Struct)		);
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
 	I2CEVFlagQueue		 = xQueueCreate(1,		sizeof(uint32_t)				);
@@ -277,7 +291,9 @@ int main(void)
 	xTaskCreate(TaskRC5, 			NULL, 	500, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	1000, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
+#ifndef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskDrive, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_DRIVE,			&driveTask				);
+#endif
 	xTaskCreate(TaskMotorCtrl, 		NULL, 	500, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
 	xTaskCreate(TaskTelemetry, 		NULL, 	1000, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
 	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	500,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
@@ -385,6 +401,7 @@ void TaskTelemetry(void * p) {
 	}
 }
 
+#ifndef FOLLOW_TRAJECTORY
 void TaskDrive(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
 	DriveCommand_Struct * command;
@@ -616,6 +633,7 @@ void TaskDrive(void * p) {
 		vPortFree(command);
 	}
 }
+#endif /* FOLLOW_TRAJECTORY */
 
 void TaskMotorCtrl(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
@@ -1161,58 +1179,6 @@ void TaskLED(void * p) {
 
 /* ISR for COM USART - must be called in USARTx_IRQHandler */
 void COMAction(void) {
-/*	static bool incoming = false;
-	static char RXBUF[BUF_RX_LEN+1];
-	static uint8_t RXBUFPOS = 0;
-
-	// received sth, store it and/or perform some action
-	if (USART_GetITStatus(COM_USART, USART_IT_RXNE) == SET) {
-		char rec = USART_ReceiveData(COM_USART);
-
-		if (getWiFi2USBBridgeStatus() == ON) {
-			portBASE_TYPE contextSwitch = pdFALSE;
-			xQueueSendToBackFromISR(USB2WiFiBufferQueue, &rec, &contextSwitch);
-			portEND_SWITCHING_ISR(contextSwitch);
-		}
-		else {
-			switch (rec) {
-			case '<':	// msg begin character
-				RXBUFPOS = 0;
-				incoming = true;
-				break;
-			case '>':	// msg end character
-				if (incoming) {
-					RXBUF[RXBUFPOS++] = '\0';
-					incoming = false;
-
-					char * ptr = (char *)pvPortMalloc(RXBUFPOS*sizeof(char));
-					strcpy(ptr, (const char*)RXBUF);
-
-					RXBUFPOS = 0;
-
-					portBASE_TYPE contextSwitch = pdFALSE;
-					xQueueSendToBackFromISR(commandQueue, &ptr, &contextSwitch);
-					portEND_SWITCHING_ISR(contextSwitch);
-				}
-				break;
-			default:
-				if (incoming) {
-					if (RXBUFPOS < BUF_RX_LEN)
-						RXBUF[RXBUFPOS++] = rec;
-				}
-				break;
-			}
-		}
-		USART_ClearFlag(COM_USART, USART_FLAG_RXNE);
-	}
-	else if (USART_GetITStatus(COM_USART, USART_IT_TC) == SET) {
-		portBASE_TYPE contextSwitch = pdFALSE;
-		xSemaphoreGiveFromISR(comUSARTTCSemaphore, &contextSwitch);
-		USART_ITConfig(COM_USART, USART_IT_TC, DISABLE);
-		USART_ClearFlag(COM_USART, USART_FLAG_TC);
-		portEND_SWITCHING_ISR(contextSwitch);
-	}
-	*/
 	portBASE_TYPE contextSwitch = pdFALSE;
 	PrintInput_Struct in = {.Source = PrintSource_Type_USB};
 
@@ -1237,57 +1203,6 @@ void COMAction(void) {
 
 /* ISR for WIFI Rx interrupt */
 void WIFIAction(void) {
-/*	static bool incoming = false;
-	static char RXBUF[BUF_RX_LEN+1];
-	static uint8_t RXBUFPOS = 0;
-
-	if (USART_GetITStatus(WIFI_USART, USART_IT_RXNE) == SET) {
-		char rec = USART_ReceiveData(WIFI_USART);
-
-		if (getWiFi2USBBridgeStatus() == ON) {
-			portBASE_TYPE contextSwitch = pdFALSE;
-			xQueueSendToBackFromISR(WiFi2USBBufferQueue, &rec, &contextSwitch);
-			portEND_SWITCHING_ISR(contextSwitch);
-		}
-		else {
-			switch (rec) {
-			case '<':	// msg begin character
-				RXBUFPOS = 0;
-				incoming = true;
-				break;
-			case '>':	// msg end character
-				if (incoming) {
-					RXBUF[RXBUFPOS++] = '\0';
-					incoming = false;
-
-					char * ptr = (char *)pvPortMalloc(RXBUFPOS*sizeof(char));
-					strcpy(ptr, (const char*)RXBUF);
-
-					RXBUFPOS = 0;
-
-					portBASE_TYPE contextSwitch = pdFALSE;
-					xQueueSendToBackFromISR(commandQueue, &ptr, &contextSwitch);
-					portEND_SWITCHING_ISR(contextSwitch);
-				}
-				break;
-			default:
-				if (incoming) {
-					if (RXBUFPOS < BUF_RX_LEN)
-						RXBUF[RXBUFPOS++] = rec;
-				}
-				break;
-			}
-		}
-		USART_ClearFlag(WIFI_USART, USART_FLAG_RXNE);
-	}
-	else if (USART_GetITStatus(WIFI_USART, USART_IT_TC) == SET) {
-		portBASE_TYPE contextSwitch = pdFALSE;
-		xSemaphoreGiveFromISR(wifiUSARTTCSemaphore, &contextSwitch);
-		USART_ITConfig(WIFI_USART, USART_IT_TC, DISABLE);
-		USART_ClearFlag(WIFI_USART, USART_FLAG_TC);
-		portEND_SWITCHING_ISR(contextSwitch);
-	}
-*/
 	portBASE_TYPE contextSwitch = pdFALSE;
 	PrintInput_Struct in = {.Source = PrintSource_Type_WiFi};
 
@@ -1326,13 +1241,17 @@ void WiFiDMANotify() {
 	portEND_SWITCHING_ISR(contextSwitch);
 }
 
+#ifdef FOLLOW_TRAJECTORY
 /* ISR for COM DMA Rx */
 void COMDMAIncoming(void) {
 	TBDMATransferCompletedSlot();
 }
+#endif
 
 void COMHandle(const char * command) {
+#ifndef FOLLOW_TRAJECTORY
 	DriveCommand_Struct *dc;
+#endif
 	char *last;
 	MotorSpeed_Struct ms;
 	TelemetryData_Struct td;
@@ -1360,11 +1279,14 @@ void COMHandle(const char * command) {
 	case AVAILABLE_MEMORY:
 		safePrint(32, "Available memory: %dkB\n", xPortGetFreeHeapSize());
 		break;
+#ifdef FOLLOW_TRAJECTORY
 	case IMPORT_TRAJECTORY_POINTS:
 		if (commandCheck( strlen(command) >= 3) ) {
-			TBloadNewPoints(strtol((char*)&command[2], NULL, 10));
+			safePrint(36, "<#Please send only %d points#>\n",
+				TBloadNewPoints(strtol((char*)&command[2], NULL, 10)));
 		}
 		break;
+#endif
 	case BATTERY_VOLTAGE:
 		safePrint(26, "Battery voltage: %.2fV\n", getBatteryVoltage());
 		break;
@@ -1374,6 +1296,7 @@ void COMHandle(const char * command) {
 	case PEN_UP:
 		setPenUp();
 		break;
+#ifndef FOLLOW_TRAJECTORY
 	case DRIVE_COMMAND:
 		if (commandCheck( strlen(command) >= 11) ) {
 			dc = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
@@ -1388,6 +1311,7 @@ void COMHandle(const char * command) {
 			xQueueSendToBack(driveQueue, &dc, portMAX_DELAY);
 		}
 		break;
+#endif
 	case MOTOR_LEFT_SPEED:
 		if (commandCheck( strlen(command) >= 3 )) {
 			globalSpeedRegulatorOn = DISABLE;
@@ -1524,9 +1448,6 @@ void COMHandle(const char * command) {
 	case '#':
 		temp_float = strtof((char*)&command[2], NULL);
 		safePrint(60, "Float %f: %x %x %x %x\n", temp_float, *((uint8_t*)(&temp_float)), *(((uint8_t*)(&temp_float)+1)), *(((uint8_t*)(&temp_float)+2)), *(((uint8_t*)(&temp_float))+3));
-		break;
-	case '=':
-		magic();
 		break;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	case SPEER_REGULATOR_VOLTAGE_CORRECTION:
@@ -1839,6 +1760,7 @@ void Initialize() {
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMATX;
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(COM_TX_DMA_STREAM, DMA_IT_TC, ENABLE);
+#ifdef FOLLOW_TRAJECTORY
 	/*
 	 * Configuring DMA stream for reception over USART
 	 * Stream is configured to download data from Rx to memory
@@ -1872,6 +1794,7 @@ void Initialize() {
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMARX;
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(COM_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
+#endif
 	/* Enabling UART */
 	USART_Cmd(COM_USART, ENABLE);
 	/* No buffer for stdout */
@@ -1949,6 +1872,7 @@ void Initialize() {
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIDMATX;
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(WIFI_TX_DMA_STREAM, DMA_IT_TC, ENABLE);
+#ifdef FOLLOW_TRAJECTORY
 	/*
 	 * Configuring DMA stream for reception over USART
 	 * Stream is configured to download data from Rx to memory
@@ -1982,8 +1906,8 @@ void Initialize() {
 	//NVIC_Init(&NVIC_InitStructure);
 	//DMA_ITConfig(COM_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
 	/* Enabling UART */
+#endif
 	USART_Cmd(WIFI_USART, ENABLE);
-	/* No buffer for stdout */
 
 
 	/* Configuring lantern timer to generate pattern */

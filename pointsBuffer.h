@@ -42,6 +42,4 @@ void TBresetBuffer();
  */
 void TBDMATransferCompletedSlot();
 
-void magic();
-
 #endif /* POINTSBUFFER_H */

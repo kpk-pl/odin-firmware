@@ -31,6 +31,7 @@
 #include "hardware.h"
 #include "hwinterface.h"
 #include "rc5_tim_exti.h"
+#include "compilation.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -141,10 +142,12 @@ void WIFI_TX_DMA_IRQHANDLER(void) {
 	WiFiDMANotify();
 }
 
+#ifdef FOLLOW_TRAJECTORY
 void COM_RX_DMA_IRQHANDLER(void) {
 	if (DMA_GetFlagStatus(COM_RX_DMA_STREAM, COM_RX_DMA_FLAG_TCIF) == SET)
 		COMDMAIncoming();
 }
+#endif
 
 void IMU_GINT_IRQHANDLER(void) {
 	IMUGyroReady();

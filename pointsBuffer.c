@@ -3,7 +3,7 @@
 #include "hardware.h"
 
 #ifdef COMPILE_CIRCULAR_BUFFER
-#define POINTSBUFFER_SIZE 6
+#define POINTSBUFFER_SIZE 800
 #else
 #define POINTSBUFFER_SIZE 0
 #endif
@@ -115,10 +115,4 @@ void startDMA(uint16_t num) {
     USART_ITConfig(COM_USART, USART_IT_RXNE, DISABLE);		// disable interrupts from USART, disconnect Command Handling
     DMA_Cmd(COM_RX_DMA_STREAM, ENABLE);						// enable DMA stream
     USART_DMACmd(COM_USART, USART_DMAReq_Rx, ENABLE);		// set USART to DMA
-}
-
-
-void magic() {
-	const TrajectoryPoint_Struct* const p = TBgetNextPoint();
-	volatile TrajectoryPoint_Struct s = *p;
 }

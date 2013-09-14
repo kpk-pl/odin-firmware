@@ -2,10 +2,13 @@
 #define __MAIN_H
 
 #include "stm32f4xx.h"
+#include "compilation.h"
 
 void COMAction();
 void COMDMANotify();
+#ifdef FOLLOW_TRAJECTORY
 void COMDMAIncoming();
+#endif
 void WIFIAction();
 void WiFiDMANotify();
 void IMUGyroReady();
