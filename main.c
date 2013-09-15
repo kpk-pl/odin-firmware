@@ -1021,7 +1021,7 @@ void TaskIMU(void * p) {
 	/* Wait a while until IMU stabilizes, TODO calibration here */
 	vTaskDelay(2000/portTICK_RATE_MS);
 
-	TelemetryData_Struct telemetry;
+	TelemetryUpdate_Struct update = {.dX = 0.0f, .dY = 0.0f, .Source = TelemetryUpdate_Source_IMU};
 
 	while (1) {
 		switch (samplingState) {
@@ -1047,8 +1047,13 @@ void TaskIMU(void * p) {
 			angle += 2.0f * M_PI * (float)turn_counter;
 
 			cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
-			getTelemetry(&telemetry);
-			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+			update.dO = cangle;
+			if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
+				if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
+			}
+//			getTelemetry(&telemetry);
+//			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+
 
 			VectorSet(&gyroSum, 0.0f);
 			VectorSet(&magSum, 0.0f);
