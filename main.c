@@ -25,16 +25,20 @@
 #include "pointsBuffer.h"
 #endif
 
+#ifdef USE_IMU_TELEMETRY
+#include "i2chelpers.h"
+#include "imu.h"
+#include "vector.h"
+#include "complementary.h"
+#endif
+
 #include "main.h"
 #include "commands.h"
 #include "priorities.h"
 #include "hardware.h"
-#include "i2chelpers.h"
-#include "imu.h"
-#include "vector.h"
 #include "rc5_tim_exti.h"
 #include "hwinterface.h"
-#include "complementary.h"
+
 
 /* Useful defines for motor control */
 #define M_PI 				(3.14159265358979323846f)			/*<< PI */
@@ -75,8 +79,9 @@ typedef struct {
 /* Type of telemetry update */
 typedef enum {
 	TelemetryUpdate_Source_Odometry = 0,	/*<< Update from odometry - encoders */
-	TelemetryUpdate_Source_IMU_Gyro,		/*<< Update from IMU - gyro */
-	TelemetryUpdate_Source_IMU_Magnetometer	/*<< Update from IMU - magnetometer - THIS UPDATE COMES AS ABSOLUTE VALUES, NOT CHANGES */
+#ifdef USE_IMU_TELEMETRY
+	TelemetryUpdate_Source_IMU				/*<< Update from IMU */
+#endif
 } TelemetryUpdate_Source;
 
 /* Struct to hold telemetry updates from various sources. Based on these updates, position and orientation is calculated */
@@ -138,8 +143,10 @@ static int 	safePrint(const size_t length, const char *format, ...);
 /* Implementation of safePrint that is safe to use in interrupts. DO NOT USE NORMAL VERSION IN ISR! */
 static int 	safePrintFromISR(const size_t length, const char *format, ...);
 
+#ifdef USE_IMU_TELEMETRY
 /* Function used by IMU software watchdog */
 static void imuWatchdogOverrun(xTimerHandle xTimer);
+#endif
 
 /* Returns current up-to-date telemetry data and saves it in provided structure. This function provides mutual exclusion and data coherency */
 static void getTelemetry(TelemetryData_Struct *data);
@@ -147,16 +154,20 @@ static void getTelemetry(TelemetryData_Struct *data);
 /* Returns normalized orientation angle provided as input in radians, output is [-PI, +PI] */
 static float normalizeOrientation(float in) { return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in)); }
 
+#ifdef USE_IMU_TELEMETRY
 /* Sets I2C peripheral */
 static void initI2CforIMU(void);
 
 /* Initializes globalMagnetometerImprov */
 static void initMagnetometerImprovInstance(float x0);
+#endif
 
 void TaskPrintfConsumer(void *);		// Task handling safePrint invocations and printing everything on active interfaces
 void TaskLED(void *);					// Blinking LED task; indication that scheduler is running and no task is hang; watchdog resetting
 void TaskCommandHandler(void *);		// Task handling incomming commands
+#ifdef USE_IMU_TELEMETRY
 void TaskIMU(void *);					// Task for reading from IMU and calculating orientation based on IMU readings
+#endif
 void TaskRC5(void *);					// Task for handling commands from RC5 remote
 #ifndef FOLLOW_TRAJECTORY
 void TaskDrive(void *);					// Task controlling trajectory. Issues wheel's speed commands, checks if target is reached, calculates best route
@@ -175,12 +186,16 @@ xQueueHandle motorCtrlQueue;			// One-element queue for setting wheel's speed
 xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 xQueueHandle WiFi2USBBufferQueue;		// Buffer for WiFi to USB characters
 xQueueHandle USB2WiFiBufferQueue;		// Buffer for USB to WiFi characters
+#ifdef USE_IMU_TELEMETRY
 xQueueHandle I2CEVFlagQueue;			// Buffer for I2C event interrupt that holds new event flag to wait for
+#endif
 xQueueHandle commInputBufferQueue;		// Buffer for input characters
 
 xTaskHandle printfConsumerTask;
 xTaskHandle commandHandlerTask;
+#ifdef USE_IMU_TELEMETRY
 xTaskHandle imuTask;
+#endif
 #ifndef FOLLOW_TRAJECTORY
 xTaskHandle driveTask;
 #endif
@@ -194,14 +209,18 @@ xSemaphoreHandle comUSARTTCSemaphore;			// USART_TC flag set for USB-USART
 xSemaphoreHandle comDMATCSemaphore;				// DMA TC flag set for USB-USART
 xSemaphoreHandle wifiUSARTTCSemaphore;			// USART TC flag set for WIFI-USART
 xSemaphoreHandle wifiDMATCSemaphore;			// DMA TC flag set for WIFI-USART
+#ifdef USE_IMU_TELEMETRY
 xSemaphoreHandle imuPrintRequest;				// request for IMU to print most up-to-date reading
 xSemaphoreHandle imuGyroReady;					// gyro ready flag set in interrupt
 xSemaphoreHandle imuAccReady;					// accelerometer ready flag set in interrupt
 xSemaphoreHandle imuMagReady;					// magnetometer ready flag set in interrupt
 xSemaphoreHandle imuI2CEV;						// semaphore to indicate correct event in I2C protocol
+#endif
 xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 
+#ifdef USE_IMU_TELEMETRY
 xTimerHandle imuWatchdogTimer;					// used by software watchdog, if it expires then I2C is reset
+#endif
 
 /*
  * Global variable that holds current up-to-date telemetry data.
@@ -219,6 +238,7 @@ volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
 #endif
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
+#ifdef USE_IMU_TELEMETRY
 volatile bool globalIMUHang = false;
 float globalMagnetometerImprovData[721];
 arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to correctly scale magnetometer readings*/
@@ -226,6 +246,7 @@ arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to
 	.xSpacing = M_PI / 360.0f,
 	.pYData = globalMagnetometerImprovData
 };
+#endif
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	MotorControllerParameters_Struct globalLeftMotorParams = {
@@ -279,24 +300,32 @@ int main(void)
 #endif
 	motorCtrlQueue 		 = xQueueCreate(1,		sizeof(MotorSpeed_Struct)		);
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
+#ifdef USE_IMU_TELEMETRY
 	I2CEVFlagQueue		 = xQueueCreate(1,		sizeof(uint32_t)				);
+#endif
 	commInputBufferQueue = xQueueCreate(100,	sizeof(PrintInput_Struct)		);
 
 	vSemaphoreCreateBinary(	comUSARTTCSemaphore			);
 	vSemaphoreCreateBinary(	comDMATCSemaphore			);
 	vSemaphoreCreateBinary(	wifiUSARTTCSemaphore		);
 	vSemaphoreCreateBinary(	wifiDMATCSemaphore			);
+#ifdef USE_IMU_TELEMETRY
 	vSemaphoreCreateBinary(	imuPrintRequest				);
 	vSemaphoreCreateBinary(	imuGyroReady				);
 	vSemaphoreCreateBinary(	imuAccReady					);
 	vSemaphoreCreateBinary(	imuMagReady					);
-	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
 	vSemaphoreCreateBinary( imuI2CEV					);
+#endif
+	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
 
+#ifdef USE_IMU_TELEMETRY
 	imuWatchdogTimer = xTimerCreate(NULL, 500/portTICK_RATE_MS, pdFALSE, NULL, imuWatchdogOverrun);
+#endif
 
 	xTaskCreate(TaskCommandHandler, NULL, 	300, 						NULL, 		PRIOTITY_TASK_COMMANDHANDLER, 	&commandHandlerTask		);
+#ifdef USE_IMU_TELEMETRY
 	xTaskCreate(TaskIMU, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
+#endif
 	xTaskCreate(TaskRC5, 			NULL, 	500, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	1000, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
@@ -399,10 +428,10 @@ void TaskTelemetry(void * p) {
 			}
 			taskEXIT_CRITICAL();
 			break;
-		case TelemetryUpdate_Source_IMU_Gyro:
+#ifdef USE_IMU_TELEMETRY
+		case TelemetryUpdate_Source_IMU:
 			break;
-		case TelemetryUpdate_Source_IMU_Magnetometer:
-			break;
+#endif
 		default:
 			if (globalLogEvents) safePrint(37, "Invalid telemetry update type: %d\n", update.Source);
 			break;
@@ -913,6 +942,7 @@ void TaskRC5(void * p) {
 	}
 }
 
+#ifdef USE_IMU_TELEMETRY
 void TaskIMU(void * p) {
 	/* If reset needed then do reset, else setup I2C*/
 	if (globalIMUHang) {
@@ -1088,7 +1118,9 @@ void TaskIMU(void * p) {
 		}
 	}
 }
+#endif /* USE_IMU_TELEMETRY */
 
+#ifdef USE_IMU_TELEMETRY
 void imuWatchdogOverrun(xTimerHandle xTimer) {
 	vTaskDelete(imuTask);
 	if (globalLogEvents) safePrint(11, "IMU hang!\n");
@@ -1099,6 +1131,7 @@ void imuWatchdogOverrun(xTimerHandle xTimer) {
 	// create IMU task with the lowest priority
 	xTaskCreate(TaskIMU, NULL, 300, NULL, 0, &imuTask);
 }
+#endif /* USE_IMU_TELEMETRY */
 
 void TaskPrintfConsumer(void * p) {
 	char *msg;
@@ -1504,6 +1537,7 @@ void COMHandle(const char * command) {
 	}
 }
 
+#ifdef USE_IMU_TELEMETRY
 /* ISR for EXTI Gyro */
 void IMUGyroReady() {
 	portBASE_TYPE contextSwitch = pdFALSE;
@@ -1524,6 +1558,7 @@ void IMUMagReady() {
 	xSemaphoreGiveFromISR(imuMagReady, &contextSwitch);
 	portEND_SWITCHING_ISR(contextSwitch);
 }
+#endif /* USE_IMU_TELEMETRY */
 
 int safePrint(const size_t length, const char *format, ...) {
 	va_list arglist;
@@ -1633,6 +1668,7 @@ void OSBusyTimerHandler() {
 	globalCPUUsage = (float)p / (float)(CPUUSAGE_TIM_PERIOD + 1);
 }
 
+#ifdef USE_IMU_TELEMETRY
 void IMUI2CEVHandler(void) {
 	static uint32_t requiredFlag = 0;
 	portBASE_TYPE contextSwitch = pdFALSE;
@@ -1650,7 +1686,9 @@ void IMUI2CEVHandler(void) {
 
 	portEND_SWITCHING_ISR(contextSwitch);
 }
+#endif /* USE_IMU_TELEMETRY */
 
+#ifdef USE_IMU_TELEMETRY
 void initI2CforIMU(void) {
 	I2C_InitTypeDef I2C_InitStructure;
 	GPIO_InitTypeDef GPIO_InitStructure;
@@ -1693,7 +1731,9 @@ void initI2CforIMU(void) {
 	/* Enable I2C */
 	I2C_Init(IMU_I2C, &I2C_InitStructure);
 }
+#endif /* USE_IMU_TELEMETRY */
 
+#ifdef USE_IMU_TELEMETRY
 void initMagnetometerImprovInstance(float x0) {
 	globalMagnetometerImprov.x1 = -M_PI;
 	float offset = -M_PI - x0;
@@ -1702,6 +1742,7 @@ void initMagnetometerImprovInstance(float x0) {
 		globalMagnetometerImprovData[i] = normalizeOrientation(globalMagnetometerImprov.xSpacing * i + offset);
 	}
 }
+#endif /* USE_IMU_TELEMETRY */
 
 void Initialize() {
 	GPIO_InitTypeDef GPIO_InitStructure;

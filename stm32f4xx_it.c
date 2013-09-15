@@ -149,6 +149,7 @@ void WIFI_RX_DMA_IRQHANDLER(void) {
 }
 #endif
 
+#ifdef USE_IMU_TELEMETRY
 void IMU_GINT_IRQHANDLER(void) {
 	IMUGyroReady();
 	EXTI_ClearFlag(IMU_EXTI_GINT_LINE);
@@ -163,6 +164,7 @@ void IMU_MINT_IRQHANDLER(void) {
 	IMUMagReady();
 	EXTI_ClearFlag(IMU_EXTI_MINT_LINE);
 }
+#endif /* USE_IMU_TELEMETRY */
 
 void EXTI9_5_IRQHandler(void) {
 	if (EXTI_GetFlagStatus(SWITCHES_EXTI_2_LINE) == SET) {
@@ -281,6 +283,8 @@ void CPUUSAGE_BASE_TIM_IRQHANDLER(void) {
 	TIM_ClearFlag(CPUUSAGE_BASE_TIM, TIM_FLAG_Update);
 }
 
+#ifdef USE_IMU_TELEMETRY
 void IMU_I2C_EVENT_IRQHANDLER(void) {
 	IMUI2CEVHandler();
 }
+#endif

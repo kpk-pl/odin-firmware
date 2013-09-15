@@ -11,12 +11,15 @@ void RawStreamDMAIncoming();
 #endif
 void WIFIAction();
 void WiFiDMANotify();
+#ifdef USE_IMU_TELEMETRY
 void IMUGyroReady();
 void IMUAccReady();
 void IMUMagReady();
+void IMUI2CEVHandler();
+#endif /* USE_IMU_TELEMETRY */
 void BatteryTooLow();
 void OSBusyTimerHandler();
-void IMUI2CEVHandler();
+
 
 void Switch1Changed();
 void Switch2Changed();
