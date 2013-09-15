@@ -52,7 +52,7 @@ uint16_t TBloadNewPoints(uint16_t num) {
 	return num;
 }
 
-const TrajectoryPoint_Struct* const TBgetNextPoint() {
+TrajectoryPoint_Ptr TBgetNextPoint() {
 	TrajectoryPoint_Struct* it;
 	if (circularBuffer.readIt == circularBuffer.lockItBegin) return (void*)(0);
 
@@ -65,6 +65,18 @@ uint16_t TBgetAvailablePoints() {
 	int16_t available = (int16_t)circularBuffer.lockItBegin - (int16_t)circularBuffer.readIt;
 	if (available < 0) available += POINTSBUFFER_SIZE;
 	return available;
+}
+
+uint16_t TBgetSize() {
+	return POINTSBUFFER_SIZE;
+}
+
+float TBgetFreeSpace() {
+	return (float)(POINTSBUFFER_SIZE-TBgetAvailablePoints()) / (float)POINTSBUFFER_SIZE;
+}
+
+float TBgetUsedSpace() {
+	return (float)TBgetAvailablePoints() / (float)POINTSBUFFER_SIZE;
 }
 
 void TBresetBuffer() {

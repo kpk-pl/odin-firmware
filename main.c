@@ -171,6 +171,8 @@ void TaskIMU(void *);					// Task for reading from IMU and calculating orientati
 void TaskRC5(void *);					// Task for handling commands from RC5 remote
 #ifndef FOLLOW_TRAJECTORY
 void TaskDrive(void *);					// Task controlling trajectory. Issues wheel's speed commands, checks if target is reached, calculates best route
+#else
+void TaskTrajectory(void *);			// Task for controlling trajectory using Ferdek's regulator
 #endif
 void TaskMotorCtrl(void *);				// Motors' speed regulator
 void TaskTelemetry(void *);				// Task calculating global position and orientation based on all available sources (IMU, odometry, camera, etc. )
@@ -198,6 +200,8 @@ xTaskHandle imuTask;
 #endif
 #ifndef FOLLOW_TRAJECTORY
 xTaskHandle driveTask;
+#else
+xTaskHandle trajectoryTask;
 #endif
 xTaskHandle motorCtrlTask;
 xTaskHandle RC5Task;
@@ -331,6 +335,8 @@ int main(void)
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
 #ifndef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskDrive, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_DRIVE,			&driveTask				);
+#else
+	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif
 	xTaskCreate(TaskMotorCtrl, 		NULL, 	500, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
 	xTaskCreate(TaskTelemetry, 		NULL, 	1000, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
@@ -669,6 +675,48 @@ void TaskDrive(void * p) {
 
 		/* Free space where the command was held */
 		vPortFree(command);
+	}
+}
+#endif /* FOLLOW_TRAJECTORY */
+
+#ifdef FOLLOW_TRAJECTORY
+void TaskTrajectory(void *p) {
+	TelemetryData_Struct telemetry;
+	MotorSpeed_Struct motorSpeed;
+	portTickType wakeTime = xTaskGetTickCount();
+	uint8_t requestNumber = 5;
+
+	while(1) {
+		/* Wait for next sampling period */
+		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+
+		float usedSpace = TBgetUsedSpace();
+		if (usedSpace < 0.1f && requestNumber >= 2) { safePrint(35, "<#Please send %d more points#>\n", 7*TBgetSize()/8); requestNumber = 3;}
+		else if (usedSpace < 0.2f && requestNumber >= 1) { safePrint(35, "<#Please send %d more points#>\n", 3*TBgetSize()/4); requestNumber = 2;}
+		else if (usedSpace < 0.45f && requestNumber >= 0) { safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2); requestNumber = 1;}
+		else requestNumber = 0;
+
+		TrajectoryPoint_Ptr point = TBgetNextPoint();
+		if (point == NULL) continue;
+
+		// EXAMPLES BELOW
+
+		// this gives telemetry data with orientation cormalized to +-PI radians
+		getTelemetry(&telemetry);
+
+		float ty = telemetry.Y;
+
+		// this is how you can get point data
+		float x = point->X;
+
+		// note that the two lines below are WRONG and won't compile (point in const pointer to const struct)
+		// point->X = 3;
+		// point++;
+
+		motorSpeed.LeftSpeed = 3.43f;
+		motorSpeed.RightSpeed = 2.0f;
+		xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+
 	}
 }
 #endif /* FOLLOW_TRAJECTORY */
