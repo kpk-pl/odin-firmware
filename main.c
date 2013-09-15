@@ -1242,8 +1242,8 @@ void WiFiDMANotify() {
 }
 
 #ifdef FOLLOW_TRAJECTORY
-/* ISR for COM DMA Rx */
-void COMDMAIncoming(void) {
+/* ISR for WiFi DMA Rx */
+void RawStreamDMAIncoming(void) {
 	TBDMATransferCompletedSlot();
 }
 #endif
@@ -1783,8 +1783,8 @@ void Initialize() {
 	DMA_InitStructure.DMA_Channel = COM_RX_DMA_CHANNEL;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
 	DMA_InitStructure.DMA_BufferSize = 1; // just so it passes asserts
-	DMA_Init(COM_RX_DMA_STREAM, &DMA_InitStructure);
-	DMA_FlowControllerConfig(COM_RX_DMA_STREAM, DMA_FlowCtrl_Memory);
+	//DMA_Init(COM_RX_DMA_STREAM, &DMA_InitStructure);
+	//DMA_FlowControllerConfig(COM_RX_DMA_STREAM, DMA_FlowCtrl_Memory);
 	/* Enabling double buffer mode */ /* Not now */
 	//DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
 	//DMA_DoubleBufferModeCmd(COM_RX_DMA_STREAM, ENABLE);
@@ -1792,8 +1792,8 @@ void Initialize() {
 	NVIC_InitStructure.NVIC_IRQChannel = COM_RX_DMA_NVIC_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMARX;
-	NVIC_Init(&NVIC_InitStructure);
-	DMA_ITConfig(COM_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
+	//NVIC_Init(&NVIC_InitStructure);
+	//DMA_ITConfig(COM_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
 #endif
 	/* Enabling UART */
 	USART_Cmd(COM_USART, ENABLE);
@@ -1887,24 +1887,25 @@ void Initialize() {
 	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
 	//DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&COM_USART -> DR);
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_INC16;
+	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&WIFI_USART -> DR);
+	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
 	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
 	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
 	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-	DMA_InitStructure.DMA_Channel = COM_RX_DMA_CHANNEL;
+	DMA_InitStructure.DMA_Channel = WIFI_RX_DMA_CHANNEL;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
 	DMA_InitStructure.DMA_BufferSize = 1;
-	//DMA_Init(COM_RX_DMA_STREAM, &DMA_InitStructure);
+	DMA_Init(WIFI_RX_DMA_STREAM, &DMA_InitStructure);
+	DMA_FlowControllerConfig(WIFI_RX_DMA_STREAM, DMA_FlowCtrl_Memory);
 	/* Enabling double buffer mode */
 	//DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
 	//DMA_DoubleBufferModeCmd(COM_RX_DMA_STREAM, ENABLE);
 	/* Enabling interrupt after receiving */
-	NVIC_InitStructure.NVIC_IRQChannel = COM_RX_DMA_NVIC_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannel = WIFI_RX_DMA_NVIC_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMARX;
-	//NVIC_Init(&NVIC_InitStructure);
-	//DMA_ITConfig(COM_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIDMARX;
+	NVIC_Init(&NVIC_InitStructure);
+	DMA_ITConfig(WIFI_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
 	/* Enabling UART */
 #endif
 	USART_Cmd(WIFI_USART, ENABLE);

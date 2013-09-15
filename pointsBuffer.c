@@ -76,16 +76,16 @@ void TBresetBuffer() {
 
 void TBDMATransferCompletedSlot() {
 	/* Disable DMA stream */
-	DMA_Cmd(COM_RX_DMA_STREAM, DISABLE);
-	DMA_ClearFlag(COM_RX_DMA_STREAM, COM_RX_DMA_FLAG_TCIF); // clear flag here because it must be cleared before next DMA transfer is configured
-	while (COM_RX_DMA_STREAM->CR & DMA_SxCR_EN);			// wait for the stream to be fully off
+	DMA_Cmd(WIFI_RX_DMA_STREAM, DISABLE);
+	DMA_ClearFlag(WIFI_RX_DMA_STREAM, WIFI_RX_DMA_FLAG_TCIF); // clear flag here because it must be cleared before next DMA transfer is configured
+	while (WIFI_RX_DMA_STREAM->CR & DMA_SxCR_EN);			// wait for the stream to be fully off
 
 	// unlock memory
 	circularBuffer.lockItBegin = circularBuffer.lockItEnd;
 
 	if (circularBuffer.continueLoading == 0) { 			// finish up, enable normal USART behavior
-		USART_DMACmd(COM_USART, USART_DMAReq_Rx, DISABLE);
-		USART_ITConfig(COM_USART, USART_IT_RXNE, ENABLE);
+		USART_DMACmd(WIFI_USART, USART_DMAReq_Rx, DISABLE);
+		USART_ITConfig(WIFI_USART, USART_IT_RXNE, ENABLE);
 	}
 	else {												// read second half
 		startDMA(circularBuffer.continueLoading);
@@ -109,10 +109,10 @@ void startDMA(uint16_t num) {
 
 	circularBuffer.lockItEnd = iteratorAdd(circularBuffer.lockItBegin, num);	// move iterator and lock memory
 
-	COM_RX_DMA_STREAM->M0AR = (uint32_t)(&circularBuffer.buffer[circularBuffer.lockItBegin]); // base address
-	COM_RX_DMA_STREAM->NDTR = num * ONE_POINT_SIZE_BYTES;	// number of bytes to transfer
+	WIFI_RX_DMA_STREAM->M0AR = (uint32_t)(&circularBuffer.buffer[circularBuffer.lockItBegin]); // base address
+	WIFI_RX_DMA_STREAM->NDTR = num * ONE_POINT_SIZE_BYTES;	// number of bytes to transfer
 
-    USART_ITConfig(COM_USART, USART_IT_RXNE, DISABLE);		// disable interrupts from USART, disconnect Command Handling
-    DMA_Cmd(COM_RX_DMA_STREAM, ENABLE);						// enable DMA stream
-    USART_DMACmd(COM_USART, USART_DMAReq_Rx, ENABLE);		// set USART to DMA
+    USART_ITConfig(WIFI_USART, USART_IT_RXNE, DISABLE);		// disable interrupts from USART, disconnect Command Handling
+    DMA_Cmd(WIFI_RX_DMA_STREAM, ENABLE);						// enable DMA stream
+    USART_DMACmd(WIFI_USART, USART_DMAReq_Rx, ENABLE);		// set USART to DMA
 }

@@ -7,7 +7,7 @@
 void COMAction();
 void COMDMANotify();
 #ifdef FOLLOW_TRAJECTORY
-void COMDMAIncoming();
+void RawStreamDMAIncoming();
 #endif
 void WIFIAction();
 void WiFiDMANotify();
