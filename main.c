@@ -402,7 +402,7 @@ void getTelemetry(TelemetryData_Struct *data) {
 	{
 		data->X = globalTelemetryData.X;
 		data->Y = globalTelemetryData.Y;
-		data->O = globalTelemetryData.O;
+		data->O = normalizeOrientation(globalTelemetryData.O);
 	}
 	taskEXIT_CRITICAL();
 }
@@ -421,7 +421,7 @@ void TaskTelemetry(void * p) {
 			{
 				globalTelemetryData.X += update.dX;
 				globalTelemetryData.Y += update.dY;
-				globalTelemetryData.O = normalizeOrientation(globalTelemetryData.O + update.dO);
+				globalTelemetryData.O += update.dO;
 				if (globalLogTelemetry && (fabsf(update.dX) > 0.1f || fabsf(update.dY) > 0.1f || fabsf(update.dO) > 0.001f)) {
 					safePrint(52, "Odometry update: X:%.2f Y:%.2f O:%.1f\n", globalTelemetryData.X, globalTelemetryData.Y, globalTelemetryData.O / DEGREES_TO_RAD);
 				}
