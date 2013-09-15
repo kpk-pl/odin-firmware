@@ -150,6 +150,9 @@ static float normalizeOrientation(float in) { return (in > M_PI ? in - 2.0f*M_PI
 /* Sets I2C peripheral */
 static void initI2CforIMU(void);
 
+/* Initializes globalMagnetometerImprov */
+static void initMagnetometerImprovInstance(float x0);
+
 void TaskPrintfConsumer(void *);		// Task handling safePrint invocations and printing everything on active interfaces
 void TaskLED(void *);					// Blinking LED task; indication that scheduler is running and no task is hang; watchdog resetting
 void TaskCommandHandler(void *);		// Task handling incomming commands
@@ -217,6 +220,12 @@ volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
 volatile bool globalIMUHang = false;
+float globalMagnetometerImprovData[721];
+arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to correctly scale magnetometer readings*/
+	.nValues = 721,
+	.xSpacing = M_PI / 360.0f,
+	.pYData = globalMagnetometerImprovData
+};
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	MotorControllerParameters_Struct globalLeftMotorParams = {
@@ -287,7 +296,7 @@ int main(void)
 	imuWatchdogTimer = xTimerCreate(NULL, 500/portTICK_RATE_MS, pdFALSE, NULL, imuWatchdogOverrun);
 
 	xTaskCreate(TaskCommandHandler, NULL, 	300, 						NULL, 		PRIOTITY_TASK_COMMANDHANDLER, 	&commandHandlerTask		);
-	//xTaskCreate(TaskIMU, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
+	xTaskCreate(TaskIMU, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
 	xTaskCreate(TaskRC5, 			NULL, 	500, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	1000, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
@@ -994,6 +1003,7 @@ void TaskIMU(void * p) {
 			estDir -= gyroSum.z * 0.04f;
 
 			angle = GetHeading(&accSum, &magSum, &front);
+			angle = arm_linear_interp_f32(&globalMagnetometerImprov, angle);
 			// if abs angle > 90 deg and angle sign changes
 			if (fabsf(angle) > M_PI/2.0f && angle*prev_angle < 0.0f) {
 				if (angle > 0.0f) { // switching from -180 -> 180
@@ -1062,11 +1072,13 @@ void TaskIMU(void * p) {
 			xTimerStop(imuWatchdogTimer, 0);
 			VectorAdd(&magSum, &read, &magSum);
 
-			if (samplingState == 7) {
-				VectorScale(&accSum, 4.0f, &accSum);
+			if (samplingState == 7) { 						// initialize all values to first reading
+				VectorScale(&accSum, 4.0f, &accSum);		// will be scaled back at state 0
 				VectorScale(&magSum, 3.0f, &magSum);
 				VectorScale(&gyroSum, 4.0f, &gyroSum);
-				cangle = GetHeading(&accSum, &magSum, &front);
+				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
+				initMagnetometerImprovInstance(cangle);		   // scale to be 0 at initial
+				cangle = 0.0f;								   // linear interpolation in this point gives 0
 				prev_angle = cangle;
 				estDir = cangle;
 			}
@@ -1639,7 +1651,6 @@ void IMUI2CEVHandler(void) {
 	portEND_SWITCHING_ISR(contextSwitch);
 }
 
-
 void initI2CforIMU(void) {
 	I2C_InitTypeDef I2C_InitStructure;
 	GPIO_InitTypeDef GPIO_InitStructure;
@@ -1681,6 +1692,15 @@ void initI2CforIMU(void) {
 	NVIC_Init(&NVIC_InitStructure);
 	/* Enable I2C */
 	I2C_Init(IMU_I2C, &I2C_InitStructure);
+}
+
+void initMagnetometerImprovInstance(float x0) {
+	globalMagnetometerImprov.x1 = -M_PI;
+	float offset = -M_PI - x0;
+
+	for (uint16_t i = 0; i<globalMagnetometerImprov.nValues; i++) {
+		globalMagnetometerImprovData[i] = normalizeOrientation(globalMagnetometerImprov.xSpacing * i + offset);
+	}
 }
 
 void Initialize() {

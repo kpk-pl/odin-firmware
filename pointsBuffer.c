@@ -5,7 +5,7 @@
 #ifdef COMPILE_CIRCULAR_BUFFER
 #define POINTSBUFFER_SIZE 800
 #else
-#define POINTSBUFFER_SIZE 0
+#define POINTSBUFFER_SIZE 1
 #endif
 
 #define ONE_POINT_SIZE_BYTES 20 	/*<< As program is saving data as 32-bit values, this must be a multiple of 4 */
