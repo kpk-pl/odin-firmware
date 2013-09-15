@@ -684,17 +684,17 @@ void TaskTrajectory(void *p) {
 	TelemetryData_Struct telemetry;
 	MotorSpeed_Struct motorSpeed;
 	portTickType wakeTime = xTaskGetTickCount();
-	uint8_t requestNumber = 5;
+	uint8_t requestNumber = 2;
 
 	while(1) {
 		/* Wait for next sampling period */
 		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
 
 		float usedSpace = TBgetUsedSpace();
-		if (usedSpace < 0.1f && requestNumber >= 2) { safePrint(35, "<#Please send %d more points#>\n", 7*TBgetSize()/8); requestNumber = 3;}
-		else if (usedSpace < 0.2f && requestNumber >= 1) { safePrint(35, "<#Please send %d more points#>\n", 3*TBgetSize()/4); requestNumber = 2;}
-		else if (usedSpace < 0.45f && requestNumber >= 0) { safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2); requestNumber = 1;}
-		else requestNumber = 0;
+		if (usedSpace < 0.1f && requestNumber == 2) { safePrint(35, "<#Please send %d more points#>\n", 7*TBgetSize()/8); requestNumber = 3;}
+		else if (usedSpace < 0.2f && requestNumber == 1) { safePrint(35, "<#Please send %d more points#>\n", 3*TBgetSize()/4); requestNumber = 2;}
+		else if (usedSpace < 0.45f && requestNumber == 0) { safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2); requestNumber = 1;}
+		else if (usedSpace >= 0.45f) requestNumber = 0;
 
 		TrajectoryPoint_Ptr point = TBgetNextPoint();
 		if (point == NULL) continue;
@@ -1043,9 +1043,9 @@ void TaskIMU(void * p) {
 	float estDir, angle, cangle, prev_angle;
 	Complementary_State cState;					// filter state
 	int32_t turn_counter = 0;
+	TelemetryData_Struct telemetry;
 
 	uint8_t samplingState = 7;					// state machine's state
-	portTickType wakeTime = xTaskGetTickCount();
 	ComplementaryInit(&cState, 0.93f); // 0.5s time constant with 25Hz sampling
 
 	/* Take semaphores initially, so that they can be given later */
@@ -1070,6 +1070,8 @@ void TaskIMU(void * p) {
 	vTaskDelay(2000/portTICK_RATE_MS);
 
 	TelemetryUpdate_Struct update = {.dX = 0.0f, .dY = 0.0f, .Source = TelemetryUpdate_Source_IMU};
+
+	portTickType wakeTime = xTaskGetTickCount();
 
 	while (1) {
 		switch (samplingState) {
@@ -1099,8 +1101,8 @@ void TaskIMU(void * p) {
 			if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
 				if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
 			}
-//			getTelemetry(&telemetry);
-//			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+			getTelemetry(&telemetry);
+			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 
 
 			VectorSet(&gyroSum, 0.0f);
@@ -1160,8 +1162,9 @@ void TaskIMU(void * p) {
 				VectorScale(&magSum, 3.0f, &magSum);
 				VectorScale(&gyroSum, 4.0f, &gyroSum);
 				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
-				initMagnetometerImprovInstance(cangle);		   // scale to be 0 at initial
-				cangle = 0.0f;								   // linear interpolation in this point gives 0
+				getTelemetry(&telemetry);
+				initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
+				cangle = telemetry.O;								   // linear interpolation in this point gives 0
 				prev_angle = cangle;
 				estDir = cangle;
 			}
