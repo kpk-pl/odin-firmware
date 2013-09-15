@@ -1760,41 +1760,6 @@ void Initialize() {
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMATX;
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(COM_TX_DMA_STREAM, DMA_IT_TC, ENABLE);
-#ifdef FOLLOW_TRAJECTORY
-	/*
-	 * Configuring DMA stream for reception over USART
-	 * Stream is configured to download data from Rx to memory
-	 * Data is received by USART as 8-bit BYTE, it is stored in FIFO
-	 * and transmitted in burst of 16 bytes
-	 * Data is saved to memory as 32-bit WORD, so each burst moves 4x WORD items
-	 */
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	//DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&COM_USART -> DR);
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;//DMA_PeripheralBurst_INC16;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-	DMA_InitStructure.DMA_Channel = COM_RX_DMA_CHANNEL;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	DMA_InitStructure.DMA_BufferSize = 1; // just so it passes asserts
-	//DMA_Init(COM_RX_DMA_STREAM, &DMA_InitStructure);
-	//DMA_FlowControllerConfig(COM_RX_DMA_STREAM, DMA_FlowCtrl_Memory);
-	/* Enabling double buffer mode */ /* Not now */
-	//DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
-	//DMA_DoubleBufferModeCmd(COM_RX_DMA_STREAM, ENABLE);
-	/* Enabling interrupt after receiving */
-	NVIC_InitStructure.NVIC_IRQChannel = COM_RX_DMA_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMARX;
-	//NVIC_Init(&NVIC_InitStructure);
-	//DMA_ITConfig(COM_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
-#endif
 	/* Enabling UART */
 	USART_Cmd(COM_USART, ENABLE);
 	/* No buffer for stdout */
