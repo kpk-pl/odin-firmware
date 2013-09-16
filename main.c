@@ -1101,8 +1101,8 @@ void TaskIMU(void * p) {
 			if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
 				if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
 			}
-			getTelemetry(&telemetry);
-			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+//			getTelemetry(&telemetry);
+//			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 
 
 			VectorSet(&gyroSum, 0.0f);
