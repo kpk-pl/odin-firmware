@@ -162,6 +162,9 @@ static void initI2CforIMU(void);
 static void initMagnetometerImprovInstance(float x0);
 #endif
 
+/* Prints free stack space for each running task */
+static void reportStackUsage();
+
 void TaskPrintfConsumer(void *);		// Task handling safePrint invocations and printing everything on active interfaces
 void TaskLED(void *);					// Blinking LED task; indication that scheduler is running and no task is hang; watchdog resetting
 void TaskCommandHandler(void *);		// Task handling incomming commands
@@ -334,20 +337,20 @@ int main(void)
 
 	xTaskCreate(TaskCommandHandler, NULL, 	300, 						NULL, 		PRIOTITY_TASK_COMMANDHANDLER, 	&commandHandlerTask		);
 #ifdef USE_IMU_TELEMETRY
-	xTaskCreate(TaskIMU, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
-	xTaskCreate(TaskIMUMagScaling, 	NULL,	1000,						NULL,		PRIORITY_TASK_IMUMAGSCALING,	&imuMagScalingTask		);
+	xTaskCreate(TaskIMU, 			NULL, 	400, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
+	xTaskCreate(TaskIMUMagScaling, 	NULL,	300,						NULL,		PRIORITY_TASK_IMUMAGSCALING,	&imuMagScalingTask		);
 #endif
-	xTaskCreate(TaskRC5, 			NULL, 	500, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
-	xTaskCreate(TaskPrintfConsumer, NULL, 	1000, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
+	xTaskCreate(TaskRC5, 			NULL, 	300, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
+	xTaskCreate(TaskPrintfConsumer, NULL, 	500, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
 #ifndef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskDrive, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_DRIVE,			&driveTask				);
 #else
 	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif
-	xTaskCreate(TaskMotorCtrl, 		NULL, 	500, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
-	xTaskCreate(TaskTelemetry, 		NULL, 	1000, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
-	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	500,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
+	xTaskCreate(TaskMotorCtrl, 		NULL, 	300, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
+	xTaskCreate(TaskTelemetry, 		NULL, 	300, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
+	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	300,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
 	xTaskCreate(TaskInputBuffer,	NULL,	500, 						NULL, 		PRIOTITY_TASK_INPUTBUFFER,		&commInputBufferTask	);
 
 	vTaskStartScheduler();
@@ -1272,7 +1275,7 @@ void imuWatchdogOverrun(xTimerHandle xTimer) {
 	globalIMUHang = true;
 
 	// create IMU task with the lowest priority
-	xTaskCreate(TaskIMU, NULL, 300, NULL, 0, &imuTask);
+	xTaskCreate(TaskIMU, NULL, 400, NULL, 0, &imuTask);
 }
 #endif /* USE_IMU_TELEMETRY */
 
@@ -1363,6 +1366,25 @@ void TaskLED(void * p) {
 			vTaskDelay(100 / portTICK_RATE_MS);
 		}
 	}
+}
+
+void reportStackUsage() {
+	safePrint(45, "High water mark of stack usage (free space)\n");
+	safePrint(28, "printfConsumerTask: %d\n", uxTaskGetStackHighWaterMark(printfConsumerTask));
+	safePrint(28, "commandHandlerTask: %d\n", uxTaskGetStackHighWaterMark(commandHandlerTask));
+	safePrint(23, "motorCtrlTask: %d\n", uxTaskGetStackHighWaterMark(motorCtrlTask));
+	safePrint(17, "RC5Task: %d\n", uxTaskGetStackHighWaterMark(RC5Task));
+	safePrint(23, "telemetryTask: %d\n", uxTaskGetStackHighWaterMark(telemetryTask));
+	safePrint(27, "USBWiFiBridgeTask: %d\n", uxTaskGetStackHighWaterMark(USBWiFiBridgeTask));
+	safePrint(29, "commInputBufferTask: %d\n", uxTaskGetStackHighWaterMark(commInputBufferTask));
+#ifdef USE_IMU_TELEMETRY
+	safePrint(17, "imuTask: %d\n", uxTaskGetStackHighWaterMark(imuTask));
+#endif
+#ifdef FOLLOW_TRAJECTORY
+	safePrint(24, "trajectoryTask: %d\n", uxTaskGetStackHighWaterMark(trajectoryTask));
+#else
+	safePrint(19, "driveTask: %d\n", uxTaskGetStackHighWaterMark(driveTask));
+#endif
 }
 
 /* ISR for COM USART - must be called in USARTx_IRQHandler */
@@ -1632,6 +1654,9 @@ void COMHandle(const char * command) {
 		break;
 	case CPU_USAGE:
 		safePrint(19, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
+		break;
+	case STACK_USAGE:
+		reportStackUsage();
 		break;
 	case '$':
 		temp_float = strtof((char*)&command[2], NULL);
