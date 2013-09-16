@@ -167,6 +167,7 @@ void TaskLED(void *);					// Blinking LED task; indication that scheduler is run
 void TaskCommandHandler(void *);		// Task handling incomming commands
 #ifdef USE_IMU_TELEMETRY
 void TaskIMU(void *);					// Task for reading from IMU and calculating orientation based on IMU readings
+void TaskIMUMagScaling(void *);			// Task for magnetometer scaling. This is not an infinite task.
 #endif
 void TaskRC5(void *);					// Task for handling commands from RC5 remote
 #ifndef FOLLOW_TRAJECTORY
@@ -190,6 +191,7 @@ xQueueHandle WiFi2USBBufferQueue;		// Buffer for WiFi to USB characters
 xQueueHandle USB2WiFiBufferQueue;		// Buffer for USB to WiFi characters
 #ifdef USE_IMU_TELEMETRY
 xQueueHandle I2CEVFlagQueue;			// Buffer for I2C event interrupt that holds new event flag to wait for
+xQueueHandle magnetometerScalingQueue = NULL;	// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
 #endif
 xQueueHandle commInputBufferQueue;		// Buffer for input characters
 
@@ -197,6 +199,7 @@ xTaskHandle printfConsumerTask;
 xTaskHandle commandHandlerTask;
 #ifdef USE_IMU_TELEMETRY
 xTaskHandle imuTask;
+xTaskHandle imuMagScalingTask;
 #endif
 #ifndef FOLLOW_TRAJECTORY
 xTaskHandle driveTask;
@@ -219,6 +222,7 @@ xSemaphoreHandle imuGyroReady;					// gyro ready flag set in interrupt
 xSemaphoreHandle imuAccReady;					// accelerometer ready flag set in interrupt
 xSemaphoreHandle imuMagReady;					// magnetometer ready flag set in interrupt
 xSemaphoreHandle imuI2CEV;						// semaphore to indicate correct event in I2C protocol
+xSemaphoreHandle imuMagScalingReq;				// request to perform magnetometer scaling
 #endif
 xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 
@@ -243,6 +247,7 @@ volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
 #ifdef USE_IMU_TELEMETRY
+volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
 volatile bool globalIMUHang = false;
 float globalMagnetometerImprovData[721];
 arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to correctly scale magnetometer readings*/
@@ -319,6 +324,7 @@ int main(void)
 	vSemaphoreCreateBinary(	imuAccReady					);
 	vSemaphoreCreateBinary(	imuMagReady					);
 	vSemaphoreCreateBinary( imuI2CEV					);
+	vSemaphoreCreateBinary( imuMagScalingReq			);
 #endif
 	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
 
@@ -329,6 +335,7 @@ int main(void)
 	xTaskCreate(TaskCommandHandler, NULL, 	300, 						NULL, 		PRIOTITY_TASK_COMMANDHANDLER, 	&commandHandlerTask		);
 #ifdef USE_IMU_TELEMETRY
 	xTaskCreate(TaskIMU, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
+	xTaskCreate(TaskIMUMagScaling, 	NULL,	1000,						NULL,		PRIORITY_TASK_IMUMAGSCALING,	&imuMagScalingTask		);
 #endif
 	xTaskCreate(TaskRC5, 			NULL, 	500, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	1000, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
@@ -415,8 +422,18 @@ void getTelemetry(TelemetryData_Struct *data) {
 
 void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
+#ifdef USE_IMU_TELEMETRY
+	portTickType startTime = xTaskGetTickCount();
+	bool useIMU = false;
+#endif
 
 	while(1) {
+#ifdef USE_IMU_TELEMETRY
+		if (!useIMU) { // use IMU data after timeout to let magnetometer scaling kick in
+			if ((xTaskGetTickCount() - startTime)/portTICK_RATE_MS > 10000) useIMU = true;
+		}
+#endif
+
 		/* Wait indefinitely while there is no update */
 		xQueueReceive(telemetryQueue, &update, portMAX_DELAY);
 
@@ -436,6 +453,8 @@ void TaskTelemetry(void * p) {
 			break;
 #ifdef USE_IMU_TELEMETRY
 		case TelemetryUpdate_Source_IMU:
+			if (useIMU) {
+			}
 			break;
 #endif
 		default:
@@ -913,11 +932,6 @@ void TaskRC5(void * p) {
 		/* If this is a unique press (ignore continuous pressing) */
 		if (toggle != frame.ToggleBit) {
 			switch(frame.Command) {
-			case 12: /*<< OFF red button */
-				/* Set too low preload value causing reset to occur */
-				IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-				IWDG_SetReload(1);
-				break;
 			case 1: /*<< 1 button */
 				motorSpeed.LeftSpeed = maxSpeed * 0.5f;
 				motorSpeed.RightSpeed = maxSpeed;
@@ -961,6 +975,11 @@ void TaskRC5(void * p) {
 				motorSpeed.RightSpeed = -maxSpeed * 0.5f;
 				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
 				break;
+			case 12: /*<< OFF red button */
+				/* Set too low preload value causing reset to occur */
+				IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+				IWDG_SetReload(1);
+				break;
 			case 16: /*<< VOL up button */
 				maxSpeed *= 1.2f;
 				break;
@@ -973,11 +992,16 @@ void TaskRC5(void * p) {
 			case 33: /*<< CH down button */
 				setPenDown();
 				break;
-			case 52: /*<< purple button */
-				enableLantern(!getLanternState());
+#ifdef USE_IMU_TELEMETRY
+			case 42: /*<< clock button */
+				xSemaphoreGive(imuMagScalingReq);
 				break;
+#endif
 			case 43: /*<< screen button above purple button */
 				setWiFiMode(getWiFiMode() == WiFiMode_Data ? WiFiMode_Command : WiFiMode_Data);
+				break;
+			case 52: /*<< purple button */
+				enableLantern(!getLanternState());
 				break;
 			}
 
@@ -989,6 +1013,62 @@ void TaskRC5(void * p) {
 		toggle = frame.ToggleBit;
 	}
 }
+
+#ifdef USE_IMU_TELEMETRY
+void TaskIMUMagScaling(void *p) {
+	xSemaphoreTake(imuMagScalingReq, 0);	// initial take
+
+	uint8_t taken = xSemaphoreTake(imuMagScalingReq, 5000/portTICK_RATE_MS);	// wait for max 5s for request
+	if (taken == pdFALSE) goto finish;
+	// ok, there was a request. Check if robot moved
+
+	TelemetryData_Struct telemetry;
+	getTelemetry(&telemetry);
+	if (fabsf(telemetry.X) > 0.1f || fabsf(telemetry.Y) > 0.1f || fabsf(telemetry.O) > 0.01f) goto finish;
+	// ok, robot is not moving, try to do scaling
+
+#ifdef FOLLOW_TRAJECTORY
+	vTaskSuspend(trajectoryTask);
+#else
+	vTaskSuspend(driveTask);
+#endif
+
+	magnetometerScalingQueue = xQueueCreate(10,	sizeof(float));
+	globalMagnetometerScalingInProgress = ENABLE;
+
+	float imuAngle;
+	MotorSpeed_Struct motorsSpeed;
+
+	taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 5000/portTICK_RATE_MS);
+	if (taken != pdFALSE) { // something really came in, doing scaling
+		safePrint(23, "Scaling magnetometer\n");
+
+		motorsSpeed.LeftSpeed = -0.1f;
+		motorsSpeed.RightSpeed = 0.1f;
+		xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+		// turning around, save all reading data in orientation intervals
+
+
+		motorsSpeed.LeftSpeed = motorsSpeed.RightSpeed = 0.0f;
+		xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+	}
+
+#ifdef FOLLOW_TRAJECTORY
+	vTaskResume(trajectoryTask);
+#else
+	vTaskResume(driveTask);
+#endif
+
+	globalMagnetometerScalingInProgress = DISABLE;
+	vTaskDelay(500/portTICK_RATE_MS);				// delay to make sure other tasks know that global flag is DISABLED
+	vQueueDelete(magnetometerScalingQueue);
+	magnetometerScalingQueue = NULL;
+finish:
+	globalMagnetometerScalingInProgress = DISABLE; 	// just to be sure it is disabled (if not done so by default at initialization)
+	vTaskDelete(NULL);								// delete this task
+}
+#endif
 
 #ifdef USE_IMU_TELEMETRY
 void TaskIMU(void * p) {
@@ -1083,7 +1163,10 @@ void TaskIMU(void * p) {
 			estDir -= gyroSum.z * 0.04f;
 
 			angle = GetHeading(&accSum, &magSum, &front);
-			angle = arm_linear_interp_f32(&globalMagnetometerImprov, angle);
+
+			if (globalMagnetometerScalingInProgress != ENABLE)
+				angle = arm_linear_interp_f32(&globalMagnetometerImprov, angle);
+
 			// if abs angle > 90 deg and angle sign changes
 			if (fabsf(angle) > M_PI/2.0f && angle*prev_angle < 0.0f) {
 				if (angle > 0.0f) { // switching from -180 -> 180
@@ -1094,16 +1177,20 @@ void TaskIMU(void * p) {
 				}
 			}
 			prev_angle = angle;
-			angle += 2.0f * M_PI * (float)turn_counter;
 
-			cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
-			update.dO = cangle;
-			if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
-				if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
+			if (globalMagnetometerScalingInProgress == DISABLE) {
+				angle += 2.0f * M_PI * (float)turn_counter;
+				cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
+				update.dO = cangle;
+				if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
+					if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
+				}
 			}
-			getTelemetry(&telemetry);
-			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
-
+			else {
+				xQueueSendToBack(magnetometerScalingQueue, &angle, 0); // this queue should exist if globalMagnetometerScaling == ENABLE
+			}
+//			getTelemetry(&telemetry);
+//			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 
 			VectorSet(&gyroSum, 0.0f);
 			VectorSet(&magSum, 0.0f);
@@ -1546,7 +1633,7 @@ void COMHandle(const char * command) {
 	case CPU_USAGE:
 		safePrint(19, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
 		break;
-	case '#':
+	case '$':
 		temp_float = strtof((char*)&command[2], NULL);
 		safePrint(60, "Float %f: %x %x %x %x\n", temp_float, *((uint8_t*)(&temp_float)), *(((uint8_t*)(&temp_float)+1)), *(((uint8_t*)(&temp_float)+2)), *(((uint8_t*)(&temp_float))+3));
 		break;
