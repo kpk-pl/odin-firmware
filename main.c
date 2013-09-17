@@ -151,6 +151,9 @@ static void imuWatchdogOverrun(xTimerHandle xTimer);
 /* Returns current up-to-date telemetry data and saves it in provided structure. This function provides mutual exclusion and data coherency */
 static void getTelemetry(TelemetryData_Struct *data);
 
+/* Returns current telemetry data without orientation normalization to +-M_PI */
+static void getTelemetryRaw(TelemetryData_Struct *data);
+
 /* Returns normalized orientation angle provided as input in radians, output is [-PI, +PI] */
 static float normalizeOrientation(float in) { return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in)); }
 
@@ -419,6 +422,17 @@ void getTelemetry(TelemetryData_Struct *data) {
 		data->X = globalTelemetryData.X;
 		data->Y = globalTelemetryData.Y;
 		data->O = normalizeOrientation(globalTelemetryData.O);
+	}
+	taskEXIT_CRITICAL();
+}
+
+void getTelemetryRaw(TelemetryData_Struct *data) {
+	/* Ensure that data is coherent and nothing is changed in between */
+	taskENTER_CRITICAL();
+	{
+		data->X = globalTelemetryData.X;
+		data->Y = globalTelemetryData.Y;
+		data->O = globalTelemetryData.O;
 	}
 	taskEXIT_CRITICAL();
 }
@@ -1026,7 +1040,7 @@ void TaskIMUMagScaling(void *p) {
 	// ok, there was a request. Check if robot moved
 
 	TelemetryData_Struct telemetry;
-	getTelemetry(&telemetry);
+	getTelemetryRaw(&telemetry);
 	if (fabsf(telemetry.X) > 0.1f || fabsf(telemetry.Y) > 0.1f || fabsf(telemetry.O) > 0.01f) goto finish;
 	// ok, robot is not moving, try to do scaling
 
@@ -1046,12 +1060,24 @@ void TaskIMUMagScaling(void *p) {
 	if (taken != pdFALSE) { // something really came in, doing scaling
 		safePrint(23, "Scaling magnetometer\n");
 
-		motorsSpeed.LeftSpeed = -0.1f;
-		motorsSpeed.RightSpeed = 0.1f;
+		motorsSpeed.LeftSpeed = -0.3f;
+		motorsSpeed.RightSpeed = 0.3f;
 		xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
 
 		// turning around, save all reading data in orientation intervals
+		uint16_t i = 0;
+		while(telemetry.O < 2*M_PI) {
+			do {
+				getTelemetryRaw(&telemetry);
+				taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 0);	// read everything as soon as possible
+			} while (telemetry.O < globalMagnetometerImprov.xSpacing * i);
 
+			if (i >= 360) imuAngle -= 2.0f*M_PI;
+			globalMagnetometerImprovData[(i+360)%720] = imuAngle;
+			i++;
+		}
+
+		globalMagnetometerImprovData[720] = globalMagnetometerImprovData[0] + 2.0f*M_PI;
 
 		motorsSpeed.LeftSpeed = motorsSpeed.RightSpeed = 0.0f;
 		xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
@@ -1168,7 +1194,7 @@ void TaskIMU(void * p) {
 			angle = GetHeading(&accSum, &magSum, &front);
 
 			if (globalMagnetometerScalingInProgress != ENABLE)
-				angle = arm_linear_interp_f32(&globalMagnetometerImprov, angle);
+				angle = normalizeOrientation(arm_linear_interp_f32(&globalMagnetometerImprov, angle));
 
 			// if abs angle > 90 deg and angle sign changes
 			if (fabsf(angle) > M_PI/2.0f && angle*prev_angle < 0.0f) {
@@ -1181,8 +1207,9 @@ void TaskIMU(void * p) {
 			}
 			prev_angle = angle;
 
+			angle += 2.0f * M_PI * (float)turn_counter;
+
 			if (globalMagnetometerScalingInProgress == DISABLE) {
-				angle += 2.0f * M_PI * (float)turn_counter;
 				cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
 				update.dO = cangle;
 				if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
@@ -1907,7 +1934,7 @@ void initMagnetometerImprovInstance(float x0) {
 	float offset = -M_PI - x0;
 
 	for (uint16_t i = 0; i<globalMagnetometerImprov.nValues; i++) {
-		globalMagnetometerImprovData[i] = normalizeOrientation(globalMagnetometerImprov.xSpacing * i + offset);
+		globalMagnetometerImprovData[i] = globalMagnetometerImprov.xSpacing * i + offset; // Must be continuous, no normalization. Normalize afterwards.
 	}
 }
 #endif /* USE_IMU_TELEMETRY */
