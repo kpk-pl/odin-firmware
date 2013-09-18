@@ -51,7 +51,14 @@
 #define DEGREES_TO_RAD		(M_PI / 180.0f)						/*<< Coefficient to convert degrees to radians */
 #define BUF_RX_LEN 20											/*<< Maximum length of UART command */
 
-#ifndef FOLLOW_TRAJECTORY
+#ifdef FOLLOW_TRAJECTORY
+/* Typedef for gains used by trajectory controller */
+typedef struct {
+	float k_x;
+	float k;
+	float k_s;
+} TrajectoryControlerGains_Struct;
+#else
 /* Type of drive command to perform */
 typedef enum {
 	DriveCommand_Type_Line =  'l',		/*<< Drive straight line; need one parameter - length */
@@ -165,6 +172,19 @@ static void initI2CforIMU(void);
 static void initMagnetometerImprovInstance(float x0);
 #endif
 
+#ifdef FOLLOW_TRAJECTORY
+/*
+ * @brief Function for calculating motors speed using trajectory control
+ * @param currentPosition Current position from telemetry
+ * @param trajectoryPoint Target position and velocities
+ * @param outputSpeeds Calculated speeds
+ * @retval none
+ */
+void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
+								 TrajectoryPoint_Ptr trajectoryPoint,
+								 MotorSpeed_Struct * outputSpeeds);
+#endif
+
 /* Prints free stack space for each running task */
 static void reportStackUsage();
 
@@ -255,6 +275,7 @@ volatile float globalCPUUsage = 0.0f;
 #ifdef USE_IMU_TELEMETRY
 volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
 volatile bool globalIMUHang = false;
+volatile bool globalDoneIMUScaling = false;
 float globalMagnetometerImprovData[721];
 arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to correctly scale magnetometer readings*/
 	.nValues = 721,
@@ -294,6 +315,13 @@ arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to
 		.Kp = 0.08f,
 		.Ki = 0.005f,
 		.Kd = 0.0f
+	};
+#endif
+#ifdef FOLLOW_TRAJECTORY
+	TrajectoryControlerGains_Struct globalTrajectoryControlGains = {
+		.k_x = 10.0f,
+		.k = 10.0f,
+		.k_s = 10.0f
 	};
 #endif
 
@@ -735,24 +763,11 @@ void TaskTrajectory(void *p) {
 		TrajectoryPoint_Ptr point = TBgetNextPoint();
 		if (point == NULL) continue;
 
-		// EXAMPLES BELOW
-
-		// this gives telemetry data with orientation cormalized to +-PI radians
 		getTelemetry(&telemetry);
 
-		float ty = telemetry.Y;
+		calculateTrajectoryControll(&telemetry, point, &motorSpeed);
 
-		// this is how you can get point data
-		float x = point->X;
-
-		// note that the two lines below are WRONG and won't compile (point in const pointer to const struct)
-		// point->X = 3;
-		// point++;
-
-		motorSpeed.LeftSpeed = 3.43f;
-		motorSpeed.RightSpeed = 2.0f;
 		xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
-
 	}
 }
 #endif /* FOLLOW_TRAJECTORY */
@@ -1068,6 +1083,7 @@ void TaskIMUMagScaling(void *p) {
 		uint16_t i = 0;
 		while(telemetry.O < 2*M_PI) {
 			do {
+				vTaskDelay(1);
 				getTelemetryRaw(&telemetry);
 				taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 0);	// read everything as soon as possible
 			} while (telemetry.O < globalMagnetometerImprov.xSpacing * i);
@@ -1089,6 +1105,7 @@ void TaskIMUMagScaling(void *p) {
 	vTaskResume(driveTask);
 #endif
 
+	globalDoneIMUScaling = true;
 	globalMagnetometerScalingInProgress = DISABLE;
 	vTaskDelay(500/portTICK_RATE_MS);				// delay to make sure other tasks know that global flag is DISABLED
 	vQueueDelete(magnetometerScalingQueue);
@@ -1280,8 +1297,9 @@ void TaskIMU(void * p) {
 				VectorScale(&gyroSum, 4.0f, &gyroSum);
 				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
 				getTelemetry(&telemetry);
-				initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
-				cangle = telemetry.O;								   // linear interpolation in this point gives 0
+				if (!globalDoneIMUScaling)
+					initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
+				cangle = telemetry.O;								   	   // linear interpolation in this point gives 0
 				prev_angle = cangle;
 				estDir = cangle;
 			}
@@ -1394,6 +1412,48 @@ void TaskLED(void * p) {
 		}
 	}
 }
+
+#ifdef FOLLOW_TRAJECTORY
+void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
+								 TrajectoryPoint_Ptr trajectoryPoint,
+								 MotorSpeed_Struct * outputSpeeds)
+{
+	float s, c, s_r, c_r;
+	float e_x, e_y, e_s, e_c, e_c_term;
+	float v_b, w_b;
+	float v, w;
+
+	float diff_x  = trajectoryPoint->X  - currentPosition->X;
+	float diff_y  = trajectoryPoint->Y  - currentPosition->Y;
+	//float diff_fi = trajectoryPoint->O - currentPosition->O; // unused?
+
+	// buehuehuehue :D anyway, is float equivalent to float32_t???
+	arm_sin_cos_f32(currentPosition->O, &s, &c);
+	arm_sin_cos_f32(trajectoryPoint->O, &s_r, &c_r);
+
+	//calculate error model
+	e_x =  c * diff_x + s * diff_y;
+	e_y = -s * diff_x + c * diff_y;
+	e_s = s_r * c - c_r * s;
+	e_c = c_r * c + s_r * s - 1.0f;
+
+	//calculate feedback signal for n=2 and a=7 (see whitepaper)
+
+	e_c_term = 1.0f + e_c / 7.0f; //a = 7;
+	e_c_term = powf(e_c_term, 2.0f);
+
+	v_b = globalTrajectoryControlGains.k_x * e_x;
+	w_b = globalTrajectoryControlGains.k * trajectoryPoint->V * e_y * e_c_term + globalTrajectoryControlGains.k_s * e_s * powf(e_c_term, 2); //n = 2
+
+	//[m/s]
+	v = trajectoryPoint->V * (e_c+1) + v_b;
+	w = trajectoryPoint->W + w_b;
+
+	// [rad/s]
+	outputSpeeds->LeftSpeed  = (v - w * ROBOT_DIAM / (1000.0f * 2.0f)) / WHEEL_DIAM;
+	outputSpeeds->RightSpeed = (v + w * ROBOT_DIAM / (1000.0f * 2.0f)) / WHEEL_DIAM;
+}
+#endif
 
 void reportStackUsage() {
 	safePrint(45, "High water mark of stack usage (free space)\n");
