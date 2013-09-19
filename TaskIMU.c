@@ -8,6 +8,7 @@
 #include "TaskIMU.h"
 #include "main.h"
 #include "priorities.h"
+#include "hardware.h"
 
 #include "i2chelpers.h"
 #include "imu.h"

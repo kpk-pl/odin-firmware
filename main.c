@@ -13,12 +13,14 @@
 #include "TaskTelemetry.h"
 #include "TaskRC5.h"
 #include "TaskMotorCtrl.h"
+#include "TaskPrintfConsumer.h"
+#include "TaskCommandHandler.h"
+#include "TaskLED.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
 #endif
 
 #include "main.h"
-#include "commands.h"
 #include "priorities.h"
 #include "hardware.h"
 #include "hwinterface.h"
@@ -53,13 +55,6 @@ typedef struct {
 } DriveCommand_Struct;
 #endif
 
-/* Types of different logging commands */
-typedef enum {
-	Logging_Type_Telemetry = 't',		/*<< Log position and orientation when it changes */
-	Logging_Type_Speed = 's',			/*<< Log wheels speed */
-	Logging_Type_Events = 'e'		/*<< Log system events */
-} Logging_Type;
-
 #define IS_LOGGING_TYPE(x) (x == Logging_Type_Telemetry || x == Logging_Type_Speed || x == Logging_Type_Events)
 
 /* Types of input's character source */
@@ -77,13 +72,6 @@ typedef struct {
 /* Initialize all hardware. THIS FUNCTION DISABLES INTERRUPTS AND DO NOT ENABLES THEM AGAIN */
 static void Initialize();
 
-/*
- * @brief Handles various commands from various places
- * @param command Pointer to the beginning of a string containing command
- * @retval None
- */
-static void COMHandle(const char * command);
-
 #ifdef FOLLOW_TRAJECTORY
 /*
  * @brief Function for calculating motors speed using trajectory control
@@ -97,12 +85,6 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 								 MotorSpeed_Struct * outputSpeeds);
 #endif
 
-/* Prints free stack space for each running task */
-static void reportStackUsage();
-
-void TaskPrintfConsumer(void *);		// Task handling safePrint invocations and printing everything on active interfaces
-void TaskLED(void *);					// Blinking LED task; indication that scheduler is running and no task is hang; watchdog resetting
-void TaskCommandHandler(void *);		// Task handling incomming commands
 #ifdef USE_IMU_TELEMETRY
 void TaskIMUMagScaling(void *);			// Task for magnetometer scaling. This is not an infinite task.
 #endif
@@ -114,19 +96,19 @@ void TaskTrajectory(void *);			// Task for controlling trajectory using Ferdek's
 void TaskUSBWiFiBridge(void *);			// Task for USB-WiFi bridge to transfer commands between two UARTs
 void TaskInputBuffer(void *);			// Task to handle input characters from any source - it makes possible to set very high transfer speeds
 
-xQueueHandle printfQueue;				// Queue for safePrint strings to send via active interfaces
-xQueueHandle commandQueue;				// Queue for storing commands to do
+xQueueHandle printfQueue;
+xQueueHandle commandQueue;
 #ifndef FOLLOW_TRAJECTORY
 xQueueHandle driveQueue;				// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
 #endif
-xQueueHandle motorCtrlQueue;			// One-element queue for setting wheel's speed
+xQueueHandle motorCtrlQueue;
 xQueueHandle WiFi2USBBufferQueue;		// Buffer for WiFi to USB characters
 xQueueHandle USB2WiFiBufferQueue;		// Buffer for USB to WiFi characters
 xQueueHandle commInputBufferQueue;		// Buffer for input characters
-xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
+xQueueHandle telemetryQueue;
 #ifdef USE_IMU_TELEMETRY
-xQueueHandle I2CEVFlagQueue;			// Buffer for I2C event interrupt that holds new event flag to wait for
-xQueueHandle magnetometerScalingQueue = NULL;	// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
+xQueueHandle I2CEVFlagQueue;
+xQueueHandle magnetometerScalingQueue = NULL;
 #endif
 
 xTaskHandle printfConsumerTask;
@@ -733,95 +715,6 @@ finish:
 }
 #endif
 
-void TaskPrintfConsumer(void * p) {
-	char *msg;
-
-	xSemaphoreTake(comUSARTTCSemaphore, 0);
-	xSemaphoreTake(comDMATCSemaphore, 0);
-	xSemaphoreTake(wifiUSARTTCSemaphore, 0);
-	xSemaphoreTake(wifiDMATCSemaphore, 0);
-
-	while(1) {
-		/* Turn off printing if bridge is on */
-		if (getWiFi2USBBridgeStatus() == ON) {
-			vTaskDelay(100/portTICK_RATE_MS);
-			continue;
-		}
-
-		/* Wait for new message and take it, process any incomming message as quickly as possible */
-		xQueueReceive(printfQueue, &msg, portMAX_DELAY);
-
-		/* Set start address at the beginning of the message */
-		COM_TX_DMA_STREAM->M0AR = (uint32_t)msg; // base addr
-		WIFI_TX_DMA_STREAM->M0AR = (uint32_t)msg;
-		/* Set number of bytes to send */
-		size_t len = strlen(msg);
-		COM_TX_DMA_STREAM->NDTR = len;   // size in bytes
-		WIFI_TX_DMA_STREAM->NDTR = len;
-
-		/* Save USB and WiFi status, will be used in two different places and need to be the same */
-		OnOff USBS = getUSBStatus();
-		OnOff WIFIS = getWiFiStatus();
-
-		/* If USB is enabled, then start DMA transfer */
-		if (USBS == ON) {
-			/* Enable stream */
-			DMA_Cmd(COM_TX_DMA_STREAM, ENABLE);
-			/* Enable DMA in USART */
-			USART_DMACmd(COM_USART, USART_DMAReq_Tx, ENABLE);
-			/* Enabling interrupt from Transmission Complete flag.
-			 * Here, because it it set constantly when USART is idle.
-			 * Disabled in ISR. */
-			USART_ITConfig(COM_USART, USART_IT_TC, ENABLE);
-		}
-		/* The same for WiFi */
-		if (WIFIS == ON) {
-			DMA_Cmd(WIFI_TX_DMA_STREAM, ENABLE);
-			USART_DMACmd(WIFI_USART, USART_DMAReq_Tx, ENABLE);
-			USART_ITConfig(WIFI_USART, USART_IT_TC, ENABLE);
-		}
-
-		/* Waiting for transmission complete. One interrupt from DMA and one from USART. Disabling stream at the end */
-		if (USBS == ON) {
-			xSemaphoreTake(comUSARTTCSemaphore, portMAX_DELAY);
-			xSemaphoreTake(comDMATCSemaphore, portMAX_DELAY);
-			DMA_Cmd(COM_TX_DMA_STREAM, DISABLE);
-		}
-		if (WIFIS == ON) {
-			xSemaphoreTake(wifiUSARTTCSemaphore, portMAX_DELAY);
-			xSemaphoreTake(wifiDMATCSemaphore, portMAX_DELAY);
-			DMA_Cmd(WIFI_TX_DMA_STREAM, DISABLE);
-		}
-
-		/* Free memory allocated for message */
-		vPortFree(msg);
-	}
-}
-
-void TaskCommandHandler(void * p) {
-	char * msg;
-	while(1) {
-		/* Block till message is available */
-		xQueueReceive(commandQueue, &msg, portMAX_DELAY);
-		/* Handle message */
-		COMHandle(msg);
-		/* Free allocated resources */
-		vPortFree(msg);
-	}
-}
-
-void TaskLED(void * p) {
-	IWDG_Enable();
-	while(1) {
-		GPIO_ToggleBits(LEDS_GPIO_26, LEDS_GPIO_3_PIN);
-		/* Every 100 ms */
-		for (uint8_t t = 0; t < 5; t++) {
-			IWDG_ReloadCounter();
-			vTaskDelay(100 / portTICK_RATE_MS);
-		}
-	}
-}
-
 #ifdef FOLLOW_TRAJECTORY
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 								 TrajectoryPoint_Ptr trajectoryPoint,
@@ -953,253 +846,6 @@ void RawStreamDMAIncoming(void) {
 	TBDMATransferCompletedSlot();
 }
 #endif
-
-void COMHandle(const char * command) {
-#ifndef FOLLOW_TRAJECTORY
-	DriveCommand_Struct *dc;
-#endif
-	char *last;
-	MotorSpeed_Struct ms;
-	TelemetryData_Struct td;
-	float temp_float;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	MotorControllerParameters_Struct* ptrParams;
-#endif
-
-	const char wrongComm[] = "Incorrect command\n";
-
-	bool commandCheck(const bool p) {
-		if (p != true) {
-			if (globalLogEvents) safePrint(20, "%s", wrongComm);
-		}
-		return p;
-	}
-
-	switch(command[0]) {
-	case LOW_LEVEL_AUA:
-		GPIO_ToggleBits(LEDS_GPIO_1, LEDS_GPIO_1_PIN);
-		break;
-	case HIGH_LEVEL_AUA:
-		safePrint(8, "Hello!\n");
-		break;
-	case AVAILABLE_MEMORY:
-		safePrint(32, "Available memory: %dkB\n", xPortGetFreeHeapSize());
-		break;
-#ifdef FOLLOW_TRAJECTORY
-	case IMPORT_TRAJECTORY_POINTS:
-		if (commandCheck( strlen(command) >= 3) ) {
-			safePrint(36, "<#Please send only %d points#>\n",
-				TBloadNewPoints(strtol((char*)&command[2], NULL, 10)));
-		}
-		break;
-#endif
-	case BATTERY_VOLTAGE:
-		safePrint(26, "Battery voltage: %.2fV\n", getBatteryVoltage());
-		break;
-	case PEN_DOWN:
-		setPenDown();
-		break;
-	case PEN_UP:
-		setPenUp();
-		break;
-#ifndef FOLLOW_TRAJECTORY
-	case DRIVE_COMMAND:
-		if (commandCheck( strlen(command) >= 11) ) {
-			dc = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
-			dc->Type = command[2];
-			dc->UsePen = (command[4] == '0' ? 0 : 1);
-			dc->Speed = strtof((char*)&command[6], &last);
-			dc->Param1 = strtof(last+1, &last);
-			/* Only 'line' has one parameter */
-			if (dc->Type != DriveCommand_Type_Line) {
-				dc->Param2 = strtof(last+1, NULL);
-			}
-			xQueueSendToBack(driveQueue, &dc, portMAX_DELAY);
-		}
-		break;
-#endif
-	case MOTOR_LEFT_SPEED:
-		if (commandCheck( strlen(command) >= 3 )) {
-			globalSpeedRegulatorOn = DISABLE;
-			setMotorLSpeed(strtof((char*)&command[2], NULL)/100.0f);
-		}
-		break;
-	case MOTOR_RIGHT_SPEED:
-		if (commandCheck( strlen(command) >= 3 )) {
-			globalSpeedRegulatorOn = DISABLE;
-			setMotorRSpeed(strtof((char*)&command[2], NULL)/100.0f);
-		}
-		break;
-	case MOTOR_LEFT_ENCODER:
-		safePrint(22, "Encoder left: %ld\n", getEncoderL());
-		break;
-	case MOTOR_RIGHT_ENCODER:
-		safePrint(23, "Encoder right: %ld\n", getEncoderR());
-		break;
-	case MOTORS_ENABLE:
-		if (commandCheck( strlen(command) >= 3 )) {
-			if (command[2] == '0') {
-				globalSpeedRegulatorOn = DISABLE;
-				enableMotors(DISABLE);
-				safePrint(19, "Motors disabled\n");
-			}
-			else {
-				enableMotors(ENABLE);
-				globalSpeedRegulatorOn = ENABLE;
-				safePrint(18, "Motors enabled\n");
-			}
-		}
-		break;
-	case MOTORS_SET_SPEEDS:
-		if (commandCheck( strlen(command) >= 3 )) {
-			globalSpeedRegulatorOn = ENABLE;
-			ms.LeftSpeed = strtof((char*)&command[2], &last);
-			ms.RightSpeed = strtof(last+1, NULL);
-			xQueueSendToBack(motorCtrlQueue, &ms, portMAX_DELAY);
-		}
-		break;
-	case TELEMETRY_PRINT:
-		getTelemetry(&td);
-		safePrint(40, "X:%.2f Y:%.2f O:%.1f\n", td.X, td.Y, td.O / DEGREES_TO_RAD);
-		break;
-	case LOGGING_COMMAND:
-		if (commandCheck( strlen(command) >= 5 )) {
-			switch(command[2]) {
-			case Logging_Type_Telemetry:
-				globalLogTelemetry = (command[4] == '1');
-				break;
-			case Logging_Type_Speed:
-				if (command[4] == '1') {
-					taskENTER_CRITICAL();
-					globalLogSpeed = ENABLE;
-					globalLogSpeedCounter = 1<<31;
-					taskEXIT_CRITICAL();
-				}
-				else {
-					globalLogSpeed = DISABLE;
-				}
-				break;
-			case Logging_Type_Events:
-				globalLogEvents = (command[4] == '1');
-				break;
-			default:
-				safePrint(17, wrongComm);
-			}
-		}
-		break;
-	case CPU_RESET:
-		IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-		IWDG_SetReload(1);
-		break;
-	case WIFI_MODE:
-		if (commandCheck( strlen(command) >= 3 )) {
-			setWiFiMode(command[2] == 'c' ? WiFiMode_Command : WiFiMode_Data);
-		}
-		break;
-	case WIFI_RESET:
-		if (commandCheck( strlen(command) >= 3 )) {
-			setWiFiReset(command[2] == '1' ? ENABLE : DISABLE);
-		}
-		break;
-	case LANTERN_ENABLE:
-		if (commandCheck( strlen(command) >= 3 )) {
-			enableLantern(command[2] == '1' ? ENABLE : DISABLE);
-		}
-		break;
-	case SPEED_REGULATOR_ENABLE:
-		if (commandCheck( strlen(command) >= 3 )) {
-			taskENTER_CRITICAL();
-			{
-				globalSpeedRegulatorOn = (command[2] != '0');
-				setMotorLSpeed(0.0f);
-				setMotorRSpeed(0.0f);
-			}
-			taskEXIT_CRITICAL();
-		}
-		break;
-	case MOTORS_CHARACTERISTIC:
-		if (commandCheck( strlen(command) >= 7 && (command[2] == 'l' || command[2] == 'r') )) {
-			taskENTER_CRITICAL();
-			{
-				globalSpeedRegulatorOn = DISABLE;
-				globalLogSpeed = ENABLE;
-				temp_float = strtof((char*)&command[4], &last) / 100.0f;
-				globalLogSpeedCounter = strtol(last+1, NULL, 10);
-				command[2] == 'l' ? setMotorLSpeed(temp_float) : setMotorRSpeed(temp_float);
-			}
-			taskEXIT_CRITICAL();
-		}
-		break;
-	case MOTORS_CHARACTERISTIC2:
-		if (commandCheck( strlen(command) >= 7 )) {
-			taskENTER_CRITICAL();
-			{
-				globalSpeedRegulatorOn = DISABLE;
-				globalLogSpeed = ENABLE;
-				setMotorLSpeed(strtof((char*)&command[4], &last) / 100.0f);
-				setMotorRSpeed(strtof(last+1, &last) / 100.0f);
-				globalLogSpeedCounter = strtol(last+1, NULL, 10);
-			}
-			taskEXIT_CRITICAL();
-		}
-		break;
-	case DELAY_COMMANDS:
-		if (commandCheck( strlen(command) >= 3) ) {
-			vTaskDelay(strtol((char*)&command[2], NULL, 10) / portTICK_RATE_MS);
-		}
-		break;
-	case CPU_USAGE:
-		safePrint(19, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
-		break;
-	case STACK_USAGE:
-		reportStackUsage();
-		break;
-	case '$':
-		temp_float = strtof((char*)&command[2], NULL);
-		safePrint(60, "Float %f: %x %x %x %x\n", temp_float, *((uint8_t*)(&temp_float)), *(((uint8_t*)(&temp_float)+1)), *(((uint8_t*)(&temp_float)+2)), *(((uint8_t*)(&temp_float))+3));
-		break;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	case SPEER_REGULATOR_VOLTAGE_CORRECTION:
-		if (commandCheck( strlen(command) >= 3 )) {
-			globalControllerVoltageCorrection = (command[2] != '0');
-		}
-		break;
-	case SPEED_REGULATOR_CUSTOM_PARAMS:
-		if (commandCheck (strlen(command) >= 19 && (command[2] == 'l' || command[2] == 'r') )) {
-			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
-			else ptrParams = &globalRightMotorParams;
-			taskENTER_CRITICAL();
-			{
-				ptrParams->threshold = strtof((char*)&command[4], &last);
-				ptrParams->A = strtof(last+1, &last);
-				ptrParams->B = strtof(last+1, &last);
-				ptrParams->C = strtof(last+1, &last);
-				ptrParams->KP = strtof(last+1, &last);
-				ptrParams->A_t = strtof(last+1, &last);
-				ptrParams->B_t = strtof(last+1, &last);
-				ptrParams->KP_t = strtof(last+1, &last);
-			}
-			taskEXIT_CRITICAL();
-		}
-		break;
-#else
-	case SPEED_REGULATOR_PID_PARAMS:
-		if(commandCheck (strlen(command) >= 7) ) {
-			taskENTER_CRITICAL();
-			{
-				globalPidLeft.Kp = globalPidRight.Kp = strtof((char*)&command[2], &last);
-				globalPidLeft.Ki = globalPidRight.Ki = strtof(last+1, &last);
-				globalPidLeft.Kd = globalPidRight.Kd = strtof(last+1, &last);
-			}
-			taskEXIT_CRITICAL();
-		}
-		break;
-#endif
-	default:
-		if (globalLogEvents) safePrint(18, "No such command\n");
-		break;
-	}
-}
 
 #ifdef USE_IMU_TELEMETRY
 /* ISR for EXTI Gyro */

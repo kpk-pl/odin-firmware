@@ -64,6 +64,13 @@ typedef struct {
 	float RightSpeed;				/*<< Right motor's speed */
 } MotorSpeed_Struct;
 
+/* Types of different logging commands */
+typedef enum {
+	Logging_Type_Telemetry = 't',		/*<< Log position and orientation when it changes */
+	Logging_Type_Speed = 's',			/*<< Log wheels speed */
+	Logging_Type_Events = 'e'		/*<< Log system events */
+} Logging_Type;
+
 /*
  * Global variables, defined in main.c
  */
@@ -73,6 +80,7 @@ extern volatile FunctionalState globalLogTelemetry;
 extern volatile FunctionalState globalLogSpeed;
 extern volatile FunctionalState globalSpeedRegulatorOn;
 extern volatile uint32_t globalLogSpeedCounter;
+extern volatile float globalCPUUsage;
 extern volatile TelemetryData_Struct globalTelemetryData;
 
 #ifdef USE_IMU_TELEMETRY
@@ -92,13 +100,21 @@ extern volatile TelemetryData_Struct globalTelemetryData;
 #endif
 
 /*
- * Global OS objects
+ * Global OS objects - tasks
  */
 
 #ifdef USE_IMU_TELEMETRY
 	extern xTaskHandle imuTask;
 #endif
 
+/*
+ * Global OS objects - semaphores
+ */
+
+extern xSemaphoreHandle comUSARTTCSemaphore;			// USART_TC flag set for USB-USART
+extern xSemaphoreHandle comDMATCSemaphore;				// DMA TC flag set for USB-USART
+extern xSemaphoreHandle wifiUSARTTCSemaphore;			// USART TC flag set for WIFI-USART
+extern xSemaphoreHandle wifiDMATCSemaphore;				// DMA TC flag set for WIFI-USART
 extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 #ifdef USE_IMU_TELEMETRY
 	extern xSemaphoreHandle imuPrintRequest;			// request for IMU to print most up-to-date reading
@@ -109,15 +125,25 @@ extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform 
 	extern xSemaphoreHandle imuMagScalingReq;			// request to perform magnetometer scaling
 #endif
 
-#ifdef USE_IMU_TELEMETRY
-	extern xTimerHandle imuWatchdogTimer;				// used by software watchdog, if it expires then I2C is reset
-#endif
+/*
+ * Global OS objects - queues
+ */
 
+extern xQueueHandle commandQueue;					    // Queue for storing commands to do
+extern xQueueHandle printfQueue;						// Queue for safePrint strings to send via active interfaces
 extern xQueueHandle motorCtrlQueue;						// One-element queue for setting wheel's speed
 extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 #ifdef USE_IMU_TELEMETRY
 	extern xQueueHandle I2CEVFlagQueue;					// Buffer for I2C event interrupt that holds new event flag to wait for
 	extern xQueueHandle magnetometerScalingQueue;		// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
+#endif
+
+/*
+ * Global OS objects - timers
+ */
+
+#ifdef USE_IMU_TELEMETRY
+	extern xTimerHandle imuWatchdogTimer;				// used by software watchdog, if it expires then I2C is reset
 #endif
 
 /*
@@ -145,6 +171,9 @@ void getTelemetry(TelemetryData_Struct *data);
 
 /* Returns current telemetry data without orientation normalization to +-M_PI */
 void getTelemetryRaw(TelemetryData_Struct *data);
+
+/* Prints free stack space for each running task */
+void reportStackUsage();
 
 /*
  * Interrupt routines
