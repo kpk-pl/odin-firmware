@@ -14,6 +14,10 @@
 
 #include "compilation.h"
 
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+#include "motorController.h"
+#endif
+
 /*
  * Global defines
  */

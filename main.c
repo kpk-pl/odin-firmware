@@ -6,10 +6,6 @@
 
 #include "compilation.h"
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-#include "motorController.h"
-#endif
-
 #ifdef FOLLOW_TRAJECTORY
 #include "pointsBuffer.h"
 #endif

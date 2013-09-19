@@ -1,3 +1,6 @@
+#include "compilation.h"
+#ifdef USE_IMU_TELEMETRY
+
 #include <stm32f4xx.h>
 
 #include "arm_math.h"
@@ -272,3 +275,5 @@ void initMagnetometerImprovInstance(float x0) {
 		globalMagnetometerImprovData[i] = globalMagnetometerImprov.xSpacing * i + offset; // Must be continuous, no normalization. Normalize afterwards.
 	}
 }
+
+#endif /* USE_IMU_TELEMETRY */
