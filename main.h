@@ -65,6 +65,10 @@ typedef struct {
  */
 
 extern volatile FunctionalState globalLogEvents;
+extern volatile FunctionalState globalLogTelemetry;
+extern volatile FunctionalState globalLogSpeed;
+
+extern volatile TelemetryData_Struct globalTelemetryData;
 
 #ifdef USE_IMU_TELEMETRY
 extern volatile bool globalIMUHang;
