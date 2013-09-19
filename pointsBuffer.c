@@ -3,7 +3,7 @@
 #include "hardware.h"
 
 #ifdef COMPILE_CIRCULAR_BUFFER
-#define POINTSBUFFER_SIZE 800
+#define POINTSBUFFER_SIZE 10
 #else
 #define POINTSBUFFER_SIZE 1
 #endif
@@ -125,6 +125,6 @@ void startDMA(uint16_t num) {
 	WIFI_RX_DMA_STREAM->NDTR = num * ONE_POINT_SIZE_BYTES;	// number of bytes to transfer
 
     USART_ITConfig(WIFI_USART, USART_IT_RXNE, DISABLE);		// disable interrupts from USART, disconnect Command Handling
-    DMA_Cmd(WIFI_RX_DMA_STREAM, ENABLE);						// enable DMA stream
+    DMA_Cmd(WIFI_RX_DMA_STREAM, ENABLE);					// enable DMA stream
     USART_DMACmd(WIFI_USART, USART_DMAReq_Rx, ENABLE);		// set USART to DMA
 }

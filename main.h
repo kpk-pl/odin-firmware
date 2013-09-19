@@ -2,7 +2,6 @@
 #define _MAIN_H_
 
 #include <stm32f4xx.h>
-
 #include "arm_math.h"
 
 #include <stdbool.h>
@@ -13,7 +12,6 @@
 #include "task.h"
 #include "portmacro.h"
 
-#include "stm32f4xx.h"
 #include "compilation.h"
 
 /*
@@ -56,6 +54,12 @@ typedef struct {
 	float O;				/*<< Orientation angle coordinate in radians */
 } TelemetryData_Struct;
 
+/* Struct holding motors' speeds. Choosen unit is rad/sec */
+typedef struct {
+	float LeftSpeed;				/*<< Left motor's speed */
+	float RightSpeed;				/*<< Right motor's speed */
+} MotorSpeed_Struct;
+
 /*
  * Global variables, defined in main.c
  */
@@ -78,6 +82,7 @@ extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
 extern xTaskHandle imuTask;
 #endif
 
+extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 #ifdef USE_IMU_TELEMETRY
 extern xSemaphoreHandle imuPrintRequest;				// request for IMU to print most up-to-date reading
 extern xSemaphoreHandle imuGyroReady;					// gyro ready flag set in interrupt
@@ -91,6 +96,7 @@ extern xSemaphoreHandle imuMagScalingReq;				// request to perform magnetometer 
 extern xTimerHandle imuWatchdogTimer;					// used by software watchdog, if it expires then I2C is reset
 #endif
 
+extern xQueueHandle motorCtrlQueue;			// One-element queue for setting wheel's speed
 extern xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 #ifdef USE_IMU_TELEMETRY
 extern xQueueHandle I2CEVFlagQueue;			// Buffer for I2C event interrupt that holds new event flag to wait for
