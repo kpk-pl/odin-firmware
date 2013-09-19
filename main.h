@@ -70,6 +70,7 @@ typedef enum {
 	Logging_Type_Speed = 's',			/*<< Log wheels speed */
 	Logging_Type_Events = 'e'		/*<< Log system events */
 } Logging_Type;
+#define IS_LOGGING_TYPE(x) (x == Logging_Type_Telemetry || x == Logging_Type_Speed || x == Logging_Type_Events)
 
 /*
  * Global variables, defined in main.c
@@ -103,6 +104,11 @@ extern volatile TelemetryData_Struct globalTelemetryData;
  * Global OS objects - tasks
  */
 
+#ifndef FOLLOW_TRAJECTORY
+	extern xTaskHandle driveTask;
+#else
+	extern xTaskHandle trajectoryTask;
+#endif
 #ifdef USE_IMU_TELEMETRY
 	extern xTaskHandle imuTask;
 #endif
