@@ -1,19 +1,8 @@
-#include <stm32f4xx.h>
-
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
-
-#include "arm_math.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-#include "semphr.h"
-#include "portmacro.h"
 
 #include "compilation.h"
 
@@ -26,10 +15,7 @@
 #endif
 
 #ifdef USE_IMU_TELEMETRY
-#include "i2chelpers.h"
-#include "imu.h"
-#include "vector.h"
-#include "complementary.h"
+#include "TaskIMU.h"
 #endif
 
 #include "main.h"
@@ -41,14 +27,6 @@
 
 
 /* Useful defines for motor control */
-#define M_PI 				(3.14159265358979323846f)			/*<< PI */
-#define IMPS_PER_REV 		(3592.0f)							/*<< Number of encoder impulses per wheel revolution */
-#define IMPS_TO_RAD 		(2.0f * M_PI / IMPS_PER_REV)		/*<< Coefficient to convert encoder impulses to radians */
-#define ROBOT_DIAM			(187.3f)//(187.0f)//(184.9f)		/*<< Distance between two wheels */
-#define WHEEL_DIAM 			(69.76f)//(70.0f)					/*<< Wheel diameter */
-#define IMPS_TO_MM_TRAVELED (WHEEL_DIAM * M_PI / IMPS_PER_REV)	/*<< Coefficient to convert encoder inpulses to distance traveled on wheel */
-#define RAD_TO_MM_TRAVELED	(WHEEL_DIAM / 2.0f)					/*<< Coefficient to convert radians to distance traveled on wheel */
-#define DEGREES_TO_RAD		(M_PI / 180.0f)						/*<< Coefficient to convert degrees to radians */
 #define BUF_RX_LEN 20											/*<< Maximum length of UART command */
 
 #ifdef FOLLOW_TRAJECTORY
@@ -83,34 +61,11 @@ typedef struct {
 	float RightSpeed;				/*<< Right motor's speed */
 } MotorSpeed_Struct;
 
-/* Type of telemetry update */
-typedef enum {
-	TelemetryUpdate_Source_Odometry = 0,	/*<< Update from odometry - encoders */
-#ifdef USE_IMU_TELEMETRY
-	TelemetryUpdate_Source_IMU				/*<< Update from IMU */
-#endif
-} TelemetryUpdate_Source;
-
-/* Struct to hold telemetry updates from various sources. Based on these updates, position and orientation is calculated */
-typedef struct {
-	TelemetryUpdate_Source Source;			/*<< Update source */
-	float dX;								/*<< Change in X position */
-	float dY;								/*<< Change in Y position */
-	float dO;								/*<< Change of orientation angle (radians) */
-} TelemetryUpdate_Struct;
-
-/* Struct for holding position and orientation */
-typedef struct {
-	float X;				/*<< X coordinate */
-	float Y;				/*<< Y coordinate */
-	float O;				/*<< Orientation angle coordinate in radians */
-} TelemetryData_Struct;
-
 /* Types of different logging commands */
 typedef enum {
 	Logging_Type_Telemetry = 't',		/*<< Log position and orientation when it changes */
 	Logging_Type_Speed = 's',			/*<< Log wheels speed */
-	Logging_Type_Events = 'e'			/*<< Log system events */
+	Logging_Type_Events = 'e'		/*<< Log system events */
 } Logging_Type;
 
 #define IS_LOGGING_TYPE(x) (x == Logging_Type_Telemetry || x == Logging_Type_Speed || x == Logging_Type_Events)
@@ -137,41 +92,6 @@ static void Initialize();
  */
 static void COMHandle(const char * command);
 
-/*
- * @brief Print formated text via USB and WiFi (if enabled) in thread-safe and non-blocking way.
- * This function performs the same logical action as normal printf.
- * This function uses <stdio.h> which is very resource-consuming and takes a lot of stack space
- * @param length Maximum length that will be allocated for printed string. If string is longer, then it will be truncated
- * @param format Refer to printf
- * @retval Refer to printf
- */
-static int 	safePrint(const size_t length, const char *format, ...);
-
-/* Implementation of safePrint that is safe to use in interrupts. DO NOT USE NORMAL VERSION IN ISR! */
-static int 	safePrintFromISR(const size_t length, const char *format, ...);
-
-#ifdef USE_IMU_TELEMETRY
-/* Function used by IMU software watchdog */
-static void imuWatchdogOverrun(xTimerHandle xTimer);
-#endif
-
-/* Returns current up-to-date telemetry data and saves it in provided structure. This function provides mutual exclusion and data coherency */
-static void getTelemetry(TelemetryData_Struct *data);
-
-/* Returns current telemetry data without orientation normalization to +-M_PI */
-static void getTelemetryRaw(TelemetryData_Struct *data);
-
-/* Returns normalized orientation angle provided as input in radians, output is [-PI, +PI] */
-static float normalizeOrientation(float in) { return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in)); }
-
-#ifdef USE_IMU_TELEMETRY
-/* Sets I2C peripheral */
-static void initI2CforIMU(void);
-
-/* Initializes globalMagnetometerImprov */
-static void initMagnetometerImprovInstance(float x0);
-#endif
-
 #ifdef FOLLOW_TRAJECTORY
 /*
  * @brief Function for calculating motors speed using trajectory control
@@ -192,7 +112,6 @@ void TaskPrintfConsumer(void *);		// Task handling safePrint invocations and pri
 void TaskLED(void *);					// Blinking LED task; indication that scheduler is running and no task is hang; watchdog resetting
 void TaskCommandHandler(void *);		// Task handling incomming commands
 #ifdef USE_IMU_TELEMETRY
-void TaskIMU(void *);					// Task for reading from IMU and calculating orientation based on IMU readings
 void TaskIMUMagScaling(void *);			// Task for magnetometer scaling. This is not an infinite task.
 #endif
 void TaskRC5(void *);					// Task for handling commands from RC5 remote
@@ -212,20 +131,20 @@ xQueueHandle commandQueue;				// Queue for storing commands to do
 xQueueHandle driveQueue;				// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
 #endif
 xQueueHandle motorCtrlQueue;			// One-element queue for setting wheel's speed
-xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 xQueueHandle WiFi2USBBufferQueue;		// Buffer for WiFi to USB characters
 xQueueHandle USB2WiFiBufferQueue;		// Buffer for USB to WiFi characters
+xQueueHandle commInputBufferQueue;		// Buffer for input characters
+xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 #ifdef USE_IMU_TELEMETRY
 xQueueHandle I2CEVFlagQueue;			// Buffer for I2C event interrupt that holds new event flag to wait for
 xQueueHandle magnetometerScalingQueue = NULL;	// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
 #endif
-xQueueHandle commInputBufferQueue;		// Buffer for input characters
 
 xTaskHandle printfConsumerTask;
 xTaskHandle commandHandlerTask;
 #ifdef USE_IMU_TELEMETRY
-xTaskHandle imuTask;
 xTaskHandle imuMagScalingTask;
+xTaskHandle imuTask;
 #endif
 #ifndef FOLLOW_TRAJECTORY
 xTaskHandle driveTask;
@@ -242,6 +161,7 @@ xSemaphoreHandle comUSARTTCSemaphore;			// USART_TC flag set for USB-USART
 xSemaphoreHandle comDMATCSemaphore;				// DMA TC flag set for USB-USART
 xSemaphoreHandle wifiUSARTTCSemaphore;			// USART TC flag set for WIFI-USART
 xSemaphoreHandle wifiDMATCSemaphore;			// DMA TC flag set for WIFI-USART
+xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 #ifdef USE_IMU_TELEMETRY
 xSemaphoreHandle imuPrintRequest;				// request for IMU to print most up-to-date reading
 xSemaphoreHandle imuGyroReady;					// gyro ready flag set in interrupt
@@ -250,7 +170,6 @@ xSemaphoreHandle imuMagReady;					// magnetometer ready flag set in interrupt
 xSemaphoreHandle imuI2CEV;						// semaphore to indicate correct event in I2C protocol
 xSemaphoreHandle imuMagScalingReq;				// request to perform magnetometer scaling
 #endif
-xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 
 #ifdef USE_IMU_TELEMETRY
 xTimerHandle imuWatchdogTimer;					// used by software watchdog, if it expires then I2C is reset
@@ -273,9 +192,9 @@ volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
 #ifdef USE_IMU_TELEMETRY
-volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
 volatile bool globalIMUHang = false;
 volatile bool globalDoneIMUScaling = false;
+volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
 float globalMagnetometerImprovData[721];
 arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to correctly scale magnetometer readings*/
 	.nValues = 721,
@@ -1118,214 +1037,6 @@ finish:
 }
 #endif
 
-#ifdef USE_IMU_TELEMETRY
-void TaskIMU(void * p) {
-	/* If reset needed then do reset, else setup I2C*/
-	if (globalIMUHang) {
-		/* Turn off interrupts from IMU */
-		NVIC_InitTypeDef NVIC_InitStructure;
-		NVIC_InitStructure.NVIC_IRQChannelCmd = DISABLE;
-		NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-		NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-		NVIC_InitStructure.NVIC_IRQChannel = IMU_I2C_EVENT_IRQn;
-		NVIC_Init(&NVIC_InitStructure);
-
-		I2C_SoftwareResetCmd(IMU_I2C, ENABLE);
-		/* Reset I2C - turn off the clock*/
-		IMU_I2C_CLOCK_FUN(IMU_I2C_CLOCK, DISABLE);
-
-		// Init SCL to allow bit-bang clocking
-		GPIO_InitTypeDef GPIO_InitStructure;
-		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-		GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-		GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-		GPIO_InitStructure.GPIO_Pin = IMU_GPIO_SCL_PIN;
-		GPIO_Init(IMU_GPIO, &GPIO_InitStructure);
-
-		for (uint8_t i = 0; i<40; i++) {
-			vTaskDelay(1/portTICK_RATE_MS);
-			taskENTER_CRITICAL();
-			{
-				GPIO_ToggleBits(IMU_GPIO, IMU_GPIO_SCL_PIN);
-			}
-			taskEXIT_CRITICAL();
-		}
-
-		// default-initialize I2C in case it is not after clock is turned off
-		I2C_DeInit(IMU_I2C);
-		// init I2C once again
-		initI2CforIMU();
-
-		globalIMUHang = false;
-	}
-	else {
-		initI2CforIMU();
-	}
-
-	VectorF read; 								// one reading from I2C, temporary variable
-	VectorF accSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from accelerometer
-	VectorF magSum = {0.0f, 0.0f, 0.0f};		// place for 3 readings from magnetometer
-	VectorF gyroSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from gyro
-	const VectorF front = {0.0f, -1.0f, 0.0f};	// front of the robot relative to IMU mounting
-	float estDir, angle, cangle, prev_angle;
-	Complementary_State cState;					// filter state
-	int32_t turn_counter = 0;
-	TelemetryData_Struct telemetry;
-
-	uint8_t samplingState = 7;					// state machine's state
-	ComplementaryInit(&cState, 0.93f); // 0.5s time constant with 25Hz sampling
-
-	/* Take semaphores initially, so that they can be given later */
-	xSemaphoreTake(imuPrintRequest, 0);
-	xSemaphoreTake(imuGyroReady, 0);
-	xSemaphoreTake(imuAccReady, 0);
-	xSemaphoreTake(imuMagReady, 0);
-	xSemaphoreTake(imuI2CEV, 0);
-
-	/* Reset watchdog timer to 0 effectively starting it and init all IMU modules; then stop timer */
-	xTimerReset(imuWatchdogTimer, 0);
-	InitAcc();
-	InitMag();
-	InitGyro();
-	xTimerStop(imuWatchdogTimer, 0);
-
-	/* If timer was successfully stopped then all units must have been correctly initialized, so I2C
-	 * works good and IMU task can get higher priority */
-	vTaskPrioritySet(imuTask, PRIORITY_TASK_IMU);
-
-	/* Wait a while until IMU stabilizes, TODO calibration here */
-	vTaskDelay(2000/portTICK_RATE_MS);
-
-	TelemetryUpdate_Struct update = {.dX = 0.0f, .dY = 0.0f, .Source = TelemetryUpdate_Source_IMU};
-
-	portTickType wakeTime = xTaskGetTickCount();
-
-	while (1) {
-		switch (samplingState) {
-		case 0: // all data sampled in this common point
-			VectorScale(&accSum, 0.25f, &accSum);
-			VectorScale(&magSum, 1.0f / 3.0f, &magSum);
-			VectorScale(&gyroSum, 0.25f, &gyroSum);
-
-			estDir -= gyroSum.z * 0.04f;
-
-			angle = GetHeading(&accSum, &magSum, &front);
-
-			if (globalMagnetometerScalingInProgress != ENABLE)
-				angle = normalizeOrientation(arm_linear_interp_f32(&globalMagnetometerImprov, angle));
-
-			// if abs angle > 90 deg and angle sign changes
-			if (fabsf(angle) > M_PI/2.0f && angle*prev_angle < 0.0f) {
-				if (angle > 0.0f) { // switching from -180 -> 180
-					turn_counter--;
-				}
-				else {
-					turn_counter++;
-				}
-			}
-			prev_angle = angle;
-
-			angle += 2.0f * M_PI * (float)turn_counter;
-
-			if (globalMagnetometerScalingInProgress == DISABLE) {
-				cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
-				update.dO = cangle;
-				if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
-					if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
-				}
-			}
-			else {
-				xQueueSendToBack(magnetometerScalingQueue, &angle, 0); // this queue should exist if globalMagnetometerScaling == ENABLE
-			}
-//			getTelemetry(&telemetry);
-//			safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
-
-			VectorSet(&gyroSum, 0.0f);
-			VectorSet(&magSum, 0.0f);
-			VectorSet(&accSum, 0.0f);
-			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
-			samplingState++;
-			break;
-		case 1:	// first point of 100Hz
-		case 3: // second point of 100Hz
-		case 5: // third point of 100Hz
-			xTimerReset(imuWatchdogTimer, 0);
-			ReadGyroScaled(&read);
-			xTimerStop(imuWatchdogTimer, 0);
-			VectorAdd(&gyroSum, &read, &gyroSum);
-
-			xTimerReset(imuWatchdogTimer, 0);
-			ReadAccScaled(&read);
-			xTimerStop(imuWatchdogTimer, 0);
-			VectorAdd(&accSum, &read, &accSum);
-
-			if (samplingState == 1) vTaskDelayUntil(&wakeTime, 4/portTICK_RATE_MS);
-			else if (samplingState == 3) vTaskDelayUntil(&wakeTime, 7/portTICK_RATE_MS);
-			else /* 5 */ vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
-			samplingState++;
-			break;
-		case 2: // first point of 75Hz
-		case 4: // second point of 75Hz
-			xTimerReset(imuWatchdogTimer, 0);
-			ReadMagScaled(&read);
-			xTimerStop(imuWatchdogTimer, 0);
-			VectorAdd(&magSum, &read, &magSum);
-
-			if (samplingState == 2) vTaskDelayUntil(&wakeTime, 6/portTICK_RATE_MS);
-			else /* 4 */ vTaskDelayUntil(&wakeTime, 3/portTICK_RATE_MS);
-			samplingState++;
-			break;
-		case 6: // common point: fourth of 100Hz and third of 75Hz
-		case 7: // prepare - enter state
-			xTimerReset(imuWatchdogTimer, 0);
-			ReadGyroScaled(&read);
-			xTimerStop(imuWatchdogTimer, 0);
-			VectorAdd(&gyroSum, &read, &gyroSum);
-
-			xTimerReset(imuWatchdogTimer, 0);
-			ReadAccScaled(&read);
-			xTimerStop(imuWatchdogTimer, 0);
-			VectorAdd(&accSum, &read, &accSum);
-
-			xTimerReset(imuWatchdogTimer, 0);
-			ReadMagScaled(&read);
-			xTimerStop(imuWatchdogTimer, 0);
-			VectorAdd(&magSum, &read, &magSum);
-
-			if (samplingState == 7) { 						// initialize all values to first reading
-				VectorScale(&accSum, 4.0f, &accSum);		// will be scaled back at state 0
-				VectorScale(&magSum, 3.0f, &magSum);
-				VectorScale(&gyroSum, 4.0f, &gyroSum);
-				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
-				getTelemetry(&telemetry);
-				if (!globalDoneIMUScaling)
-					initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
-				cangle = telemetry.O;								   	   // linear interpolation in this point gives 0
-				prev_angle = cangle;
-				estDir = cangle;
-			}
-
-			samplingState = 0;
-			break;
-		}
-	}
-}
-#endif /* USE_IMU_TELEMETRY */
-
-#ifdef USE_IMU_TELEMETRY
-void imuWatchdogOverrun(xTimerHandle xTimer) {
-	vTaskDelete(imuTask);
-	if (globalLogEvents) safePrint(11, "IMU hang!\n");
-
-	// indicate reset need
-	globalIMUHang = true;
-
-	// create IMU task with the lowest priority
-	xTaskCreate(TaskIMU, NULL, 400, NULL, 0, &imuTask);
-}
-#endif /* USE_IMU_TELEMETRY */
-
 void TaskPrintfConsumer(void * p) {
 	char *msg;
 
@@ -1445,10 +1156,10 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 	e_c_term = powf(e_c_term, 2.0f);
 
 	v_b = globalTrajectoryControlGains.k_x * e_x;
-	w_b = globalTrajectoryControlGains.k * trajectoryPoint->V * e_y * e_c_term + globalTrajectoryControlGains.k_s * e_s * powf(e_c_term, 2); //n = 2
+	w_b = globalTrajectoryControlGains.k * trajectoryPoint->V * e_y * e_c_term + globalTrajectoryControlGains.k_s * e_s * powf(e_c_term, 2.0f); //n = 2
 
 	//[m/s]
-	v = trajectoryPoint->V * (e_c+1) + v_b;
+	v = trajectoryPoint->V * (e_c + 1.0f) + v_b;
 	w = trajectoryPoint->W + w_b;
 
 	// [rad/s]
@@ -1945,61 +1656,9 @@ void IMUI2CEVHandler(void) {
 }
 #endif /* USE_IMU_TELEMETRY */
 
-#ifdef USE_IMU_TELEMETRY
-void initI2CforIMU(void) {
-	I2C_InitTypeDef I2C_InitStructure;
-	GPIO_InitTypeDef GPIO_InitStructure;
-	NVIC_InitTypeDef NVIC_InitStructure;
-
-	/* Configuring I2C to work with INU */
-	/* Enabling timer for GPIOs */
-	RCC_AHB1PeriphClockCmd(IMU_GPIO_CLOCK, ENABLE);
-	/* Redirecting GPIOs to alternative function */
-	GPIO_PinAFConfig(IMU_GPIO, IMU_GPIO_SCL_PINSOURCE, IMU_AF);
-	GPIO_PinAFConfig(IMU_GPIO, IMU_GPIO_SDA_PINSOURCE, IMU_AF);
-	/* Configuring GPIOs */
-	GPIO_InitStructure.GPIO_Pin = IMU_GPIO_SCL_PIN | IMU_GPIO_SDA_PIN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(IMU_GPIO, &GPIO_InitStructure);
-	/* Enabling I2C clock */
-	IMU_I2C_CLOCK_FUN(IMU_I2C_CLOCK, ENABLE);
-	/* Initializing I2C  */
-	I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;
-	I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit;
-	I2C_InitStructure.I2C_ClockSpeed = IMU_I2C_SPEED;
-	I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;
-	I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;
-	I2C_InitStructure.I2C_OwnAddress1 = 0;
-	/* Enabling clock stretching feature for greater stability */
-	I2C_StretchClockCmd(IMU_I2C, ENABLE);
-	/*
-	 * EXTI interrupts moved to appr. Init() function in imu.c
-	 * This will be done only if imu task gets started
-	 */
-	/* Interrupt for I2C event */
-	NVIC_InitStructure.NVIC_IRQChannel = IMU_I2C_EVENT_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_IMUI2CEVENT;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-	NVIC_Init(&NVIC_InitStructure);
-	/* Enable I2C */
-	I2C_Init(IMU_I2C, &I2C_InitStructure);
+float normalizeOrientation(float in) {
+	return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in));
 }
-#endif /* USE_IMU_TELEMETRY */
-
-#ifdef USE_IMU_TELEMETRY
-void initMagnetometerImprovInstance(float x0) {
-	globalMagnetometerImprov.x1 = -M_PI;
-	float offset = -M_PI - x0;
-
-	for (uint16_t i = 0; i<globalMagnetometerImprov.nValues; i++) {
-		globalMagnetometerImprovData[i] = globalMagnetometerImprov.xSpacing * i + offset; // Must be continuous, no normalization. Normalize afterwards.
-	}
-}
-#endif /* USE_IMU_TELEMETRY */
 
 void Initialize() {
 	GPIO_InitTypeDef GPIO_InitStructure;
