@@ -67,15 +67,24 @@ typedef struct {
 extern volatile FunctionalState globalLogEvents;
 extern volatile FunctionalState globalLogTelemetry;
 extern volatile FunctionalState globalLogSpeed;
-
+extern volatile FunctionalState globalSpeedRegulatorOn;
+extern volatile uint32_t globalLogSpeedCounter;
 extern volatile TelemetryData_Struct globalTelemetryData;
 
 #ifdef USE_IMU_TELEMETRY
-extern volatile bool globalIMUHang;
-extern volatile bool globalDoneIMUScaling;
-extern volatile FunctionalState globalMagnetometerScalingInProgress;
-extern float globalMagnetometerImprovData[721];
-extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
+	extern volatile bool globalIMUHang;
+	extern volatile bool globalDoneIMUScaling;
+	extern volatile FunctionalState globalMagnetometerScalingInProgress;
+	extern float globalMagnetometerImprovData[721];
+	extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
+#endif
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	extern MotorControllerParameters_Struct globalLeftMotorParams;
+	extern MotorControllerParameters_Struct globalRightMotorParams;
+	extern volatile FunctionalState globalControllerVoltageCorrection;
+#else
+	extern arm_pid_instance_f32 globalPidLeft;
+	extern arm_pid_instance_f32 globalPidRight;
 #endif
 
 /*
@@ -83,28 +92,28 @@ extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
  */
 
 #ifdef USE_IMU_TELEMETRY
-extern xTaskHandle imuTask;
+	extern xTaskHandle imuTask;
 #endif
 
 extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 #ifdef USE_IMU_TELEMETRY
-extern xSemaphoreHandle imuPrintRequest;				// request for IMU to print most up-to-date reading
-extern xSemaphoreHandle imuGyroReady;					// gyro ready flag set in interrupt
-extern xSemaphoreHandle imuAccReady;					// accelerometer ready flag set in interrupt
-extern xSemaphoreHandle imuMagReady;					// magnetometer ready flag set in interrupt
-extern xSemaphoreHandle imuI2CEV;						// semaphore to indicate correct event in I2C protocol
-extern xSemaphoreHandle imuMagScalingReq;				// request to perform magnetometer scaling
+	extern xSemaphoreHandle imuPrintRequest;			// request for IMU to print most up-to-date reading
+	extern xSemaphoreHandle imuGyroReady;				// gyro ready flag set in interrupt
+	extern xSemaphoreHandle imuAccReady;				// accelerometer ready flag set in interrupt
+	extern xSemaphoreHandle imuMagReady;				// magnetometer ready flag set in interrupt
+	extern xSemaphoreHandle imuI2CEV;					// semaphore to indicate correct event in I2C protocol
+	extern xSemaphoreHandle imuMagScalingReq;			// request to perform magnetometer scaling
 #endif
 
 #ifdef USE_IMU_TELEMETRY
-extern xTimerHandle imuWatchdogTimer;					// used by software watchdog, if it expires then I2C is reset
+	extern xTimerHandle imuWatchdogTimer;				// used by software watchdog, if it expires then I2C is reset
 #endif
 
-extern xQueueHandle motorCtrlQueue;			// One-element queue for setting wheel's speed
-extern xQueueHandle telemetryQueue;			// Queue for sending updates to telemetry task. This queue holds updates from all available sources
+extern xQueueHandle motorCtrlQueue;						// One-element queue for setting wheel's speed
+extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 #ifdef USE_IMU_TELEMETRY
-extern xQueueHandle I2CEVFlagQueue;			// Buffer for I2C event interrupt that holds new event flag to wait for
-extern xQueueHandle magnetometerScalingQueue;	// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
+	extern xQueueHandle I2CEVFlagQueue;					// Buffer for I2C event interrupt that holds new event flag to wait for
+	extern xQueueHandle magnetometerScalingQueue;		// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
 #endif
 
 /*
