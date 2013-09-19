@@ -761,11 +761,13 @@ void TaskTrajectory(void *p) {
 		else if (usedSpace >= 0.45f) requestNumber = 0;
 
 		TrajectoryPoint_Ptr point = TBgetNextPoint();
-		if (point == NULL) continue;
-
-		getTelemetry(&telemetry);
-
-		calculateTrajectoryControll(&telemetry, point, &motorSpeed);
+		if (point != NULL) {
+			getTelemetry(&telemetry);
+			calculateTrajectoryControll(&telemetry, point, &motorSpeed);
+		}
+		else {
+			motorSpeed.LeftSpeed = motorSpeed.RightSpeed = 0.0f;
+		}
 
 		xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
 	}
@@ -1423,8 +1425,8 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 	float v_b, w_b;
 	float v, w;
 
-	float diff_x  = trajectoryPoint->X  - currentPosition->X;
-	float diff_y  = trajectoryPoint->Y  - currentPosition->Y;
+	float diff_x  = trajectoryPoint->X * 1e4f - currentPosition->X; // trajectoryPoint is in metres but here mm are needed
+	float diff_y  = trajectoryPoint->Y * 1e4f - currentPosition->Y;
 	//float diff_fi = trajectoryPoint->O - currentPosition->O; // unused?
 
 	// buehuehuehue :D anyway, is float equivalent to float32_t???
