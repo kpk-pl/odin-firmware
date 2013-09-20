@@ -16,6 +16,8 @@
 #include "TaskPrintfConsumer.h"
 #include "TaskCommandHandler.h"
 #include "TaskLED.h"
+#include "TaskUSB2WiFiBridge.h"
+#include "TaskInputBuffer.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
 #include "TaskIMUMagScaling.h"
@@ -25,10 +27,6 @@
 #include "priorities.h"
 #include "hardware.h"
 #include "hwinterface.h"
-
-
-/* Useful defines for motor control */
-#define BUF_RX_LEN 20											/*<< Maximum length of UART command */
 
 #ifdef FOLLOW_TRAJECTORY
 /* Typedef for gains used by trajectory controller */
@@ -56,18 +54,6 @@ typedef struct {
 } DriveCommand_Struct;
 #endif
 
-/* Types of input's character source */
-typedef enum {
-	PrintSource_Type_USB = 1,
-	PrintSource_Type_WiFi = 2
-} PrintSource_Type;
-
-/* Struct to hold one input char with it's source */
-typedef struct {
-	char Input;
-	PrintSource_Type Source;
-} PrintInput_Struct;
-
 /* Initialize all hardware. THIS FUNCTION DISABLES INTERRUPTS AND DO NOT ENABLES THEM AGAIN */
 static void Initialize();
 
@@ -89,8 +75,6 @@ void TaskDrive(void *);					// Task controlling trajectory. Issues wheel's speed
 #else
 void TaskTrajectory(void *);			// Task for controlling trajectory using Ferdek's regulator
 #endif
-void TaskUSBWiFiBridge(void *);			// Task for USB-WiFi bridge to transfer commands between two UARTs
-void TaskInputBuffer(void *);			// Task to handle input characters from any source - it makes possible to set very high transfer speeds
 
 xQueueHandle printfQueue;
 xQueueHandle commandQueue;
@@ -98,9 +82,9 @@ xQueueHandle commandQueue;
 xQueueHandle driveQueue;				// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
 #endif
 xQueueHandle motorCtrlQueue;
-xQueueHandle WiFi2USBBufferQueue;		// Buffer for WiFi to USB characters
-xQueueHandle USB2WiFiBufferQueue;		// Buffer for USB to WiFi characters
-xQueueHandle commInputBufferQueue;		// Buffer for input characters
+xQueueHandle WiFi2USBBufferQueue;
+xQueueHandle USB2WiFiBufferQueue;
+xQueueHandle commInputBufferQueue;
 xQueueHandle telemetryQueue;
 #ifdef USE_IMU_TELEMETRY
 xQueueHandle I2CEVFlagQueue;
@@ -272,61 +256,6 @@ int main(void)
 
 	vTaskStartScheduler();
     while(1);
-}
-
-void TaskInputBuffer(void * p) {
-	PrintInput_Struct newInput;
-
-	bool incoming[2] = {false, false};
-	char RXBUF[2][BUF_RX_LEN+1];
-	uint8_t RXBUFPOS[2] = {0, 0};
-	uint8_t i;
-
-	while(1) {
-		/* Block until new command is available */
-		xQueueReceive(commInputBufferQueue, &newInput, portMAX_DELAY);
-
-		/* Check source */
-		switch (newInput.Source) {
-		case PrintSource_Type_USB:
-			i = 0;
-			break;
-		case PrintSource_Type_WiFi:
-			i = 1;
-			break;
-		default: break;
-		}
-
-		switch (newInput.Input) {
-		case '<':	// msg begin character
-			RXBUFPOS[i] = 0;
-			incoming[i] = true;
-			break;
-		case '>':	// msg end character
-			if (incoming[i]) {
-				RXBUF[i][RXBUFPOS[i]++] = '\0';
-				incoming[i] = false;
-
-				char * ptr = (char *)pvPortMalloc(RXBUFPOS[i]*sizeof(char));
-				strcpy(ptr, (const char*)RXBUF[i]);
-
-				RXBUFPOS[i] = 0;
-
-				portBASE_TYPE contextSwitch = pdFALSE;
-				if (xQueueSendToBackFromISR(commandQueue, &ptr, &contextSwitch) == errQUEUE_FULL) {
-					vPortFree(ptr);
-				}
-				portEND_SWITCHING_ISR(contextSwitch);
-			}
-			break;
-		default:
-			if (incoming[i]) {
-				if (RXBUFPOS[i] < BUF_RX_LEN)
-					RXBUF[i][RXBUFPOS[i]++] = newInput.Input;
-			}
-			break;
-		}
-	}
 }
 
 void getTelemetry(TelemetryData_Struct *data) {
@@ -615,31 +544,6 @@ void TaskTrajectory(void *p) {
 	}
 }
 #endif /* FOLLOW_TRAJECTORY */
-
-void TaskUSBWiFiBridge(void *p) {
-	WiFi2USBBufferQueue = xQueueCreate(50, sizeof(char));
-	USB2WiFiBufferQueue = xQueueCreate(50, sizeof(char));
-
-	xQueueSetHandle queueSet = xQueueCreateSet(100);
-	xQueueAddToSet((xQueueSetMemberHandle)WiFi2USBBufferQueue, queueSet);
-	xQueueAddToSet((xQueueSetMemberHandle)USB2WiFiBufferQueue, queueSet);
-
-	char byte;
-
-	while(1) {
-		xQueueSetMemberHandle activeQueue = xQueueSelectFromSet(queueSet, portMAX_DELAY);
-		if (activeQueue == WiFi2USBBufferQueue) {
-			xQueueReceive(WiFi2USBBufferQueue, &byte, 0);
-			while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
-			USART_SendData(COM_USART, byte);
-		}
-		else {
-			xQueueReceive(USB2WiFiBufferQueue, &byte, 0);
-			while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
-			USART_SendData(WIFI_USART, byte);
-		}
-	}
-}
 
 #ifdef FOLLOW_TRAJECTORY
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
