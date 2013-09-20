@@ -1,6 +1,3 @@
-#include "compilation.h"
-#ifndef FOLLOW_TRAJECTORY
-
 #include "TaskDrive.h"
 #include "main.h"
 #include "hwinterface.h"
@@ -23,7 +20,7 @@ static void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime
  */
 static void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime);
 /**
- * \brief Turns or drives over circular trajectory.
+ * \brief Turns or drives over circular trajectory. Note that it cannot turn by more than 180 degrees ralative.
  * @param command Drive command pointer
  * @param wakeTime Wake time from calling function, allowing to synchronize time between calls
  */
@@ -277,5 +274,3 @@ void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
 }
-
-#endif /* FOLLOW_TRAJECTORY */

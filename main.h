@@ -87,25 +87,6 @@ typedef struct {
 	PrintSource_Type Source;
 } PrintInput_Struct;
 
-#ifndef FOLLOW_TRAJECTORY
-/* Type of drive command to perform */
-typedef enum {
-	DriveCommand_Type_Line =  'l',		/*<< Drive straight line; need one parameter - length */
-	DriveCommand_Type_Point = 'p',		/*<< Drive to point; need two parameters - X and Y coordinates */
-	DriveCommand_Type_Arc =   'a',		/*<< Drive around an arc; need two parameters - radius and arc length in degrees */
-	DriveCommand_Type_Angle = 'd'		/*<< Turn by an angle; need two parameters - one indicating wheather it is relative (0) or absolute (1) angle and second being an angle in degrees */
-} DriveCommand_Type;
-
-/* Struct to hold driving information needed by trajectory controller */
-typedef struct {
-	DriveCommand_Type Type;			/*<< Command type, one of DriveCommand_Type */
-	bool UsePen;					/*<< If true then pen will be held down, up otherwise */
-	float Speed;					/*<< Robot's speed, only positive values */
-	float Param1;					/*<< Command param #1 */
-	float Param2;					/*<< Command param #2 */
-} DriveCommand_Struct;
-#endif
-
 /*
  * Global variables, defined in main.c
  */
