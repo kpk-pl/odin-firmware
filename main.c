@@ -6,10 +6,6 @@
 
 #include "compilation.h"
 
-#ifdef FOLLOW_TRAJECTORY
-#include "pointsBuffer.h"
-#endif
-
 #include "TaskTelemetry.h"
 #include "TaskRC5.h"
 #include "TaskMotorCtrl.h"
@@ -22,64 +18,24 @@
 #include "TaskIMU.h"
 #include "TaskIMUMagScaling.h"
 #endif
+#ifdef FOLLOW_TRAJECTORY
+#include "TaskTrajectory.h"
+#else
+#include "TaskDrive.h"
+#endif
 
 #include "main.h"
 #include "priorities.h"
 #include "hardware.h"
 #include "hwinterface.h"
 
-#ifdef FOLLOW_TRAJECTORY
-/* Typedef for gains used by trajectory controller */
-typedef struct {
-	float k_x;
-	float k;
-	float k_s;
-} TrajectoryControlerGains_Struct;
-#else
-/* Type of drive command to perform */
-typedef enum {
-	DriveCommand_Type_Line =  'l',		/*<< Drive straight line; need one parameter - length */
-	DriveCommand_Type_Point = 'p',		/*<< Drive to point; need two parameters - X and Y coordinates */
-	DriveCommand_Type_Arc =   'a',		/*<< Drive around an arc; need two parameters - radius and arc length in degrees */
-	DriveCommand_Type_Angle = 'd'		/*<< Turn by an angle; need two parameters - one indicating wheather it is relative (0) or absolute (1) angle and second being an angle in degrees */
-} DriveCommand_Type;
-
-/* Struct to hold driving information needed by trajectory controller */
-typedef struct {
-	DriveCommand_Type Type;			/*<< Command type, one of DriveCommand_Type */
-	bool UsePen;					/*<< If true then pen will be held down, up otherwise */
-	float Speed;					/*<< Robot's speed, only positive values */
-	float Param1;					/*<< Command param #1 */
-	float Param2;					/*<< Command param #2 */
-} DriveCommand_Struct;
-#endif
-
 /* Initialize all hardware. THIS FUNCTION DISABLES INTERRUPTS AND DO NOT ENABLES THEM AGAIN */
 static void Initialize();
-
-#ifdef FOLLOW_TRAJECTORY
-/*
- * @brief Function for calculating motors speed using trajectory control
- * @param currentPosition Current position from telemetry
- * @param trajectoryPoint Target position and velocities
- * @param outputSpeeds Calculated speeds
- * @retval none
- */
-void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
-								 TrajectoryPoint_Ptr trajectoryPoint,
-								 MotorSpeed_Struct * outputSpeeds);
-#endif
-
-#ifndef FOLLOW_TRAJECTORY
-void TaskDrive(void *);					// Task controlling trajectory. Issues wheel's speed commands, checks if target is reached, calculates best route
-#else
-void TaskTrajectory(void *);			// Task for controlling trajectory using Ferdek's regulator
-#endif
 
 xQueueHandle printfQueue;
 xQueueHandle commandQueue;
 #ifndef FOLLOW_TRAJECTORY
-xQueueHandle driveQueue;				// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
+xQueueHandle driveQueue;
 #endif
 xQueueHandle motorCtrlQueue;
 xQueueHandle WiFi2USBBufferQueue;
@@ -108,22 +64,22 @@ xTaskHandle telemetryTask;
 xTaskHandle USBWiFiBridgeTask;
 xTaskHandle commInputBufferTask;
 
-xSemaphoreHandle comUSARTTCSemaphore;			// USART_TC flag set for USB-USART
-xSemaphoreHandle comDMATCSemaphore;				// DMA TC flag set for USB-USART
-xSemaphoreHandle wifiUSARTTCSemaphore;			// USART TC flag set for WIFI-USART
-xSemaphoreHandle wifiDMATCSemaphore;			// DMA TC flag set for WIFI-USART
-xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
+xSemaphoreHandle comUSARTTCSemaphore;
+xSemaphoreHandle comDMATCSemaphore;
+xSemaphoreHandle wifiUSARTTCSemaphore;
+xSemaphoreHandle wifiDMATCSemaphore;
+xSemaphoreHandle rc5CommandReadySemaphore;
 #ifdef USE_IMU_TELEMETRY
-xSemaphoreHandle imuPrintRequest;				// request for IMU to print most up-to-date reading
-xSemaphoreHandle imuGyroReady;					// gyro ready flag set in interrupt
-xSemaphoreHandle imuAccReady;					// accelerometer ready flag set in interrupt
-xSemaphoreHandle imuMagReady;					// magnetometer ready flag set in interrupt
-xSemaphoreHandle imuI2CEV;						// semaphore to indicate correct event in I2C protocol
-xSemaphoreHandle imuMagScalingReq;				// request to perform magnetometer scaling
+xSemaphoreHandle imuPrintRequest;
+xSemaphoreHandle imuGyroReady;
+xSemaphoreHandle imuAccReady;
+xSemaphoreHandle imuMagReady;
+xSemaphoreHandle imuI2CEV;
+xSemaphoreHandle imuMagScalingReq;
 #endif
 
 #ifdef USE_IMU_TELEMETRY
-xTimerHandle imuWatchdogTimer;					// used by software watchdog, if it expires then I2C is reset
+xTimerHandle imuWatchdogTimer;
 #endif
 
 /*
@@ -280,313 +236,6 @@ void getTelemetryRaw(TelemetryData_Struct *data) {
 	taskEXIT_CRITICAL();
 }
 
-#ifndef FOLLOW_TRAJECTORY
-void TaskDrive(void * p) {
-	portTickType wakeTime = xTaskGetTickCount();
-	DriveCommand_Struct * command;
-	TelemetryData_Struct telemetryData, begTelData;
-	MotorSpeed_Struct motorsSpeed;
-
-	/* Base time period for motors regulators */
-	const uint16_t baseDelayMs = 10;
-
-	while(1) {
-		/* Take one command from queue */
-		xQueueReceive(driveQueue, &command, portMAX_DELAY);
-
-		/* Check if speed is not less than zero */
-		if (command->Speed >= 0.0f) {
-			/* Handle pen */
-			if (command->UsePen) setPenDown();
-			else setPenUp();
-
-			/* Recalculate speed from m/s to rad/s */
-			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
-
-			if (command->Type == DriveCommand_Type_Line) {
-				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
-
-				const float breakingDistance = 100.0f;
-				const float dist = fabsf(command->Param1);
-				const float maxSpeed = copysignf(1.0f, (command->Param1)) * command->Speed;
-
-				/* Get starting point telemetry data */
-				getTelemetry(&begTelData);
-
-				/* Start driving at max speed if far away from target */
-				if (dist > breakingDistance) {
-					/* Set motors speed allowing negative speed */
-					motorsSpeed.RightSpeed = motorsSpeed.LeftSpeed = maxSpeed;
-					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-
-					/* Wait in periods until position is too close to target position */
-					while(1) {
-						getTelemetry(&telemetryData);
-						if (hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y) >= dist - breakingDistance)
-							break;
-						vTaskDelayUntil(&wakeTime, 3*baseDelayMs/portTICK_RATE_MS);
-					}
-				}
-
-				/* Regulate speed to gently approach target with desired accuracy */
-				while(1) {
-					/* Read current position */
-					getTelemetry(&telemetryData);
-
-					/* Calculate remaining distance */
-					float rem = dist - hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y);
-
-					/* Finish if distance is very very small */
-					if (rem < 0.5f) break;
-
-					/* Set motors speed constantly as robot approaches target distance */
-					motorsSpeed.RightSpeed = motorsSpeed.LeftSpeed = maxSpeed * (0.8f * rem / breakingDistance + 0.2f);
-					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-
-					/* Wait for a bit */
-					vTaskDelayUntil(&wakeTime, baseDelayMs/portTICK_RATE_MS);
-				}
-			}
-			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
-				if (globalLogEvents) {
-					if (command->Type == DriveCommand_Type_Angle) {
-						safePrint(30, "Turning by %.2f %s\n", command->Param2, (command->Param1 < 0.5f ? "relative" : "absolute"));
-					}
-					else {
-						safePrint(58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
-					}
-				}
-
-				const float breakingAngle = 45.0f * DEGREES_TO_RAD;
-
-				/* Get starting point telemetry data */
-				getTelemetry(&begTelData);
-
-				/* Calculate target orientation */
-				float targetO = command->Param2 * DEGREES_TO_RAD;
-				if (command->Param1 < 0.5f || command->Type == DriveCommand_Type_Arc)
-					targetO += begTelData.O;
-				targetO = normalizeOrientation(targetO);
-
-				/* Calculate direction; dir == 1 - turning left */
-				int8_t dir = ((targetO > begTelData.O && fabsf(targetO - begTelData.O) < M_PI) || (targetO < begTelData.O && fabsf(begTelData.O - targetO) > M_PI) ? 1 : -1);
-
-				/* Compute maximal speeds for both wheels */
-				const float maxLeft = command->Speed * (command->Type == DriveCommand_Type_Angle ?
-						(float)dir * -1.0f :
-						1.0f - (float)dir*ROBOT_DIAM/(2.0f*command->Param1) );
-				const float maxRight = command->Speed * (command->Type == DriveCommand_Type_Angle ?
-						(float)dir :
-						1.0f + (float)dir*ROBOT_DIAM/(2.0f*command->Param1) );
-
-				/* Turn with maximum speed as long as turning angle is big */
-				if (fabsf(normalizeOrientation(targetO - begTelData.O)) > breakingAngle) {
-					/* Set maximum speed */
-					motorsSpeed.LeftSpeed = maxLeft;
-					motorsSpeed.RightSpeed = maxRight;
-					/* Order speeds */
-					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-
-					/* Wait for reaching close proximity of target angle */
-					while(1) {
-						getTelemetry(&telemetryData);
-						if (fabsf(normalizeOrientation(targetO - telemetryData.O)) < breakingAngle) break;
-						vTaskDelayUntil(&wakeTime, 3*baseDelayMs/portTICK_RATE_MS);
-					}
-				}
-
-				/* Regulate speed to allow gentle target angle approaching with desired accuracy */
-				while(1) {
-					/* Read current orientation */
-					getTelemetry(&telemetryData);
-					/* Compute angle distance to target */
-					float dist = fabsf(normalizeOrientation(telemetryData.O - targetO));
-
-					/* End if distance is very small or direction changes */
-					if (dist < 0.25f * DEGREES_TO_RAD ||
-							((targetO > telemetryData.O && targetO - telemetryData.O < M_PI) ||
-							 (targetO < telemetryData.O && telemetryData.O - targetO > M_PI) ? 1 : -1) != dir)
-						break;
-
-					/* Calculate speeds */
-					motorsSpeed.LeftSpeed = maxLeft * (0.9f * dist / breakingAngle + 0.1f);
-					motorsSpeed.RightSpeed = maxRight * (0.9f * dist / breakingAngle + 0.1f);
-
-					/* Set new speeds */
-					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-
-					/* Wait a little */
-					vTaskDelayUntil(&wakeTime, baseDelayMs/portTICK_RATE_MS);
-				}
-				xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-			}
-			else if (command->Type == DriveCommand_Type_Point) {
-				if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
-
-				/* First of all, turn to target point with desired accuracy */
-				/* Get starting point telemetry data */
-				getTelemetry(&begTelData);
-
-				/* Calculate target orientation */
-				float targetO = normalizeOrientation(atan2f(command->Param2 - begTelData.Y, command->Param1 - begTelData.X));
-				/* Calculate direction; dir == 1 - turning left */
-				int8_t dir = ((targetO > begTelData.O && fabsf(targetO - begTelData.O) < M_PI) || (targetO < begTelData.O && fabsf(begTelData.O - targetO) > M_PI) ? 1 : -1);
-
-				/* Start turning if targetO is bigger than threshold */
-				if (fabsf(targetO) > 20.0f * DEGREES_TO_RAD) {
-					/* Compute speeds */
-					motorsSpeed.LeftSpeed = (float)dir * (-1.0f) * command->Speed;
-					motorsSpeed.RightSpeed = -motorsSpeed.LeftSpeed;
-					/* Order speeds */
-					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-
-					/* Wait for angle distance to become small enough */
-					while(1) {
-						/* Read current telemetry data */
-						getTelemetry(&telemetryData);
-
-						/* End turning if close enough to target angle */
-						if (fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) < 20.0f * DEGREES_TO_RAD)
-							break;
-
-						/* Wait for a while */
-						vTaskDelayUntil(&wakeTime, 3*baseDelayMs/portTICK_RATE_MS);
-					}
-				}
-
-				/* Start regulator - driving to point requires constant speeds updates */
-				while(1) {
-					/* Read current position */
-					getTelemetry(&telemetryData);
-
-					/* Finish up if target is really close or robot's missing the target */
-					float d = hypotf(telemetryData.X - command->Param1, telemetryData.Y - command->Param2);
-					if (d < 1.0f || fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) > 60.0f * DEGREES_TO_RAD)
-						break;
-
-					/*
-					 * Compute regulator values based on Papers-RAS_Blazic_2011.pdf ignoring position regulation
-					 * Applying slight modifications to 'v' and 'w', saturating
-					 */
-					const float k = 0.0003f;						/*<< Gain for turning */
-					float dx = command->Param1 - telemetryData.X;	/*<< Distance to target perpendicular to global coordinate X */
-					float dy = command->Param2 - telemetryData.Y;	/*<< Distance to target parallel to global coordinate Y */
-					float cosfi = cosf(telemetryData.O);			/*<< Cos of robot orientation angle */
-					float sinfi = sinf(telemetryData.O);			/*<< Sin of robot orientation angle */
-					//float ex = cosfi * dx + sinfi * dy;				/*<< Distance to target perpendicular to robot wheel axis */
-					float ey = -sinfi * dx + cosfi * dy;			/*<< Distance to target parallel to robot wheel axis */
-					float v = command->Speed;						/*<< Linear speed - always maximum */
-					float w = k * command->Speed * ey;				/*<< Rotational speed - depending on ey; the bigger turn to make the bigger the speed is */
-
-					/* Begin to slow down if closer than 5cm from target */
-					if (d < 50.0f) {
-						v = v * (0.7f * d / 50.0f + 0.3f);
-					}
-
-					/* Limit maximal rotational speed to half of maximum speed */
-					if (fabsf(w) > command->Speed / 2.0f) {
-						w = copysignf(command->Speed / 2.0f, w);
-					}
-
-					/* Set wheels speeds */
-					motorsSpeed.LeftSpeed =  v - w * ROBOT_DIAM / 2.0f;
-					motorsSpeed.RightSpeed = v + w * ROBOT_DIAM / 2.0f;
-					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-
-					/* Wait a moment */
-					vTaskDelayUntil(&wakeTime, baseDelayMs/portTICK_RATE_MS);
-				}
-			}
-		}
-		else { /* command->Speed < 0.0f */
-			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");
-		}
-
-		/* Stop motors if no other command available */
-		if (uxQueueMessagesWaiting(driveQueue) == 0) {
-			motorsSpeed.LeftSpeed = motorsSpeed.RightSpeed = 0.0f;
-			xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
-		}
-
-		/* Free space where the command was held */
-		vPortFree(command);
-	}
-}
-#endif /* FOLLOW_TRAJECTORY */
-
-#ifdef FOLLOW_TRAJECTORY
-void TaskTrajectory(void *p) {
-	TelemetryData_Struct telemetry;
-	MotorSpeed_Struct motorSpeed;
-	portTickType wakeTime = xTaskGetTickCount();
-	uint8_t requestNumber = 2;
-
-	while(1) {
-		/* Wait for next sampling period */
-		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
-
-		float usedSpace = TBgetUsedSpace();
-		if (usedSpace < 0.1f && requestNumber == 2) { safePrint(35, "<#Please send %d more points#>\n", 7*TBgetSize()/8); requestNumber = 3;}
-		else if (usedSpace < 0.2f && requestNumber == 1) { safePrint(35, "<#Please send %d more points#>\n", 3*TBgetSize()/4); requestNumber = 2;}
-		else if (usedSpace < 0.45f && requestNumber == 0) { safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2); requestNumber = 1;}
-		else if (usedSpace >= 0.45f) requestNumber = 0;
-
-		TrajectoryPoint_Ptr point = TBgetNextPoint();
-		if (point != NULL) {
-			getTelemetry(&telemetry);
-			calculateTrajectoryControll(&telemetry, point, &motorSpeed);
-		}
-		else {
-			motorSpeed.LeftSpeed = motorSpeed.RightSpeed = 0.0f;
-		}
-
-		//xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
-	}
-}
-#endif /* FOLLOW_TRAJECTORY */
-
-#ifdef FOLLOW_TRAJECTORY
-void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
-								 TrajectoryPoint_Ptr trajectoryPoint,
-								 MotorSpeed_Struct * outputSpeeds)
-{
-	float s, c, s_r, c_r;
-	float e_x, e_y, e_s, e_c, e_c_term;
-	float v_b, w_b;
-	float v, w;
-
-	float diff_x  = trajectoryPoint->X * 1e4f - currentPosition->X; // trajectoryPoint is in metres but here mm are needed
-	float diff_y  = trajectoryPoint->Y * 1e4f - currentPosition->Y;
-	//float diff_fi = trajectoryPoint->O - currentPosition->O; // unused?
-
-	// buehuehuehue :D anyway, is float equivalent to float32_t???
-	arm_sin_cos_f32(currentPosition->O, &s, &c);
-	arm_sin_cos_f32(trajectoryPoint->O, &s_r, &c_r);
-
-	//calculate error model
-	e_x =  c * diff_x + s * diff_y;
-	e_y = -s * diff_x + c * diff_y;
-	e_s = s_r * c - c_r * s;
-	e_c = c_r * c + s_r * s - 1.0f;
-
-	//calculate feedback signal for n=2 and a=7 (see whitepaper)
-
-	e_c_term = 1.0f + e_c / 7.0f; //a = 7;
-	e_c_term = powf(e_c_term, 2.0f);
-
-	v_b = globalTrajectoryControlGains.k_x * e_x;
-	w_b = globalTrajectoryControlGains.k * trajectoryPoint->V * e_y * e_c_term + globalTrajectoryControlGains.k_s * e_s * powf(e_c_term, 2.0f); //n = 2
-
-	//[m/s]
-	v = trajectoryPoint->V * (e_c + 1.0f) + v_b;
-	w = trajectoryPoint->W + w_b;
-
-	// [rad/s]
-	outputSpeeds->LeftSpeed  = (v - w * ROBOT_DIAM / (1000.0f * 2.0f)) / WHEEL_DIAM;
-	outputSpeeds->RightSpeed = (v + w * ROBOT_DIAM / (1000.0f * 2.0f)) / WHEEL_DIAM;
-}
-#endif
-
 void reportStackUsage() {
 	safePrint(45, "High water mark of stack usage (free space)\n");
 	safePrint(28, "printfConsumerTask: %d\n", uxTaskGetStackHighWaterMark(printfConsumerTask));
@@ -669,13 +318,6 @@ void WiFiDMANotify() {
 	DMA_ClearFlag(WIFI_TX_DMA_STREAM, WIFI_TX_DMA_FLAG_TCIF);
 	portEND_SWITCHING_ISR(contextSwitch);
 }
-
-#ifdef FOLLOW_TRAJECTORY
-/* ISR for WiFi DMA Rx */
-void RawStreamDMAIncoming(void) {
-	TBDMATransferCompletedSlot();
-}
-#endif
 
 #ifdef USE_IMU_TELEMETRY
 /* ISR for EXTI Gyro */

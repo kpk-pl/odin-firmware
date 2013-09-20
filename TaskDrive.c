@@ -1,0 +1,240 @@
+#include "compilation.h"
+#ifndef FOLLOW_TRAJECTORY
+
+#include "TaskDrive.h"
+#include "main.h"
+#include "hwinterface.h"
+
+void TaskDrive(void * p) {
+	portTickType wakeTime = xTaskGetTickCount();
+	DriveCommand_Struct * command;
+	TelemetryData_Struct telemetryData, begTelData;
+	MotorSpeed_Struct motorsSpeed;
+
+	/* Base time period for motors regulators */
+	const uint16_t baseDelayMs = 10;
+
+	while(1) {
+		/* Take one command from queue */
+		xQueueReceive(driveQueue, &command, portMAX_DELAY);
+
+		/* Check if speed is not less than zero */
+		if (command->Speed >= 0.0f) {
+			/* Handle pen */
+			if (command->UsePen) setPenDown();
+			else setPenUp();
+
+			/* Recalculate speed from m/s to rad/s */
+			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
+
+			if (command->Type == DriveCommand_Type_Line) {
+				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
+
+				const float breakingDistance = 100.0f;
+				const float dist = fabsf(command->Param1);
+				const float maxSpeed = copysignf(1.0f, (command->Param1)) * command->Speed;
+
+				/* Get starting point telemetry data */
+				getTelemetry(&begTelData);
+
+				/* Start driving at max speed if far away from target */
+				if (dist > breakingDistance) {
+					/* Set motors speed allowing negative speed */
+					motorsSpeed.RightSpeed = motorsSpeed.LeftSpeed = maxSpeed;
+					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+					/* Wait in periods until position is too close to target position */
+					while(1) {
+						getTelemetry(&telemetryData);
+						if (hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y) >= dist - breakingDistance)
+							break;
+						vTaskDelayUntil(&wakeTime, 3*baseDelayMs/portTICK_RATE_MS);
+					}
+				}
+
+				/* Regulate speed to gently approach target with desired accuracy */
+				while(1) {
+					/* Read current position */
+					getTelemetry(&telemetryData);
+
+					/* Calculate remaining distance */
+					float rem = dist - hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y);
+
+					/* Finish if distance is very very small */
+					if (rem < 0.5f) break;
+
+					/* Set motors speed constantly as robot approaches target distance */
+					motorsSpeed.RightSpeed = motorsSpeed.LeftSpeed = maxSpeed * (0.8f * rem / breakingDistance + 0.2f);
+					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+					/* Wait for a bit */
+					vTaskDelayUntil(&wakeTime, baseDelayMs/portTICK_RATE_MS);
+				}
+			}
+			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
+				if (globalLogEvents) {
+					if (command->Type == DriveCommand_Type_Angle) {
+						safePrint(30, "Turning by %.2f %s\n", command->Param2, (command->Param1 < 0.5f ? "relative" : "absolute"));
+					}
+					else {
+						safePrint(58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
+					}
+				}
+
+				const float breakingAngle = 45.0f * DEGREES_TO_RAD;
+
+				/* Get starting point telemetry data */
+				getTelemetry(&begTelData);
+
+				/* Calculate target orientation */
+				float targetO = command->Param2 * DEGREES_TO_RAD;
+				if (command->Param1 < 0.5f || command->Type == DriveCommand_Type_Arc)
+					targetO += begTelData.O;
+				targetO = normalizeOrientation(targetO);
+
+				/* Calculate direction; dir == 1 - turning left */
+				int8_t dir = ((targetO > begTelData.O && fabsf(targetO - begTelData.O) < M_PI) || (targetO < begTelData.O && fabsf(begTelData.O - targetO) > M_PI) ? 1 : -1);
+
+				/* Compute maximal speeds for both wheels */
+				const float maxLeft = command->Speed * (command->Type == DriveCommand_Type_Angle ?
+						(float)dir * -1.0f :
+						1.0f - (float)dir*ROBOT_DIAM/(2.0f*command->Param1) );
+				const float maxRight = command->Speed * (command->Type == DriveCommand_Type_Angle ?
+						(float)dir :
+						1.0f + (float)dir*ROBOT_DIAM/(2.0f*command->Param1) );
+
+				/* Turn with maximum speed as long as turning angle is big */
+				if (fabsf(normalizeOrientation(targetO - begTelData.O)) > breakingAngle) {
+					/* Set maximum speed */
+					motorsSpeed.LeftSpeed = maxLeft;
+					motorsSpeed.RightSpeed = maxRight;
+					/* Order speeds */
+					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+					/* Wait for reaching close proximity of target angle */
+					while(1) {
+						getTelemetry(&telemetryData);
+						if (fabsf(normalizeOrientation(targetO - telemetryData.O)) < breakingAngle) break;
+						vTaskDelayUntil(&wakeTime, 3*baseDelayMs/portTICK_RATE_MS);
+					}
+				}
+
+				/* Regulate speed to allow gentle target angle approaching with desired accuracy */
+				while(1) {
+					/* Read current orientation */
+					getTelemetry(&telemetryData);
+					/* Compute angle distance to target */
+					float dist = fabsf(normalizeOrientation(telemetryData.O - targetO));
+
+					/* End if distance is very small or direction changes */
+					if (dist < 0.25f * DEGREES_TO_RAD ||
+							((targetO > telemetryData.O && targetO - telemetryData.O < M_PI) ||
+							 (targetO < telemetryData.O && telemetryData.O - targetO > M_PI) ? 1 : -1) != dir)
+						break;
+
+					/* Calculate speeds */
+					motorsSpeed.LeftSpeed = maxLeft * (0.9f * dist / breakingAngle + 0.1f);
+					motorsSpeed.RightSpeed = maxRight * (0.9f * dist / breakingAngle + 0.1f);
+
+					/* Set new speeds */
+					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+					/* Wait a little */
+					vTaskDelayUntil(&wakeTime, baseDelayMs/portTICK_RATE_MS);
+				}
+				xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+			}
+			else if (command->Type == DriveCommand_Type_Point) {
+				if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
+
+				/* First of all, turn to target point with desired accuracy */
+				/* Get starting point telemetry data */
+				getTelemetry(&begTelData);
+
+				/* Calculate target orientation */
+				float targetO = normalizeOrientation(atan2f(command->Param2 - begTelData.Y, command->Param1 - begTelData.X));
+				/* Calculate direction; dir == 1 - turning left */
+				int8_t dir = ((targetO > begTelData.O && fabsf(targetO - begTelData.O) < M_PI) || (targetO < begTelData.O && fabsf(begTelData.O - targetO) > M_PI) ? 1 : -1);
+
+				/* Start turning if targetO is bigger than threshold */
+				if (fabsf(targetO) > 20.0f * DEGREES_TO_RAD) {
+					/* Compute speeds */
+					motorsSpeed.LeftSpeed = (float)dir * (-1.0f) * command->Speed;
+					motorsSpeed.RightSpeed = -motorsSpeed.LeftSpeed;
+					/* Order speeds */
+					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+					/* Wait for angle distance to become small enough */
+					while(1) {
+						/* Read current telemetry data */
+						getTelemetry(&telemetryData);
+
+						/* End turning if close enough to target angle */
+						if (fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) < 20.0f * DEGREES_TO_RAD)
+							break;
+
+						/* Wait for a while */
+						vTaskDelayUntil(&wakeTime, 3*baseDelayMs/portTICK_RATE_MS);
+					}
+				}
+
+				/* Start regulator - driving to point requires constant speeds updates */
+				while(1) {
+					/* Read current position */
+					getTelemetry(&telemetryData);
+
+					/* Finish up if target is really close or robot's missing the target */
+					float d = hypotf(telemetryData.X - command->Param1, telemetryData.Y - command->Param2);
+					if (d < 1.0f || fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) > 60.0f * DEGREES_TO_RAD)
+						break;
+
+					/*
+					 * Compute regulator values based on Papers-RAS_Blazic_2011.pdf ignoring position regulation
+					 * Applying slight modifications to 'v' and 'w', saturating
+					 */
+					const float k = 0.0003f;						/*<< Gain for turning */
+					float dx = command->Param1 - telemetryData.X;	/*<< Distance to target perpendicular to global coordinate X */
+					float dy = command->Param2 - telemetryData.Y;	/*<< Distance to target parallel to global coordinate Y */
+					float cosfi = cosf(telemetryData.O);			/*<< Cos of robot orientation angle */
+					float sinfi = sinf(telemetryData.O);			/*<< Sin of robot orientation angle */
+					//float ex = cosfi * dx + sinfi * dy;				/*<< Distance to target perpendicular to robot wheel axis */
+					float ey = -sinfi * dx + cosfi * dy;			/*<< Distance to target parallel to robot wheel axis */
+					float v = command->Speed;						/*<< Linear speed - always maximum */
+					float w = k * command->Speed * ey;				/*<< Rotational speed - depending on ey; the bigger turn to make the bigger the speed is */
+
+					/* Begin to slow down if closer than 5cm from target */
+					if (d < 50.0f) {
+						v = v * (0.7f * d / 50.0f + 0.3f);
+					}
+
+					/* Limit maximal rotational speed to half of maximum speed */
+					if (fabsf(w) > command->Speed / 2.0f) {
+						w = copysignf(command->Speed / 2.0f, w);
+					}
+
+					/* Set wheels speeds */
+					motorsSpeed.LeftSpeed =  v - w * ROBOT_DIAM / 2.0f;
+					motorsSpeed.RightSpeed = v + w * ROBOT_DIAM / 2.0f;
+					xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+
+					/* Wait a moment */
+					vTaskDelayUntil(&wakeTime, baseDelayMs/portTICK_RATE_MS);
+				}
+			}
+		}
+		else { /* command->Speed < 0.0f */
+			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");
+		}
+
+		/* Stop motors if no other command available */
+		if (uxQueueMessagesWaiting(driveQueue) == 0) {
+			motorsSpeed.LeftSpeed = motorsSpeed.RightSpeed = 0.0f;
+			xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+		}
+
+		/* Free space where the command was held */
+		vPortFree(command);
+	}
+}
+
+#endif /* FOLLOW_TRAJECTORY */

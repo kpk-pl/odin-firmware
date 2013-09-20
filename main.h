@@ -17,6 +17,9 @@
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #include "motorController.h"
 #endif
+#ifdef FOLLOW_TRAJECTORY
+#include "TaskTrajectory.h"
+#endif
 
 /*
  * Global defines
@@ -84,6 +87,25 @@ typedef struct {
 	PrintSource_Type Source;
 } PrintInput_Struct;
 
+#ifndef FOLLOW_TRAJECTORY
+/* Type of drive command to perform */
+typedef enum {
+	DriveCommand_Type_Line =  'l',		/*<< Drive straight line; need one parameter - length */
+	DriveCommand_Type_Point = 'p',		/*<< Drive to point; need two parameters - X and Y coordinates */
+	DriveCommand_Type_Arc =   'a',		/*<< Drive around an arc; need two parameters - radius and arc length in degrees */
+	DriveCommand_Type_Angle = 'd'		/*<< Turn by an angle; need two parameters - one indicating wheather it is relative (0) or absolute (1) angle and second being an angle in degrees */
+} DriveCommand_Type;
+
+/* Struct to hold driving information needed by trajectory controller */
+typedef struct {
+	DriveCommand_Type Type;			/*<< Command type, one of DriveCommand_Type */
+	bool UsePen;					/*<< If true then pen will be held down, up otherwise */
+	float Speed;					/*<< Robot's speed, only positive values */
+	float Param1;					/*<< Command param #1 */
+	float Param2;					/*<< Command param #2 */
+} DriveCommand_Struct;
+#endif
+
 /*
  * Global variables, defined in main.c
  */
@@ -110,6 +132,9 @@ extern volatile TelemetryData_Struct globalTelemetryData;
 #else
 	extern arm_pid_instance_f32 globalPidLeft;
 	extern arm_pid_instance_f32 globalPidRight;
+#endif
+#ifdef FOLLOW_TRAJECTORY
+	extern TrajectoryControlerGains_Struct globalTrajectoryControlGains;
 #endif
 
 /*
@@ -157,6 +182,9 @@ extern xQueueHandle commInputBufferQueue;				// Buffer for input characters
 #ifdef USE_IMU_TELEMETRY
 	extern xQueueHandle I2CEVFlagQueue;					// Buffer for I2C event interrupt that holds new event flag to wait for
 	extern xQueueHandle magnetometerScalingQueue;		// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
+#endif
+#ifndef FOLLOW_TRAJECTORY
+	extern xQueueHandle driveQueue;						// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
 #endif
 
 /*
