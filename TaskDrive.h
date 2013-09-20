@@ -4,7 +4,13 @@
 #include "compilation.h"
 #ifndef FOLLOW_TRAJECTORY
 
-void TaskDrive(void *);	// Task controlling trajectory. Issues wheel's speed commands, checks if target is reached, calculates best route
+/**
+ * \brief Controls following one of four available trajectories.
+ *
+ * This tasks executes drive commands one by one and tries to stay on the desired path.
+ * Sometimes it calculates the best route to target point.
+ */
+void TaskDrive(void *);
 
 #endif /* FOLLOW_TRAJECTORY */
 #endif /* _TASKDRIVE_H_ */

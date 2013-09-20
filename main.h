@@ -173,7 +173,6 @@ extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform 
  */
 
 extern xQueueHandle printfQueue;						// Queue for safePrint strings to send via active interfaces
-extern xQueueHandle motorCtrlQueue;						// One-element queue for setting wheel's speed
 extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 extern xQueueHandle WiFi2USBBufferQueue;				// Buffer for WiFi to USB characters
 extern xQueueHandle USB2WiFiBufferQueue;				// Buffer for USB to WiFi characters
@@ -183,7 +182,6 @@ extern xQueueHandle commInputBufferQueue;				// Buffer for input characters
 	extern xQueueHandle magnetometerScalingQueue;		// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
 #endif
 #ifndef FOLLOW_TRAJECTORY
-	extern xQueueHandle driveQueue;						// Queue for storing driving commands (probably send in huge blocks like 100 commands at once
 #endif
 
 /*

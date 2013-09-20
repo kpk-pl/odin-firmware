@@ -8,7 +8,9 @@
 #include "pointsBuffer.h"	// for starting points download
 #include "hwinterface.h"
 
-extern xQueueHandle commandQueue; 	/*!< Queue with pointers to messages. It should contain type char* */
+extern xQueueHandle commandQueue; 	/*!< Queue with pointers to messages. It should contain type (char*) */
+extern xQueueHandle driveQueue;		/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
+extern xQueueHandle motorCtrlQueue;	/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 
 /*
  * \brief Handles various commands from various places.

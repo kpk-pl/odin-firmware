@@ -5,6 +5,8 @@
 #include "compilation.h"
 #include "hwinterface.h"
 
+extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+
 void TaskMotorCtrl(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
 	/* Speed is given in radians per second */

@@ -4,6 +4,8 @@
 #include "TaskIMUMagScaling.h"
 #include "main.h"
 
+extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+
 void TaskIMUMagScaling(void *p) {
 	xSemaphoreTake(imuMagScalingReq, 0);	// initial take
 
