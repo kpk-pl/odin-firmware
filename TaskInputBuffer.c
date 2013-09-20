@@ -3,6 +3,8 @@
 
 #define BUF_RX_LEN 20		/*<< Maximum length of UART command */
 
+extern xQueueHandle commandQueue;
+
 void TaskInputBuffer(void * p) {
 	PrintInput_Struct newInput;
 

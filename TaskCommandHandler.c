@@ -5,13 +5,15 @@
 #include "main.h"
 #include "compilation.h"
 #include "commands.h"
-#include "pointsBuffer.h"
+#include "pointsBuffer.h"	// for starting points download
 #include "hwinterface.h"
 
+extern xQueueHandle commandQueue; 	/*!< Queue with pointers to messages. It should contain type char* */
+
 /*
- * @brief Handles various commands from various places
+ * \brief Handles various commands from various places.
  * @param command Pointer to the beginning of a string containing command
- * @retval None
+ * @return None
  */
 static void COMHandle(const char * command);
 

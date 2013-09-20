@@ -172,7 +172,6 @@ extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform 
  * Global OS objects - queues
  */
 
-extern xQueueHandle commandQueue;					    // Queue for storing commands to do
 extern xQueueHandle printfQueue;						// Queue for safePrint strings to send via active interfaces
 extern xQueueHandle motorCtrlQueue;						// One-element queue for setting wheel's speed
 extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemetry task. This queue holds updates from all available sources
