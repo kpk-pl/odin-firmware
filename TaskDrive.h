@@ -3,7 +3,9 @@
 
 #include <stdbool.h>
 
-/* Type of drive command to perform */
+/**
+ * \brief Type of driving command to perform
+ */
 typedef enum {
 	DriveCommand_Type_Line =  'l',		/*<< Drive straight line; need one parameter - length */
 	DriveCommand_Type_Point = 'p',		/*<< Drive to point; need two parameters - X and Y coordinates */
@@ -11,7 +13,9 @@ typedef enum {
 	DriveCommand_Type_Angle = 'd'		/*<< Turn by an angle; need two parameters - one indicating wheather it is relative (0) or absolute (1) angle and second being an angle in degrees */
 } DriveCommand_Type;
 
-/* Struct to hold driving information needed by trajectory controller */
+/**
+ *  \brief Struct to hold driving information needed by trajectory controller
+ */
 typedef struct {
 	DriveCommand_Type Type;			/*<< Command type, one of DriveCommand_Type */
 	bool UsePen;					/*<< If true then pen will be held down, up otherwise */
