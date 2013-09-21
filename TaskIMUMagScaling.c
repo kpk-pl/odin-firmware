@@ -82,6 +82,6 @@ finish:
 
 void TaskIMUMagScalingConstructor() {
 	vSemaphoreCreateBinary(imuMagScalingReq);
-	xTaskCreate(TaskIMUMagScaling, NULL, TASKIMUMAGSCALING_TASKSPACE, NULL,	PRIORITY_TASK_IMUMAGSCALING, &imuMagScalingTask);
+	xTaskCreate(TaskIMUMagScaling, NULL, TASKIMUMAGSCALING_STACKSPACE, NULL,	PRIORITY_TASK_IMUMAGSCALING, &imuMagScalingTask);
 
 }

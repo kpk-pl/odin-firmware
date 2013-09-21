@@ -36,7 +36,6 @@ xQueueHandle printfQueue;
 xQueueHandle motorCtrlQueue;
 xQueueHandle WiFi2USBBufferQueue;
 xQueueHandle USB2WiFiBufferQueue;
-xQueueHandle commInputBufferQueue;
 xQueueHandle telemetryQueue;
 
 xTaskHandle printfConsumerTask;
@@ -47,7 +46,6 @@ xTaskHandle motorCtrlTask;
 xTaskHandle RC5Task;
 xTaskHandle telemetryTask;
 xTaskHandle USBWiFiBridgeTask;
-xTaskHandle commInputBufferTask;
 
 xSemaphoreHandle comUSARTTCSemaphore;
 xSemaphoreHandle comDMATCSemaphore;
@@ -125,6 +123,7 @@ int main(void)
 	if (globalLogEvents) printf("Reset!\n");
 
 	TaskCommandHandlerConstructor();
+	TaskInputBufferConstructor();
 #ifdef FOLLOW_TRAJECTORY
 #else
 	TaskDriveConstructor();
@@ -137,7 +136,6 @@ int main(void)
 	printfQueue 		 = xQueueCreate(50, 	sizeof(char*)					);
 	motorCtrlQueue 		 = xQueueCreate(1,		sizeof(MotorSpeed_Struct)		);
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
-	commInputBufferQueue = xQueueCreate(100,	sizeof(PrintInput_Struct)		);
 
 	vSemaphoreCreateBinary(	comUSARTTCSemaphore			);
 	vSemaphoreCreateBinary(	comDMATCSemaphore			);
@@ -154,7 +152,6 @@ int main(void)
 	xTaskCreate(TaskMotorCtrl, 		NULL, 	300, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
 	xTaskCreate(TaskTelemetry, 		NULL, 	300, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
 	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	300,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
-	xTaskCreate(TaskInputBuffer,	NULL,	500, 						NULL, 		PRIOTITY_TASK_INPUTBUFFER,		&commInputBufferTask	);
 
 	vTaskStartScheduler();
     while(1);
@@ -199,54 +196,6 @@ void reportStackUsage() {
 #else
 	safePrint(19, "driveTask: %d\n", uxTaskGetStackHighWaterMark(driveTask));
 #endif
-}
-
-/* ISR for COM USART - must be called in USARTx_IRQHandler */
-void COMAction(void) {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	PrintInput_Struct in = {.Source = PrintSource_Type_USB};
-
-	if (USART_GetITStatus(COM_USART, USART_IT_RXNE) == SET) {
-		in.Input = USART_ReceiveData(COM_USART);
-		if (getWiFi2USBBridgeStatus() == ON) {
-			xQueueSendToBackFromISR(USB2WiFiBufferQueue, &in.Input, &contextSwitch);
-		}
-		else {
-			xQueueSendToBackFromISR(commInputBufferQueue, &in, &contextSwitch);
-		}
-		USART_ClearFlag(COM_USART, USART_FLAG_RXNE);
-	}
-	else if (USART_GetITStatus(COM_USART, USART_IT_TC) == SET) {
-		xSemaphoreGiveFromISR(comUSARTTCSemaphore, &contextSwitch);
-		USART_ITConfig(COM_USART, USART_IT_TC, DISABLE);
-		USART_ClearFlag(COM_USART, USART_FLAG_TC);
-	}
-
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-
-/* ISR for WIFI Rx interrupt */
-void WIFIAction(void) {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	PrintInput_Struct in = {.Source = PrintSource_Type_WiFi};
-
-	if (USART_GetITStatus(WIFI_USART, USART_IT_RXNE) == SET) {
-		in.Input = USART_ReceiveData(WIFI_USART);
-		if (getWiFi2USBBridgeStatus() == ON) {
-			xQueueSendToBackFromISR(WiFi2USBBufferQueue, &in.Input, &contextSwitch);
-		}
-		else {
-			xQueueSendToBackFromISR(commInputBufferQueue, &in, &contextSwitch);
-		}
-		USART_ClearFlag(WIFI_USART, USART_FLAG_RXNE);
-	}
-	else if (USART_GetITStatus(WIFI_USART, USART_IT_TC) == SET) {
-		xSemaphoreGiveFromISR(wifiUSARTTCSemaphore, &contextSwitch);
-		USART_ITConfig(WIFI_USART, USART_IT_TC, DISABLE);
-		USART_ClearFlag(WIFI_USART, USART_FLAG_TC);
-	}
-
-	portEND_SWITCHING_ISR(contextSwitch);
 }
 
 /* ISR for COM DMA Tx */

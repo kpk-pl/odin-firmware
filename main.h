@@ -54,18 +54,6 @@ typedef enum {
 } Logging_Type;
 #define IS_LOGGING_TYPE(x) (x == Logging_Type_Telemetry || x == Logging_Type_Speed || x == Logging_Type_Events)
 
-/* Types of input's character source */
-typedef enum {
-	PrintSource_Type_USB = 1,
-	PrintSource_Type_WiFi = 2
-} PrintSource_Type;
-
-/* Struct to hold one input char with it's source */
-typedef struct {
-	char Input;
-	PrintSource_Type Source;
-} PrintInput_Struct;
-
 /*
  * Global variables, defined in main.c
  */
@@ -118,7 +106,6 @@ extern xQueueHandle printfQueue;						// Queue for safePrint strings to send via
 extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 extern xQueueHandle WiFi2USBBufferQueue;				// Buffer for WiFi to USB characters
 extern xQueueHandle USB2WiFiBufferQueue;				// Buffer for USB to WiFi characters
-extern xQueueHandle commInputBufferQueue;				// Buffer for input characters
 
 /*
  * Global functions
