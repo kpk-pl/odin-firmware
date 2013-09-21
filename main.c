@@ -40,9 +40,6 @@ xQueueHandle commInputBufferQueue;
 xQueueHandle telemetryQueue;
 
 xTaskHandle printfConsumerTask;
-#ifdef USE_IMU_TELEMETRY
-xTaskHandle imuMagScalingTask;
-#endif
 #ifdef FOLLOW_TRAJECTORY
 xTaskHandle trajectoryTask;
 #endif
@@ -57,9 +54,6 @@ xSemaphoreHandle comDMATCSemaphore;
 xSemaphoreHandle wifiUSARTTCSemaphore;
 xSemaphoreHandle wifiDMATCSemaphore;
 xSemaphoreHandle rc5CommandReadySemaphore;
-#ifdef USE_IMU_TELEMETRY
-xSemaphoreHandle imuMagScalingReq;
-#endif
 
 /*
  * Global variable that holds current up-to-date telemetry data.
@@ -149,15 +143,8 @@ int main(void)
 	vSemaphoreCreateBinary(	comDMATCSemaphore			);
 	vSemaphoreCreateBinary(	wifiUSARTTCSemaphore		);
 	vSemaphoreCreateBinary(	wifiDMATCSemaphore			);
-#ifdef USE_IMU_TELEMETRY
-	vSemaphoreCreateBinary( imuMagScalingReq			);
-#endif
 	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
 
-
-#ifdef USE_IMU_TELEMETRY
-	xTaskCreate(TaskIMUMagScaling, 	NULL,	300,						NULL,		PRIORITY_TASK_IMUMAGSCALING,	&imuMagScalingTask		);
-#endif
 	xTaskCreate(TaskRC5, 			NULL, 	300, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	500, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);

@@ -10,6 +10,8 @@
 #include "compilation.h"
 #include "hwinterface.h"
 
+#include "TaskIMUMagScaling.h"
+
 extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 
 void TaskRC5(void * p) {

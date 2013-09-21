@@ -109,9 +109,6 @@ extern xSemaphoreHandle comDMATCSemaphore;				// DMA TC flag set for USB-USART
 extern xSemaphoreHandle wifiUSARTTCSemaphore;			// USART TC flag set for WIFI-USART
 extern xSemaphoreHandle wifiDMATCSemaphore;				// DMA TC flag set for WIFI-USART
 extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
-#ifdef USE_IMU_TELEMETRY
-	extern xSemaphoreHandle imuMagScalingReq;			// request to perform magnetometer scaling
-#endif
 
 /*
  * Global OS objects - queues

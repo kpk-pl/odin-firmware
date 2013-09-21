@@ -15,9 +15,7 @@
 #include "complementary.h"		// complementary filter
 
 #include "TaskTelemetry.h"		// for typedefs
-
-extern volatile FunctionalState globalMagnetometerScalingInProgress;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
-extern xQueueHandle magnetometerScalingQueue;							/*!< Queue to which magnetometer data should be send during magnetometer scaling in TaskIMUMagScaling */
+#include "TaskIMUMagScaling.h"	// for external declarations
 
 /**
  *  \brief Sets I2C peripheral for use with magnetometer and gyro sensors

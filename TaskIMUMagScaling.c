@@ -1,17 +1,16 @@
-#include "compilation.h"
-#ifdef USE_IMU_TELEMETRY
-
 #include "TaskIMUMagScaling.h"
+#include "priorities.h"
+#include "stackSpace.h"
 #include "main.h"
+#include "TaskIMU.h"
 
 extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 
-volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
-extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
-extern float globalMagnetometerImprovData[];
-extern volatile bool globalDoneIMUScaling;
+volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
 
-xQueueHandle magnetometerScalingQueue = NULL;
+xSemaphoreHandle imuMagScalingReq;				/*!< Semaphore to indicate that magnetometer scaling was requested */
+xQueueHandle magnetometerScalingQueue = NULL;	/*!< Queue to which magnetometer data should be send during magnetometer scaling in TaskIMUMagScaling */
+xTaskHandle imuMagScalingTask;					/*!< Handle to this task */
 
 void TaskIMUMagScaling(void *p) {
 	xSemaphoreTake(imuMagScalingReq, 0);	// initial take
@@ -82,7 +81,7 @@ finish:
 }
 
 void TaskIMUMagScalingConstructor() {
+	vSemaphoreCreateBinary(imuMagScalingReq);
+	xTaskCreate(TaskIMUMagScaling, NULL, TASKIMUMAGSCALING_TASKSPACE, NULL,	PRIORITY_TASK_IMUMAGSCALING, &imuMagScalingTask);
 
 }
-
-#endif /* USE_IMU_TELEMETRY */
