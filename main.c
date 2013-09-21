@@ -33,29 +33,17 @@
 static void Initialize();
 
 xQueueHandle printfQueue;
-xQueueHandle commandQueue;
-#ifndef FOLLOW_TRAJECTORY
-xQueueHandle driveQueue;
-#endif
 xQueueHandle motorCtrlQueue;
 xQueueHandle WiFi2USBBufferQueue;
 xQueueHandle USB2WiFiBufferQueue;
 xQueueHandle commInputBufferQueue;
 xQueueHandle telemetryQueue;
-#ifdef USE_IMU_TELEMETRY
-xQueueHandle I2CEVFlagQueue;
-xQueueHandle magnetometerScalingQueue = NULL;
-#endif
 
 xTaskHandle printfConsumerTask;
-xTaskHandle commandHandlerTask;
 #ifdef USE_IMU_TELEMETRY
 xTaskHandle imuMagScalingTask;
-xTaskHandle imuTask;
 #endif
-#ifndef FOLLOW_TRAJECTORY
-xTaskHandle driveTask;
-#else
+#ifdef FOLLOW_TRAJECTORY
 xTaskHandle trajectoryTask;
 #endif
 xTaskHandle motorCtrlTask;
@@ -70,16 +58,7 @@ xSemaphoreHandle wifiUSARTTCSemaphore;
 xSemaphoreHandle wifiDMATCSemaphore;
 xSemaphoreHandle rc5CommandReadySemaphore;
 #ifdef USE_IMU_TELEMETRY
-xSemaphoreHandle imuPrintRequest;
-xSemaphoreHandle imuGyroReady;
-xSemaphoreHandle imuAccReady;
-xSemaphoreHandle imuMagReady;
-xSemaphoreHandle imuI2CEV;
 xSemaphoreHandle imuMagScalingReq;
-#endif
-
-#ifdef USE_IMU_TELEMETRY
-xTimerHandle imuWatchdogTimer;
 #endif
 
 /*
@@ -98,17 +77,6 @@ volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
 #endif
 volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
-#ifdef USE_IMU_TELEMETRY
-volatile bool globalIMUHang = false;
-volatile bool globalDoneIMUScaling = false;
-volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
-float globalMagnetometerImprovData[721];
-arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*<< used by IMU to correctly scale magnetometer readings*/
-	.nValues = 721,
-	.xSpacing = M_PI / 360.0f,
-	.pYData = globalMagnetometerImprovData
-};
-#endif
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	MotorControllerParameters_Struct globalLeftMotorParams = {
@@ -162,16 +130,19 @@ int main(void)
 	Initialize();
 	if (globalLogEvents) printf("Reset!\n");
 
-	printfQueue 		 = xQueueCreate(50, 	sizeof(char*)					);
-	commandQueue 		 = xQueueCreate(15, 	sizeof(char*)					);
-#ifndef FOLLOW_TRAJECTORY
-	driveQueue 			 = xQueueCreate(100, 	sizeof(DriveCommand_Struct*)	);		// holding pointers because there's a lot of big structures that are processed rather slowly. Memory is allocated dynamically
+	TaskCommandHandlerConstructor();
+#ifdef FOLLOW_TRAJECTORY
+#else
+	TaskDriveConstructor();
 #endif
+#ifdef USE_IMU_TELEMETRY
+	TaskIMUConstructor();
+	TaskIMUMagScalingConstructor();
+#endif
+
+	printfQueue 		 = xQueueCreate(50, 	sizeof(char*)					);
 	motorCtrlQueue 		 = xQueueCreate(1,		sizeof(MotorSpeed_Struct)		);
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
-#ifdef USE_IMU_TELEMETRY
-	I2CEVFlagQueue		 = xQueueCreate(1,		sizeof(uint32_t)				);
-#endif
 	commInputBufferQueue = xQueueCreate(100,	sizeof(PrintInput_Struct)		);
 
 	vSemaphoreCreateBinary(	comUSARTTCSemaphore			);
@@ -179,30 +150,18 @@ int main(void)
 	vSemaphoreCreateBinary(	wifiUSARTTCSemaphore		);
 	vSemaphoreCreateBinary(	wifiDMATCSemaphore			);
 #ifdef USE_IMU_TELEMETRY
-	vSemaphoreCreateBinary(	imuPrintRequest				);
-	vSemaphoreCreateBinary(	imuGyroReady				);
-	vSemaphoreCreateBinary(	imuAccReady					);
-	vSemaphoreCreateBinary(	imuMagReady					);
-	vSemaphoreCreateBinary( imuI2CEV					);
 	vSemaphoreCreateBinary( imuMagScalingReq			);
 #endif
 	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
 
-#ifdef USE_IMU_TELEMETRY
-	imuWatchdogTimer = xTimerCreate(NULL, 500/portTICK_RATE_MS, pdFALSE, NULL, imuWatchdogOverrun);
-#endif
 
-	xTaskCreate(TaskCommandHandler, NULL, 	300, 						NULL, 		PRIOTITY_TASK_COMMANDHANDLER, 	&commandHandlerTask		);
 #ifdef USE_IMU_TELEMETRY
-	xTaskCreate(TaskIMU, 			NULL, 	400, 						NULL, 		PRIORITY_TASK_IMU, 				&imuTask				);
 	xTaskCreate(TaskIMUMagScaling, 	NULL,	300,						NULL,		PRIORITY_TASK_IMUMAGSCALING,	&imuMagScalingTask		);
 #endif
 	xTaskCreate(TaskRC5, 			NULL, 	300, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	500, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
-#ifndef FOLLOW_TRAJECTORY
-	xTaskCreate(TaskDrive, 			NULL, 	1000, 						NULL, 		PRIORITY_TASK_DRIVE,			&driveTask				);
-#else
+#ifdef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif
 	xTaskCreate(TaskMotorCtrl, 		NULL, 	300, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
@@ -319,29 +278,6 @@ void WiFiDMANotify() {
 	portEND_SWITCHING_ISR(contextSwitch);
 }
 
-#ifdef USE_IMU_TELEMETRY
-/* ISR for EXTI Gyro */
-void IMUGyroReady() {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	xSemaphoreGiveFromISR(imuGyroReady, &contextSwitch);
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-
-/* ISR for EXTI Accelerometer */
-void IMUAccReady() {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	xSemaphoreGiveFromISR(imuAccReady, &contextSwitch);
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-
-/* ISR for EXTI Magnetometer */
-void IMUMagReady() {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	xSemaphoreGiveFromISR(imuMagReady, &contextSwitch);
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-#endif /* USE_IMU_TELEMETRY */
-
 int safePrint(const size_t length, const char *format, ...) {
 	va_list arglist;
 	va_start(arglist, format);
@@ -449,26 +385,6 @@ void OSBusyTimerHandler() {
 	TIM_SetCounter(CPUUSAGE_CNT_TIM, 0);
 	globalCPUUsage = (float)p / (float)(CPUUSAGE_TIM_PERIOD + 1);
 }
-
-#ifdef USE_IMU_TELEMETRY
-void IMUI2CEVHandler(void) {
-	static uint32_t requiredFlag = 0;
-	portBASE_TYPE contextSwitch = pdFALSE;
-
-	// pdTRUE if really received
-	xQueueReceiveFromISR(I2CEVFlagQueue, &requiredFlag, &contextSwitch);
-
-	if (requiredFlag != 0) {
-		if (I2C_CheckEvent(IMU_I2C, requiredFlag)) {
-			xSemaphoreGiveFromISR(imuI2CEV, &contextSwitch);
-			I2C_ITConfig(IMU_I2C, I2C_IT_EVT, DISABLE);
-			requiredFlag = 0;
-		}
-	}
-
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-#endif /* USE_IMU_TELEMETRY */
 
 float normalizeOrientation(float in) {
 	return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in));

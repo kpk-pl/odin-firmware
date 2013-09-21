@@ -6,5 +6,7 @@
 
 void TaskIMUMagScaling(void *);			// Task for magnetometer scaling. This is not an infinite task.
 
+void TaskIMUMagScalingConstructor();
+
 #endif /* USE_IMU_TELEMETRY */
 #endif /* _TASKIMUMAGSCALING_H_ */

@@ -3,6 +3,13 @@
 
 #include <stdbool.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+
+extern xTaskHandle driveTask;
+extern xQueueHandle driveQueue;
+
 /**
  * \brief Type of driving command to perform
  */
@@ -31,5 +38,10 @@ typedef struct {
  * Sometimes it calculates the best route to target point.
  */
 void TaskDrive(void *);
+
+/**
+ * \brief Sets all OS-related objects for use. It should be called on startup, only once, before scheduler starts
+ */
+void TaskDriveConstructor();
 
 #endif /* _TASKDRIVE_H_ */

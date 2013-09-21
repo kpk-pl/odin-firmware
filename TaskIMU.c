@@ -1,69 +1,66 @@
-#include "compilation.h"
-#ifdef USE_IMU_TELEMETRY
+#include <stdbool.h>
 
 #include <stm32f4xx.h>
-
 #include "arm_math.h"
 
 #include "TaskIMU.h"
+
 #include "main.h"
 #include "priorities.h"
+#include "stackSpace.h"
 #include "hardware.h"
 
-#include "i2chelpers.h"
-#include "imu.h"
-#include "vector.h"
-#include "complementary.h"
+#include "imu.h"				// reading IMU data
+#include "vector.h"				// operations on 3D vectors
+#include "complementary.h"		// complementary filter
 
-/* Sets I2C peripheral */
+#include "TaskTelemetry.h"		// for typedefs
+
+extern volatile FunctionalState globalMagnetometerScalingInProgress;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
+extern xQueueHandle magnetometerScalingQueue;							/*!< Queue to which magnetometer data should be send during magnetometer scaling in TaskIMUMagScaling */
+
+/**
+ *  \brief Sets I2C peripheral for use with magnetometer and gyro sensors
+ *
+ *  It configures ports and peripherals for I2C use.
+ */
 static void initI2CforIMU(void);
 
-/* Initializes globalMagnetometerImprov */
+/**
+ * \brief Resets I2C peripheral after I2C hang
+ *
+ * It turns the peripheral off, disconnects ports, toggles pins several times to reset devices on line and turns I2C peripheral back on
+ */
+static inline void resetI2C(void);
+
+/**
+ *  \brief Initializes globalMagnetometerImprov struct and globalMagnetometerImprovData table so that magnetometer
+ *  readings starts from zero.
+ */
 static void initMagnetometerImprovInstance(float x0);
+
+static volatile bool globalIMUHang = false;					/*!< Indicates if IMU hanged lately */
+volatile bool globalDoneIMUScaling = false;					/*!< false if scaling was never done before, true otherwise. May be set in TaskIMUMagScaling */
+float globalMagnetometerImprovData[721];					/*!< Array of scaling points used by interpolation to correct magnetometer readings */
+arm_linear_interp_instance_f32 globalMagnetometerImprov = {	/*!< Struct used for interpolation of magnetometer readings */
+	.nValues = 721,
+	.xSpacing = PI / 360.0f,
+	.pYData = globalMagnetometerImprovData
+};
+
+xQueueHandle I2CEVFlagQueue = NULL;		/*!< Queue for I2C events synchronization and handling in interrupts to avoid busy-waits */
+xSemaphoreHandle imuI2CEV;				/*!< Semaphore for I2C successful event recognition */
+xTaskHandle imuTask;					/*!< Handler for this task */
+xTimerHandle imuWatchdogTimer;			/*!< Timer for catching IMU hangs */
 
 void TaskIMU(void * p) {
 	/* If reset needed then do reset, else setup I2C*/
 	if (globalIMUHang) {
-		/* Turn off interrupts from IMU */
-		NVIC_InitTypeDef NVIC_InitStructure;
-		NVIC_InitStructure.NVIC_IRQChannelCmd = DISABLE;
-		NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-		NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-		NVIC_InitStructure.NVIC_IRQChannel = IMU_I2C_EVENT_IRQn;
-		NVIC_Init(&NVIC_InitStructure);
-
-		I2C_SoftwareResetCmd(IMU_I2C, ENABLE);
-		/* Reset I2C - turn off the clock*/
-		IMU_I2C_CLOCK_FUN(IMU_I2C_CLOCK, DISABLE);
-
-		// Init SCL to allow bit-bang clocking
-		GPIO_InitTypeDef GPIO_InitStructure;
-		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-		GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-		GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-		GPIO_InitStructure.GPIO_Pin = IMU_GPIO_SCL_PIN;
-		GPIO_Init(IMU_GPIO, &GPIO_InitStructure);
-
-		for (uint8_t i = 0; i<40; i++) {
-			vTaskDelay(1/portTICK_RATE_MS);
-			taskENTER_CRITICAL();
-			{
-				GPIO_ToggleBits(IMU_GPIO, IMU_GPIO_SCL_PIN);
-			}
-			taskEXIT_CRITICAL();
-		}
-
-		// default-initialize I2C in case it is not after clock is turned off
-		I2C_DeInit(IMU_I2C);
-		// init I2C once again
-		initI2CforIMU();
-
+		resetI2C();
 		globalIMUHang = false;
 	}
-	else {
-		initI2CforIMU();
-	}
+
+	initI2CforIMU();
 
 	VectorF read; 								// one reading from I2C, temporary variable
 	VectorF accSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from accelerometer
@@ -79,10 +76,6 @@ void TaskIMU(void * p) {
 	ComplementaryInit(&cState, 0.93f); // 0.5s time constant with 25Hz sampling
 
 	/* Take semaphores initially, so that they can be given later */
-	xSemaphoreTake(imuPrintRequest, 0);
-	xSemaphoreTake(imuGyroReady, 0);
-	xSemaphoreTake(imuAccReady, 0);
-	xSemaphoreTake(imuMagReady, 0);
 	xSemaphoreTake(imuI2CEV, 0);
 
 	/* Reset watchdog timer to 0 effectively starting it and init all IMU modules; then stop timer */
@@ -93,8 +86,8 @@ void TaskIMU(void * p) {
 	xTimerStop(imuWatchdogTimer, 0);
 
 	/* If timer was successfully stopped then all units must have been correctly initialized, so I2C
-	 * works good and IMU task can get higher priority */
-	vTaskPrioritySet(imuTask, PRIORITY_TASK_IMU);
+	 * works good and IMU task can get higher priority; NULL is THIS TASK */
+	vTaskPrioritySet(NULL, PRIORITY_TASK_IMU);
 
 	/* Wait a while until IMU stabilizes, TODO calibration here */
 	vTaskDelay(2000/portTICK_RATE_MS);
@@ -225,6 +218,48 @@ void imuWatchdogOverrun(xTimerHandle xTimer) {
 	xTaskCreate(TaskIMU, NULL, 400, NULL, 0, &imuTask);
 }
 
+void TaskIMUConstructor() {
+	I2CEVFlagQueue = xQueueCreate(1, sizeof(uint32_t));
+	vSemaphoreCreateBinary(imuI2CEV);
+	imuWatchdogTimer = xTimerCreate(NULL, 500/portTICK_RATE_MS, pdFALSE, NULL, imuWatchdogOverrun);
+	xTaskCreate(TaskIMU, NULL, TASKIMU_STACKSPACE, NULL, PRIORITY_TASK_IMU, &imuTask);
+}
+
+void resetI2C(void) {
+	/* Turn off interrupts from IMU */
+	NVIC_InitTypeDef NVIC_InitStructure;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = DISABLE;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannel = IMU_I2C_EVENT_IRQn;
+	NVIC_Init(&NVIC_InitStructure);
+
+	I2C_SoftwareResetCmd(IMU_I2C, ENABLE);
+	/* Reset I2C - turn off the clock*/
+	IMU_I2C_CLOCK_FUN(IMU_I2C_CLOCK, DISABLE);
+
+	// Init SCL to allow bit-bang clocking
+	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Pin = IMU_GPIO_SCL_PIN;
+	GPIO_Init(IMU_GPIO, &GPIO_InitStructure);
+
+	for (uint8_t i = 0; i<40; i++) {
+		vTaskDelay(1/portTICK_RATE_MS);
+		taskENTER_CRITICAL();
+		{
+			GPIO_ToggleBits(IMU_GPIO, IMU_GPIO_SCL_PIN);
+		}
+		taskEXIT_CRITICAL();
+	}
+
+	// default-initialize I2C in case it is not after clock is turned off
+	I2C_DeInit(IMU_I2C);
+}
+
 void initI2CforIMU(void) {
 	I2C_InitTypeDef I2C_InitStructure;
 	GPIO_InitTypeDef GPIO_InitStructure;
@@ -277,4 +312,41 @@ void initMagnetometerImprovInstance(float x0) {
 	}
 }
 
-#endif /* USE_IMU_TELEMETRY */
+void IMUI2CEVHandler(void) {
+	static uint32_t requiredFlag = 0;
+	portBASE_TYPE contextSwitch = pdFALSE;
+
+	// pdTRUE if really received
+	xQueueReceiveFromISR(I2CEVFlagQueue, &requiredFlag, &contextSwitch);
+
+	if (requiredFlag != 0) {
+		if (I2C_CheckEvent(IMU_I2C, requiredFlag)) {
+			xSemaphoreGiveFromISR(imuI2CEV, &contextSwitch);
+			I2C_ITConfig(IMU_I2C, I2C_IT_EVT, DISABLE);
+			requiredFlag = 0;
+		}
+	}
+
+	portEND_SWITCHING_ISR(contextSwitch);
+}
+
+/* ISR for EXTI Gyro */
+void IMUGyroReady() {
+	//portBASE_TYPE contextSwitch = pdFALSE;
+	//xSemaphoreGiveFromISR(imuGyroReady, &contextSwitch);
+	//portEND_SWITCHING_ISR(contextSwitch);
+}
+
+/* ISR for EXTI Accelerometer */
+void IMUAccReady() {
+	//portBASE_TYPE contextSwitch = pdFALSE;
+	//xSemaphoreGiveFromISR(imuAccReady, &contextSwitch);
+	//portEND_SWITCHING_ISR(contextSwitch);
+}
+
+/* ISR for EXTI Magnetometer */
+void IMUMagReady() {
+	//portBASE_TYPE contextSwitch = pdFALSE;
+	//xSemaphoreGiveFromISR(imuMagReady, &contextSwitch);
+	//
+}

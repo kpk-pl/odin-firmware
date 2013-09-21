@@ -21,6 +21,8 @@
 #include "TaskTrajectory.h"
 #endif
 
+#include "TaskTelemetry.h"
+
 /*
  * Global defines
  */
@@ -37,29 +39,6 @@
 /*
  * Global types
  */
-
-/* Type of telemetry update */
-typedef enum {
-	TelemetryUpdate_Source_Odometry = 0,	/*<< Update from odometry - encoders */
-#ifdef USE_IMU_TELEMETRY
-	TelemetryUpdate_Source_IMU				/*<< Update from IMU */
-#endif
-} TelemetryUpdate_Source;
-
-/* Struct to hold telemetry updates from various sources. Based on these updates, position and orientation is calculated */
-typedef struct {
-	TelemetryUpdate_Source Source;			/*<< Update source */
-	float dX;								/*<< Change in X position */
-	float dY;								/*<< Change in Y position */
-	float dO;								/*<< Change of orientation angle (radians) */
-} TelemetryUpdate_Struct;
-
-/* Struct for holding position and orientation */
-typedef struct {
-	float X;				/*<< X coordinate */
-	float Y;				/*<< Y coordinate */
-	float O;				/*<< Orientation angle coordinate in radians */
-} TelemetryData_Struct;
 
 /* Struct holding motors' speeds. Choosen unit is rad/sec */
 typedef struct {
@@ -99,13 +78,6 @@ extern volatile uint32_t globalLogSpeedCounter;
 extern volatile float globalCPUUsage;
 extern volatile TelemetryData_Struct globalTelemetryData;
 
-#ifdef USE_IMU_TELEMETRY
-	extern volatile bool globalIMUHang;
-	extern volatile bool globalDoneIMUScaling;
-	extern volatile FunctionalState globalMagnetometerScalingInProgress;
-	extern float globalMagnetometerImprovData[721];
-	extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
-#endif
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	extern MotorControllerParameters_Struct globalLeftMotorParams;
 	extern MotorControllerParameters_Struct globalRightMotorParams;
@@ -127,9 +99,6 @@ extern volatile TelemetryData_Struct globalTelemetryData;
 #else
 	extern xTaskHandle trajectoryTask;
 #endif
-#ifdef USE_IMU_TELEMETRY
-	extern xTaskHandle imuTask;
-#endif
 
 /*
  * Global OS objects - semaphores
@@ -141,11 +110,6 @@ extern xSemaphoreHandle wifiUSARTTCSemaphore;			// USART TC flag set for WIFI-US
 extern xSemaphoreHandle wifiDMATCSemaphore;				// DMA TC flag set for WIFI-USART
 extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 #ifdef USE_IMU_TELEMETRY
-	extern xSemaphoreHandle imuPrintRequest;			// request for IMU to print most up-to-date reading
-	extern xSemaphoreHandle imuGyroReady;				// gyro ready flag set in interrupt
-	extern xSemaphoreHandle imuAccReady;				// accelerometer ready flag set in interrupt
-	extern xSemaphoreHandle imuMagReady;				// magnetometer ready flag set in interrupt
-	extern xSemaphoreHandle imuI2CEV;					// semaphore to indicate correct event in I2C protocol
 	extern xSemaphoreHandle imuMagScalingReq;			// request to perform magnetometer scaling
 #endif
 
@@ -158,20 +122,6 @@ extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemet
 extern xQueueHandle WiFi2USBBufferQueue;				// Buffer for WiFi to USB characters
 extern xQueueHandle USB2WiFiBufferQueue;				// Buffer for USB to WiFi characters
 extern xQueueHandle commInputBufferQueue;				// Buffer for input characters
-#ifdef USE_IMU_TELEMETRY
-	extern xQueueHandle I2CEVFlagQueue;					// Buffer for I2C event interrupt that holds new event flag to wait for
-	extern xQueueHandle magnetometerScalingQueue;		// Queue for data from IMU task for magnetometer scaling. Created on demand in scaling task.
-#endif
-#ifndef FOLLOW_TRAJECTORY
-#endif
-
-/*
- * Global OS objects - timers
- */
-
-#ifdef USE_IMU_TELEMETRY
-	extern xTimerHandle imuWatchdogTimer;				// used by software watchdog, if it expires then I2C is reset
-#endif
 
 /*
  * Global functions

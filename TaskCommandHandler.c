@@ -1,6 +1,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "priorities.h"
+#include "stackSpace.h"
+
 #include "TaskCommandHandler.h"
 #include "main.h"
 #include "compilation.h"
@@ -8,9 +11,12 @@
 #include "pointsBuffer.h"	// for starting points download
 #include "hwinterface.h"
 
-extern xQueueHandle commandQueue; 	/*!< Queue with pointers to messages. It should contain type (char*) */
-extern xQueueHandle driveQueue;		/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
+#include "TaskDrive.h"		// for typedefs
+
 extern xQueueHandle motorCtrlQueue;	/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+
+xQueueHandle commandQueue;	/*!< Queue with pointers to messages. It should contain type (char*) */
+xTaskHandle commandHandlerTask;
 
 /*
  * \brief Handles various commands from various places.
@@ -276,4 +282,9 @@ void COMHandle(const char * command) {
 		if (globalLogEvents) safePrint(18, "No such command\n");
 		break;
 	}
+}
+
+void TaskCommandHandlerConstructor() {
+	xTaskCreate(TaskCommandHandler, NULL, TASKCOMMANDHANDLER_STACKSPACE, NULL, PRIOTITY_TASK_COMMANDHANDLER, &commandHandlerTask);
+	commandQueue = xQueueCreate(15, sizeof(char*));
 }

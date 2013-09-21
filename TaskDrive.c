@@ -1,10 +1,11 @@
 #include "TaskDrive.h"
 #include "main.h"
 #include "hwinterface.h"
+#include "priorities.h"
+#include "stackSpace.h"
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
 
-extern xQueueHandle driveQueue;			/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 
 /**
@@ -32,6 +33,9 @@ static void driveAngleArc(const DriveCommand_Struct* command, portTickType* wake
  * @param right Right wheel speed in rad/s
  */
 static void sendSpeeds(float left, float right);
+
+xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
+xTaskHandle driveTask;		/*!< This task handler */
 
 void TaskDrive(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
@@ -273,4 +277,9 @@ void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		/* Wait a little */
 		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
+}
+
+void TaskDriveConstructor() {
+	driveQueue = xQueueCreate(100, sizeof(DriveCommand_Struct*));		// holding pointers because there's a lot of big structures that are processed rather slowly. Memory is allocated dynamically
+	xTaskCreate(TaskDrive, NULL, TASKDRIVE_STACKSPACE, NULL, PRIORITY_TASK_DRIVE, &driveTask);
 }

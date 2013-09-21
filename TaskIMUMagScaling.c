@@ -6,6 +6,13 @@
 
 extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 
+volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;
+extern arm_linear_interp_instance_f32 globalMagnetometerImprov;
+extern float globalMagnetometerImprovData[];
+extern volatile bool globalDoneIMUScaling;
+
+xQueueHandle magnetometerScalingQueue = NULL;
+
 void TaskIMUMagScaling(void *p) {
 	xSemaphoreTake(imuMagScalingReq, 0);	// initial take
 
@@ -72,6 +79,10 @@ void TaskIMUMagScaling(void *p) {
 finish:
 	globalMagnetometerScalingInProgress = DISABLE; 	// just to be sure it is disabled (if not done so by default at initialization)
 	vTaskDelete(NULL);								// delete this task
+}
+
+void TaskIMUMagScalingConstructor() {
+
 }
 
 #endif /* USE_IMU_TELEMETRY */
