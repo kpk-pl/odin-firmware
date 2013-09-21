@@ -2,10 +2,53 @@
 
 #include "TaskMotorCtrl.h"
 #include "main.h"
+#include "priorities.h"
+#include "stackSpace.h"
 #include "compilation.h"
 #include "hwinterface.h"
 
-extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+xTaskHandle motorCtrlTask;			/*!< This task handle */
+xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+
+volatile uint32_t globalLogSpeedCounter = 0;				/*!< Counter to allow only a few logs from speed to be printed */
+volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting for regulator */
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	volatile FunctionalState globalControllerVoltageCorrection = DISABLE;	/*!< Voltage correction for custom regulator */
+#endif
+
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	MotorControllerParameters_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
+		.threshold = 1.7164f,
+		.A  = 1.2885f,
+		.B  = 0.9323f,
+		.C  = 0.1427f,
+		.KP = 0.05f, // TODO: value TBD experimentally
+		.A_t  = 19.6755f,
+		.B_t  = 14.2360f,
+		.KP_t = 0.05f//TODO: value TBD experimentally
+	};
+	MotorControllerParameters_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
+		.threshold = 1.5510f,
+		.A  = 1.3758f,
+		.B  = 1.4037f,
+		.C  = 0.1150f,
+		.KP = 0.05f, // TODO: value TBD experimentally
+		.A_t  = 17.2120f,
+		.B_t  = 17.5611f,
+		.KP_t = 0.05f //TODO: value TBD experimentally
+	};
+#else
+	arm_pid_instance_f32 globalPidLeft = {	/*!< Left motors PID regulator parameters */
+		.Kp = 0.08f,
+		.Ki = 0.005f,
+		.Kd = 0.0f
+	};
+	arm_pid_instance_f32 globalPidRight = {	/*!< Right motors PID regulator parameters */
+		.Kp = 0.08f,
+		.Ki = 0.005f,
+		.Kd = 0.0f
+	};
+#endif
 
 void TaskMotorCtrl(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
@@ -146,4 +189,9 @@ void TaskMotorCtrl(void * p) {
 		/* Wait for next sampling period */
 		vTaskDelayUntil(&wakeTime, delayMsPerPeriod/portTICK_RATE_MS);
 	}
+}
+
+void TaskMotorCtrlConstructor() {
+	motorCtrlQueue = xQueueCreate(1, sizeof(MotorSpeed_Struct));
+	xTaskCreate(TaskMotorCtrl, NULL, 300, NULL, PRIORITY_TASK_MOTORCTRL, &motorCtrlTask);
 }

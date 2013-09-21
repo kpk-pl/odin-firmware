@@ -8,15 +8,11 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
-#include "timers.h"
 #include "task.h"
 #include "portmacro.h"
 
 #include "compilation.h"
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-#include "motorController.h"
-#endif
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
 #endif
@@ -40,12 +36,6 @@
  * Global types
  */
 
-/* Struct holding motors' speeds. Choosen unit is rad/sec */
-typedef struct {
-	float LeftSpeed;				/*<< Left motor's speed */
-	float RightSpeed;				/*<< Right motor's speed */
-} MotorSpeed_Struct;
-
 /* Types of different logging commands */
 typedef enum {
 	Logging_Type_Telemetry = 't',		/*<< Log position and orientation when it changes */
@@ -61,19 +51,9 @@ typedef enum {
 extern volatile FunctionalState globalLogEvents;
 extern volatile FunctionalState globalLogTelemetry;
 extern volatile FunctionalState globalLogSpeed;
-extern volatile FunctionalState globalSpeedRegulatorOn;
-extern volatile uint32_t globalLogSpeedCounter;
 extern volatile float globalCPUUsage;
 extern volatile TelemetryData_Struct globalTelemetryData;
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	extern MotorControllerParameters_Struct globalLeftMotorParams;
-	extern MotorControllerParameters_Struct globalRightMotorParams;
-	extern volatile FunctionalState globalControllerVoltageCorrection;
-#else
-	extern arm_pid_instance_f32 globalPidLeft;
-	extern arm_pid_instance_f32 globalPidRight;
-#endif
 #ifdef FOLLOW_TRAJECTORY
 	extern TrajectoryControlerGains_Struct globalTrajectoryControlGains;
 #endif

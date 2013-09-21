@@ -33,7 +33,6 @@
 static void Initialize();
 
 xQueueHandle printfQueue;
-xQueueHandle motorCtrlQueue;
 xQueueHandle WiFi2USBBufferQueue;
 xQueueHandle USB2WiFiBufferQueue;
 xQueueHandle telemetryQueue;
@@ -42,7 +41,6 @@ xTaskHandle printfConsumerTask;
 #ifdef FOLLOW_TRAJECTORY
 xTaskHandle trajectoryTask;
 #endif
-xTaskHandle motorCtrlTask;
 xTaskHandle RC5Task;
 xTaskHandle telemetryTask;
 xTaskHandle USBWiFiBridgeTask;
@@ -63,46 +61,8 @@ volatile TelemetryData_Struct globalTelemetryData = {0.0f, 0.0f, 0.0f};
 volatile FunctionalState globalLogTelemetry = DISABLE;
 volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
-volatile FunctionalState globalSpeedRegulatorOn = ENABLE;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-volatile FunctionalState globalControllerVoltageCorrection = DISABLE;
-#endif
-volatile uint32_t globalLogSpeedCounter = 0;
 volatile float globalCPUUsage = 0.0f;
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	MotorControllerParameters_Struct globalLeftMotorParams = {
-		.threshold = 1.7164f,
-		.A  = 1.2885f,
-		.B  = 0.9323f,
-		.C  = 0.1427f,
-		.KP = 0.05f, // TODO: value TBD experimentally
-		.A_t  = 19.6755f,
-		.B_t  = 14.2360f,
-		.KP_t = 0.05f//TODO: value TBD experimentally
-	};
-	MotorControllerParameters_Struct globalRightMotorParams = {
-		.threshold = 1.5510f,
-		.A  = 1.3758f,
-		.B  = 1.4037f,
-		.C  = 0.1150f,
-		.KP = 0.05f, // TODO: value TBD experimentally
-		.A_t  = 17.2120f,
-		.B_t  = 17.5611f,
-		.KP_t = 0.05f //TODO: value TBD experimentally
-	};
-#else
-	arm_pid_instance_f32 globalPidLeft = {
-		.Kp = 0.08f,
-		.Ki = 0.005f,
-		.Kd = 0.0f
-	};
-	arm_pid_instance_f32 globalPidRight = {
-		.Kp = 0.08f,
-		.Ki = 0.005f,
-		.Kd = 0.0f
-	};
-#endif
 #ifdef FOLLOW_TRAJECTORY
 	TrajectoryControlerGains_Struct globalTrajectoryControlGains = {
 		.k_x = 10.0f,
@@ -124,6 +84,8 @@ int main(void)
 
 	TaskCommandHandlerConstructor();
 	TaskInputBufferConstructor();
+	TaskLEDConstructor();
+	TaskMotorCtrlConstructor();
 #ifdef FOLLOW_TRAJECTORY
 #else
 	TaskDriveConstructor();
@@ -134,7 +96,6 @@ int main(void)
 #endif
 
 	printfQueue 		 = xQueueCreate(50, 	sizeof(char*)					);
-	motorCtrlQueue 		 = xQueueCreate(1,		sizeof(MotorSpeed_Struct)		);
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
 
 	vSemaphoreCreateBinary(	comUSARTTCSemaphore			);
@@ -145,11 +106,9 @@ int main(void)
 
 	xTaskCreate(TaskRC5, 			NULL, 	300, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 	xTaskCreate(TaskPrintfConsumer, NULL, 	500, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
-	xTaskCreate(TaskLED, 			NULL, 	configMINIMAL_STACK_SIZE, 	NULL, 		PRIORITY_TASK_LED,				NULL					);
 #ifdef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif
-	xTaskCreate(TaskMotorCtrl, 		NULL, 	300, 						NULL, 		PRIORITY_TASK_MOTORCTRL,		&motorCtrlTask			);
 	xTaskCreate(TaskTelemetry, 		NULL, 	300, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
 	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	300,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
 

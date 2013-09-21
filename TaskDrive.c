@@ -3,10 +3,9 @@
 #include "hwinterface.h"
 #include "priorities.h"
 #include "stackSpace.h"
+#include "TaskMotorCtrl.h"
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
-
-extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 
 /**
  * \brief Drives over a straight line to target point.

@@ -12,8 +12,7 @@
 #include "hwinterface.h"
 
 #include "TaskDrive.h"		// for typedefs
-
-extern xQueueHandle motorCtrlQueue;	/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+#include "TaskMotorCtrl.h"
 
 xQueueHandle commandQueue;	/*!< Queue with pointers to messages. It should contain type (char*) */
 xTaskHandle commandHandlerTask;

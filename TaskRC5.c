@@ -11,8 +11,7 @@
 #include "hwinterface.h"
 
 #include "TaskIMUMagScaling.h"
-
-extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+#include "TaskMotorCtrl.h"
 
 void TaskRC5(void * p) {
 	/* Timer callback function to switch LED off */

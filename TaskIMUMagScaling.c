@@ -3,8 +3,7 @@
 #include "stackSpace.h"
 #include "main.h"
 #include "TaskIMU.h"
-
-extern xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+#include "TaskMotorCtrl.h"
 
 volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
 

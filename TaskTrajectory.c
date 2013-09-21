@@ -5,6 +5,8 @@
 #include "main.h"
 #include "pointsBuffer.h"
 
+#include "TaskMotorCtrl.h"
+
 /*
  * @brief Function for calculating motors speed using trajectory control
  * @param currentPosition Current position from telemetry

@@ -1,5 +1,7 @@
 #include "TaskLED.h"
 #include "main.h"
+#include "priorities.h"
+#include "stackSpace.h"
 
 void TaskLED(void * p) {
 	IWDG_Enable();
@@ -11,4 +13,8 @@ void TaskLED(void * p) {
 			vTaskDelay(100 / portTICK_RATE_MS);
 		}
 	}
+}
+
+void TaskLEDConstructor() {
+	xTaskCreate(TaskLED, NULL, TASKLED_STACKSPACE, NULL, PRIORITY_TASK_LED, NULL);
 }
