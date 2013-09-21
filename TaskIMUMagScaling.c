@@ -33,15 +33,12 @@ void TaskIMUMagScaling(void *p) {
 	globalMagnetometerScalingInProgress = ENABLE;
 
 	float imuAngle;
-	MotorSpeed_Struct motorsSpeed;
 
 	taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 5000/portTICK_RATE_MS);
 	if (taken != pdFALSE) { // something really came in, doing scaling
 		safePrint(23, "Scaling magnetometer\n");
 
-		motorsSpeed.LeftSpeed = -0.3f;
-		motorsSpeed.RightSpeed = 0.3f;
-		xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+		sendSpeeds(-0.3f, 0.3f);
 
 		// turning around, save all reading data in orientation intervals
 		uint16_t i = 0;
@@ -59,8 +56,7 @@ void TaskIMUMagScaling(void *p) {
 
 		globalMagnetometerImprovData[720] = globalMagnetometerImprovData[0] + 2.0f*M_PI;
 
-		motorsSpeed.LeftSpeed = motorsSpeed.RightSpeed = 0.0f;
-		xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+		sendSpeeds(0.0f, 0.0f);
 	}
 
 #ifdef FOLLOW_TRAJECTORY

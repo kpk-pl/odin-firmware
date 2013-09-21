@@ -26,13 +26,6 @@ static void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTim
  */
 static void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime);
 
-/**
- * \brief Send speed update to motor controller
- * @param left Left wheel speed in rad/s
- * @param right Right wheel speed in rad/s
- */
-static void sendSpeeds(float left, float right);
-
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 xTaskHandle driveTask;		/*!< This task handler */
 
@@ -72,14 +65,6 @@ void TaskDrive(void * p) {
 		/* Free space where the command was held */
 		vPortFree(command);
 	}
-}
-
-void sendSpeeds(float left, float right) {
-	MotorSpeed_Struct motorsSpeed = {
-		.LeftSpeed = left,
-		.RightSpeed = right
-	};
-	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
 }
 
 void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime) {

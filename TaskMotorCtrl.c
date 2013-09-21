@@ -195,3 +195,11 @@ void TaskMotorCtrlConstructor() {
 	motorCtrlQueue = xQueueCreate(1, sizeof(MotorSpeed_Struct));
 	xTaskCreate(TaskMotorCtrl, NULL, 300, NULL, PRIORITY_TASK_MOTORCTRL, &motorCtrlTask);
 }
+
+void sendSpeeds(float left, float right) {
+	MotorSpeed_Struct motorsSpeed = {
+		.LeftSpeed = left,
+		.RightSpeed = right
+	};
+	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+}

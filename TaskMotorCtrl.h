@@ -42,4 +42,11 @@ void TaskMotorCtrl(void *);				// Motors' speed regulator
  */
 void TaskMotorCtrlConstructor();
 
+/**
+ * \brief Send speed update to motor controller
+ * @param left Left wheel speed in rad/s
+ * @param right Right wheel speed in rad/s
+ */
+void sendSpeeds(float left, float right);
+
 #endif /* _TASKMOTORCTRL_H_ */

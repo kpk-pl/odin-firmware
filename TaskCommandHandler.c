@@ -41,7 +41,6 @@ void COMHandle(const char * command) {
 	DriveCommand_Struct *dc;
 #endif
 	char *last;
-	MotorSpeed_Struct ms;
 	TelemetryData_Struct td;
 	float temp_float;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
@@ -135,9 +134,8 @@ void COMHandle(const char * command) {
 	case MOTORS_SET_SPEEDS:
 		if (commandCheck( strlen(command) >= 3 )) {
 			globalSpeedRegulatorOn = ENABLE;
-			ms.LeftSpeed = strtof((char*)&command[2], &last);
-			ms.RightSpeed = strtof(last+1, NULL);
-			xQueueSendToBack(motorCtrlQueue, &ms, portMAX_DELAY);
+			temp_float = strtof((char*)&command[2], &last);
+			sendSpeeds(temp_float, strtof(last+1, NULL));
 		}
 		break;
 	case TELEMETRY_PRINT:
