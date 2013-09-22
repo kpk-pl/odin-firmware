@@ -1,9 +1,10 @@
+#include <stdbool.h>
 #include "pointsBuffer.h"
 #include "compilation.h"
 #include "hardware.h"
 
 #ifdef COMPILE_CIRCULAR_BUFFER
-#define POINTSBUFFER_SIZE 10
+#define POINTSBUFFER_SIZE 800
 #else
 #define POINTSBUFFER_SIZE 1
 #endif

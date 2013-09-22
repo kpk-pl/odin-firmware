@@ -33,28 +33,35 @@ void TaskTrajectory(void *p) {
 	TelemetryData_Struct telemetry;
 	MotorSpeed_Struct motorSpeed;
 	portTickType wakeTime = xTaskGetTickCount();
-	uint8_t requestNumber = 2;
+	bool send1 = true, send2 = false;
 
 	while(1) {
 		/* Wait for next sampling period */
 		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
 
-		float usedSpace = TBgetUsedSpace();
-		if (usedSpace < 0.1f && requestNumber == 2) { safePrint(35, "<#Please send %d more points#>\n", 7*TBgetSize()/8); requestNumber = 3;}
-		else if (usedSpace < 0.2f && requestNumber == 1) { safePrint(35, "<#Please send %d more points#>\n", 3*TBgetSize()/4); requestNumber = 2;}
-		else if (usedSpace < 0.45f && requestNumber == 0) { safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2); requestNumber = 1;}
-		else if (usedSpace >= 0.45f) requestNumber = 0;
+		if (TBgetUsedSpace() < 0.45f) {
+			if (!send1) {
+				safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2);
+				send1 = true;
+			}
+		}
+		else {send1 = false;}
 
 		TrajectoryPoint_Ptr point = TBgetNextPoint();
 		if (point != NULL) {
 			getTelemetry(&telemetry);
 			calculateTrajectoryControll(&telemetry, point, &motorSpeed);
+			send2 = false;
 		}
 		else {
 			motorSpeed.LeftSpeed = motorSpeed.RightSpeed = 0.0f;
+			if (!send2) {
+				safePrint(25, "Trajectory buffer empty\n");
+				send2 = true;
+			}
 		}
 
-		//xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+		xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
 	}
 }
 
