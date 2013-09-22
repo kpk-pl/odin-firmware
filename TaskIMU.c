@@ -16,6 +16,7 @@
 
 #include "TaskTelemetry.h"		// for typedefs
 #include "TaskIMUMagScaling.h"	// for external declarations
+#include "TaskPrintfConsumer.h"	// for printf
 
 /**
  *  \brief Sets I2C peripheral for use with magnetometer and gyro sensors

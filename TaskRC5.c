@@ -1,17 +1,20 @@
 #include <stm32f4xx.h>
 
-#include "FreeRTOS.h"
-#include "timers.h"
-
 #include "rc5_tim_exti.h"
 
 #include "TaskRC5.h"
 #include "main.h"
+#include "priorities.h"
+#include "stackSpace.h"
 #include "compilation.h"
 #include "hwinterface.h"
 
 #include "TaskIMUMagScaling.h"
 #include "TaskMotorCtrl.h"
+#include "TaskPrintfConsumer.h"
+
+xTaskHandle RC5Task;						/*!< This task handle */
+xSemaphoreHandle rc5CommandReadySemaphore;	/*!< Semaphore used by rc5_tim_exti.h library to incicate incomming command */
 
 void TaskRC5(void * p) {
 	/* Timer callback function to switch LED off */
@@ -119,4 +122,9 @@ void TaskRC5(void * p) {
 		}
 		toggle = frame.ToggleBit;
 	}
+}
+
+void TaskRC5Constructor() {
+	xTaskCreate(TaskRC5, NULL, TASKRC5_STACKSPACE, NULL, PRIORITY_TASK_RC5, &RC5Task);
+	vSemaphoreCreateBinary(rc5CommandReadySemaphore);
 }

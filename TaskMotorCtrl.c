@@ -7,6 +7,8 @@
 #include "compilation.h"
 #include "hwinterface.h"
 
+#include "TaskPrintfConsumer.h"
+
 xTaskHandle motorCtrlTask;			/*!< This task handle */
 xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 

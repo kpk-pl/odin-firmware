@@ -4,6 +4,7 @@
 #include "priorities.h"
 #include "stackSpace.h"
 #include "TaskMotorCtrl.h"
+#include "TaskPrintfConsumer.h"
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
 

@@ -6,6 +6,7 @@
 #include "pointsBuffer.h"
 
 #include "TaskMotorCtrl.h"
+#include "TaskPrintfConsumer.h"
 
 /*
  * @brief Function for calculating motors speed using trajectory control

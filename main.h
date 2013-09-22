@@ -7,8 +7,10 @@
 #include <stdbool.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "queue.h"
 #include "task.h"
+#include "timers.h"
+#include "semphr.h"
 #include "portmacro.h"
 
 #include "compilation.h"
@@ -40,7 +42,7 @@
 typedef enum {
 	Logging_Type_Telemetry = 't',		/*<< Log position and orientation when it changes */
 	Logging_Type_Speed = 's',			/*<< Log wheels speed */
-	Logging_Type_Events = 'e'		/*<< Log system events */
+	Logging_Type_Events = 'e'			/*<< Log system events */
 } Logging_Type;
 #define IS_LOGGING_TYPE(x) (x == Logging_Type_Telemetry || x == Logging_Type_Speed || x == Logging_Type_Events)
 
@@ -67,12 +69,6 @@ extern volatile TelemetryData_Struct globalTelemetryData;
 #else
 	extern xTaskHandle trajectoryTask;
 #endif
-
-/*
- * Global OS objects - semaphores
- */
-
-extern xSemaphoreHandle rc5CommandReadySemaphore;		// used by RC5 API to inform about new finished transmission
 
 /*
  * Global OS objects - queues

@@ -13,6 +13,7 @@
 
 #include "TaskDrive.h"		// for typedefs
 #include "TaskMotorCtrl.h"
+#include "TaskPrintfConsumer.h"
 
 xQueueHandle commandQueue;	/*!< Queue with pointers to messages. It should contain type (char*) */
 xTaskHandle commandHandlerTask;

@@ -38,11 +38,8 @@ xQueueHandle telemetryQueue;
 #ifdef FOLLOW_TRAJECTORY
 xTaskHandle trajectoryTask;
 #endif
-xTaskHandle RC5Task;
 xTaskHandle telemetryTask;
 xTaskHandle USBWiFiBridgeTask;
-
-xSemaphoreHandle rc5CommandReadySemaphore;
 
 /*
  * Global variable that holds current up-to-date telemetry data.
@@ -80,6 +77,7 @@ int main(void)
 	TaskLEDConstructor();
 	TaskMotorCtrlConstructor();
 	TaskPrintfConsumerConstructor();
+	TaskRC5Constructor();
 #ifdef FOLLOW_TRAJECTORY
 #else
 	TaskDriveConstructor();
@@ -91,9 +89,6 @@ int main(void)
 
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
 
-	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
-
-	xTaskCreate(TaskRC5, 			NULL, 	300, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
 #ifdef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif

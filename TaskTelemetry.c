@@ -4,6 +4,7 @@
 #include "main.h"
 #include "compilation.h"
 
+#include "TaskPrintfConsumer.h"
 
 void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;

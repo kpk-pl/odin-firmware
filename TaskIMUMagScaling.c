@@ -4,6 +4,7 @@
 #include "main.h"
 #include "TaskIMU.h"
 #include "TaskMotorCtrl.h"
+#include "TaskPrintfConsumer.h"
 
 volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
 
