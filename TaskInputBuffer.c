@@ -3,13 +3,14 @@
 #include "priorities.h"
 #include "stackSpace.h"
 #include "hwinterface.h"
+#include "TaskPrintfConsumer.h"
 
-#define BUF_RX_LEN 20		/*<< Maximum length of UART command */
+#define BUF_RX_LEN 20				/*!< Maximum length of UART command */
 
 extern xQueueHandle commandQueue;
 
-xTaskHandle commInputBufferTask;
-xQueueHandle commInputBufferQueue;
+xTaskHandle commInputBufferTask;	/*!< This task handle */
+xQueueHandle commInputBufferQueue;	/*!< Queue for incoming data that was received in ISR's */
 
 void TaskInputBuffer(void * p) {
 	PrintInput_Struct newInput;

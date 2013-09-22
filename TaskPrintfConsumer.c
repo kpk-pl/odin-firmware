@@ -1,8 +1,18 @@
 #include <stm32f4xx.h>
+#include <stdio.h>
 
 #include "TaskPrintfConsumer.h"
 #include "main.h"
 #include "hwinterface.h"
+#include "priorities.h"
+#include "stackSpace.h"
+
+xTaskHandle printfConsumerTask;			/*!< This task handle */
+xQueueHandle printfQueue;				/*!< Queue for data to be printed out from safePrint functions */
+xSemaphoreHandle comUSARTTCSemaphore;	/*!< Transmission complete from USB-UART converter UART */
+xSemaphoreHandle comDMATCSemaphore;		/*!< DMA transfer complete from USB-UART converter UART */
+xSemaphoreHandle wifiUSARTTCSemaphore;	/*!< Transmission complete from WiFi module UART */
+xSemaphoreHandle wifiDMATCSemaphore;	/*!< DMA transfer complete from WiFi module UART */
 
 void TaskPrintfConsumer(void * p) {
 	char *msg;
@@ -67,4 +77,57 @@ void TaskPrintfConsumer(void * p) {
 		/* Free memory allocated for message */
 		vPortFree(msg);
 	}
+}
+
+void TaskPrintfConsumerConstructor() {
+	xTaskCreate(TaskPrintfConsumer, NULL, TASKPRINTFCONSUMER_STACKSPACE, NULL, PRIORITY_TASK_PRINTFCONSUMER, &printfConsumerTask);
+	printfQueue = xQueueCreate(50, sizeof(char*));
+	vSemaphoreCreateBinary(comUSARTTCSemaphore);
+	vSemaphoreCreateBinary(comDMATCSemaphore);
+	vSemaphoreCreateBinary(wifiUSARTTCSemaphore);
+	vSemaphoreCreateBinary(wifiDMATCSemaphore);
+}
+
+int safePrint(const size_t length, const char *format, ...) {
+	va_list arglist;
+	va_start(arglist, format);
+	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
+	int ret = vsnprintf(pbuf, length, format, arglist);
+	if (xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
+		lightLED(5, ON);
+		vPortFree(pbuf);
+	}
+	va_end(arglist);
+	return ret;
+}
+
+int safePrintFromISR(const size_t length, const char *format, ...) {
+	va_list arglist;
+	va_start(arglist, format);
+	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
+	int ret = vsnprintf(pbuf, length, format, arglist);
+	portBASE_TYPE contextSwitch = pdFALSE;
+	if (xQueueSendToBackFromISR(printfQueue, &pbuf, &contextSwitch) == errQUEUE_FULL) {
+		lightLED(5, ON);
+		vPortFree(pbuf);
+	}
+	va_end(arglist);
+	portEND_SWITCHING_ISR(contextSwitch);
+	return ret;
+}
+
+/* ISR for COM DMA Tx */
+void COMDMANotify(void) {
+	portBASE_TYPE contextSwitch = pdFALSE;
+	xSemaphoreGiveFromISR(comDMATCSemaphore, &contextSwitch);
+	DMA_ClearFlag(COM_TX_DMA_STREAM, COM_TX_DMA_FLAG_TCIF);
+	portEND_SWITCHING_ISR(contextSwitch);
+}
+
+/* ISR for WIFI DMA Tx */
+void WiFiDMANotify() {
+	portBASE_TYPE contextSwitch = pdFALSE;
+	xSemaphoreGiveFromISR(wifiDMATCSemaphore, &contextSwitch);
+	DMA_ClearFlag(WIFI_TX_DMA_STREAM, WIFI_TX_DMA_FLAG_TCIF);
+	portEND_SWITCHING_ISR(contextSwitch);
 }

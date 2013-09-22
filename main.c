@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "compilation.h"
 
@@ -32,12 +31,10 @@
 /* Initialize all hardware. THIS FUNCTION DISABLES INTERRUPTS AND DO NOT ENABLES THEM AGAIN */
 static void Initialize();
 
-xQueueHandle printfQueue;
 xQueueHandle WiFi2USBBufferQueue;
 xQueueHandle USB2WiFiBufferQueue;
 xQueueHandle telemetryQueue;
 
-xTaskHandle printfConsumerTask;
 #ifdef FOLLOW_TRAJECTORY
 xTaskHandle trajectoryTask;
 #endif
@@ -45,10 +42,6 @@ xTaskHandle RC5Task;
 xTaskHandle telemetryTask;
 xTaskHandle USBWiFiBridgeTask;
 
-xSemaphoreHandle comUSARTTCSemaphore;
-xSemaphoreHandle comDMATCSemaphore;
-xSemaphoreHandle wifiUSARTTCSemaphore;
-xSemaphoreHandle wifiDMATCSemaphore;
 xSemaphoreHandle rc5CommandReadySemaphore;
 
 /*
@@ -86,6 +79,7 @@ int main(void)
 	TaskInputBufferConstructor();
 	TaskLEDConstructor();
 	TaskMotorCtrlConstructor();
+	TaskPrintfConsumerConstructor();
 #ifdef FOLLOW_TRAJECTORY
 #else
 	TaskDriveConstructor();
@@ -95,17 +89,11 @@ int main(void)
 	TaskIMUMagScalingConstructor();
 #endif
 
-	printfQueue 		 = xQueueCreate(50, 	sizeof(char*)					);
 	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
 
-	vSemaphoreCreateBinary(	comUSARTTCSemaphore			);
-	vSemaphoreCreateBinary(	comDMATCSemaphore			);
-	vSemaphoreCreateBinary(	wifiUSARTTCSemaphore		);
-	vSemaphoreCreateBinary(	wifiDMATCSemaphore			);
 	vSemaphoreCreateBinary(	rc5CommandReadySemaphore	);
 
 	xTaskCreate(TaskRC5, 			NULL, 	300, 						NULL, 		PRIORITY_TASK_RC5, 				&RC5Task				);
-	xTaskCreate(TaskPrintfConsumer, NULL, 	500, 						NULL, 		PRIORITY_TASK_PRINTFCONSUMER, 	&printfConsumerTask		);
 #ifdef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif
@@ -155,50 +143,6 @@ void reportStackUsage() {
 #else
 	safePrint(19, "driveTask: %d\n", uxTaskGetStackHighWaterMark(driveTask));
 #endif
-}
-
-/* ISR for COM DMA Tx */
-void COMDMANotify(void) {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	xSemaphoreGiveFromISR(comDMATCSemaphore, &contextSwitch);
-	DMA_ClearFlag(COM_TX_DMA_STREAM, COM_TX_DMA_FLAG_TCIF);
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-
-/* ISR for WIFI DMA Tx */
-void WiFiDMANotify() {
-	portBASE_TYPE contextSwitch = pdFALSE;
-	xSemaphoreGiveFromISR(wifiDMATCSemaphore, &contextSwitch);
-	DMA_ClearFlag(WIFI_TX_DMA_STREAM, WIFI_TX_DMA_FLAG_TCIF);
-	portEND_SWITCHING_ISR(contextSwitch);
-}
-
-int safePrint(const size_t length, const char *format, ...) {
-	va_list arglist;
-	va_start(arglist, format);
-	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
-	int ret = vsnprintf(pbuf, length, format, arglist);
-	if (xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
-		lightLED(5, ON);
-		vPortFree(pbuf);
-	}
-	va_end(arglist);
-	return ret;
-}
-
-int safePrintFromISR(const size_t length, const char *format, ...) {
-	va_list arglist;
-	va_start(arglist, format);
-	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
-	int ret = vsnprintf(pbuf, length, format, arglist);
-	portBASE_TYPE contextSwitch = pdFALSE;
-	if (xQueueSendToBackFromISR(printfQueue, &pbuf, &contextSwitch) == errQUEUE_FULL) {
-		lightLED(5, ON);
-		vPortFree(pbuf);
-	}
-	va_end(arglist);
-	portEND_SWITCHING_ISR(contextSwitch);
-	return ret;
 }
 
 /* Called from ISR */
