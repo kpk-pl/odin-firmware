@@ -74,22 +74,12 @@ extern volatile TelemetryData_Struct globalTelemetryData;
  * Global OS objects - queues
  */
 
-extern xQueueHandle telemetryQueue;						// Queue for sending updates to telemetry task. This queue holds updates from all available sources
 extern xQueueHandle WiFi2USBBufferQueue;				// Buffer for WiFi to USB characters
 extern xQueueHandle USB2WiFiBufferQueue;				// Buffer for USB to WiFi characters
 
 /*
  * Global functions
  */
-
-/* Returns normalized orientation angle provided as input in radians, output is [-PI, +PI] */
-float normalizeOrientation(float in);
-
-/* Returns current up-to-date telemetry data and saves it in provided structure. This function provides mutual exclusion and data coherency */
-void getTelemetry(TelemetryData_Struct *data);
-
-/* Returns current telemetry data without orientation normalization to +-M_PI */
-void getTelemetryRaw(TelemetryData_Struct *data);
 
 /* Prints free stack space for each running task */
 void reportStackUsage();

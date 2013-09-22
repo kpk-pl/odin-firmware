@@ -3,8 +3,13 @@
 #include "TaskTelemetry.h"
 #include "main.h"
 #include "compilation.h"
+#include "priorities.h"
+#include "stackSpace.h"
 
 #include "TaskPrintfConsumer.h"
+
+xQueueHandle telemetryQueue;		/*!< Queue to which telemetry updates are sent to */
+xTaskHandle telemetryTask;			/*!< This task's handle */
 
 void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
@@ -48,4 +53,35 @@ void TaskTelemetry(void * p) {
 			break;
 		}
 	}
+}
+
+void TaskTelemetryConstructor() {
+	xTaskCreate(TaskTelemetry, NULL, TASKTELEMETRY_STACKSPACE, NULL,	PRIORITY_TASK_TELEMETRY, &telemetryTask);
+	telemetryQueue = xQueueCreate(30, sizeof(TelemetryUpdate_Struct));
+}
+
+float normalizeOrientation(float in) {
+	return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in));
+}
+
+void getTelemetry(TelemetryData_Struct *data) {
+	/* Ensure that data is coherent and nothing is changed in between */
+	taskENTER_CRITICAL();
+	{
+		data->X = globalTelemetryData.X;
+		data->Y = globalTelemetryData.Y;
+		data->O = normalizeOrientation(globalTelemetryData.O);
+	}
+	taskEXIT_CRITICAL();
+}
+
+void getTelemetryRaw(TelemetryData_Struct *data) {
+	/* Ensure that data is coherent and nothing is changed in between */
+	taskENTER_CRITICAL();
+	{
+		data->X = globalTelemetryData.X;
+		data->Y = globalTelemetryData.Y;
+		data->O = globalTelemetryData.O;
+	}
+	taskEXIT_CRITICAL();
 }

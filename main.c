@@ -33,12 +33,10 @@ static void Initialize();
 
 xQueueHandle WiFi2USBBufferQueue;
 xQueueHandle USB2WiFiBufferQueue;
-xQueueHandle telemetryQueue;
 
 #ifdef FOLLOW_TRAJECTORY
 xTaskHandle trajectoryTask;
 #endif
-xTaskHandle telemetryTask;
 xTaskHandle USBWiFiBridgeTask;
 
 /*
@@ -78,6 +76,7 @@ int main(void)
 	TaskMotorCtrlConstructor();
 	TaskPrintfConsumerConstructor();
 	TaskRC5Constructor();
+	TaskTelemetryConstructor();
 #ifdef FOLLOW_TRAJECTORY
 #else
 	TaskDriveConstructor();
@@ -87,38 +86,13 @@ int main(void)
 	TaskIMUMagScalingConstructor();
 #endif
 
-	telemetryQueue 		 = xQueueCreate(30, 	sizeof(TelemetryUpdate_Struct)	);
-
 #ifdef FOLLOW_TRAJECTORY
 	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
 #endif
-	xTaskCreate(TaskTelemetry, 		NULL, 	300, 						NULL,		PRIORITY_TASK_TELEMETRY,		&telemetryTask			);
 	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	300,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
 
 	vTaskStartScheduler();
     while(1);
-}
-
-void getTelemetry(TelemetryData_Struct *data) {
-	/* Ensure that data is coherent and nothing is changed in between */
-	taskENTER_CRITICAL();
-	{
-		data->X = globalTelemetryData.X;
-		data->Y = globalTelemetryData.Y;
-		data->O = normalizeOrientation(globalTelemetryData.O);
-	}
-	taskEXIT_CRITICAL();
-}
-
-void getTelemetryRaw(TelemetryData_Struct *data) {
-	/* Ensure that data is coherent and nothing is changed in between */
-	taskENTER_CRITICAL();
-	{
-		data->X = globalTelemetryData.X;
-		data->Y = globalTelemetryData.Y;
-		data->O = globalTelemetryData.O;
-	}
-	taskEXIT_CRITICAL();
 }
 
 void reportStackUsage() {
@@ -218,10 +192,6 @@ void OSBusyTimerHandler() {
 	uint16_t p = TIM_GetCounter(CPUUSAGE_CNT_TIM);
 	TIM_SetCounter(CPUUSAGE_CNT_TIM, 0);
 	globalCPUUsage = (float)p / (float)(CPUUSAGE_TIM_PERIOD + 1);
-}
-
-float normalizeOrientation(float in) {
-	return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in));
 }
 
 void Initialize() {
