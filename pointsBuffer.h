@@ -7,8 +7,8 @@
  * @brief Struct to hold trajectory data at a single point in space
  */
 typedef volatile struct {
-	float X;	/*<< X coordinate in mm*/
-	float Y;	/*<< Y coordinate in mm*/
+	float X;	/*<< X coordinate in metres */
+	float Y;	/*<< Y coordinate in metres */
 	float O;	/*<< Orientation angle in radians */
 	float V;	/*<< Linear speed in m/s */
 	float W;	/*<< Rotational speed in rad/s */

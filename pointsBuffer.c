@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include "pointsBuffer.h"
 #include "compilation.h"
 #include "hardware.h"
@@ -125,6 +126,6 @@ void startDMA(uint16_t num) {
 	WIFI_RX_DMA_STREAM->NDTR = num * ONE_POINT_SIZE_BYTES;	// number of bytes to transfer
 
     USART_ITConfig(WIFI_USART, USART_IT_RXNE, DISABLE);		// disable interrupts from USART, disconnect Command Handling
-    DMA_Cmd(WIFI_RX_DMA_STREAM, ENABLE);						// enable DMA stream
+    DMA_Cmd(WIFI_RX_DMA_STREAM, ENABLE);					// enable DMA stream
     USART_DMACmd(WIFI_USART, USART_DMAReq_Rx, ENABLE);		// set USART to DMA
 }

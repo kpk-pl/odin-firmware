@@ -95,6 +95,7 @@
 #endif
 
 #include <stm32f4xx.h>
+#include "compilation.h"
 
 #define configUSE_PREEMPTION			1
 #define configUSE_IDLE_HOOK				0
@@ -111,7 +112,7 @@
 #define configUSE_MUTEXES				1
 #define configQUEUE_REGISTRY_SIZE		8
 #define configCHECK_FOR_STACK_OVERFLOW	2
-#define configUSE_RECURSIVE_MUTEXES		1
+#define configUSE_RECURSIVE_MUTEXES		0
 #define configUSE_MALLOC_FAILED_HOOK	1
 #define configUSE_APPLICATION_TASK_TAG	0
 #define configUSE_COUNTING_SEMAPHORES	1
@@ -138,6 +139,7 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelayUntil			1
 #define INCLUDE_vTaskDelay				1
 #define INCLUDE_xTaskGetIdleTaskHandle	1
+#define INCLUDE_uxTaskGetStackHighWaterMark 1
 
 /* Cortex-M specific definitions. */
 #ifdef __NVIC_PRIO_BITS

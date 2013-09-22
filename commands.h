@@ -44,6 +44,7 @@
 #define LANTERN_ENABLE			'O'		/* One param: 1 - enable / 0 - disable | Enable or disable LED lantern | ex. <O:1> */
 #define DELAY_COMMANDS			'W'		/* One param: number of milliseconds to wait before executing next command */
 #define CPU_USAGE				'u'		/* No params; Returns CPU usage in percent as float %.1f in form "CPU usage: %.1f%%\n" */
+#define STACK_USAGE				's'		/* Reports free stack space of each running task */
 
 #define LOGGING_COMMAND			'V'		/*
 										 * Two params: first - what to log, second - 1/0 wheather to turn logging on or off
@@ -99,16 +100,20 @@
 
 #define SPEED_REGULATOR_CUSTOM_PARAMS 'g'
 										/*
-										 * 9 params:
+										 * 13 params:
 										 * 1) l / r - left or right motor parameters config
 										 * 2) threshold
 										 * 3) A
 										 * 4) B
 										 * 5) C
 										 * 6) KP
-										 * 7) A_t
-										 * 8) B_t
-										 * 9) KP_t
+										 * 7) KI
+										 * 8) KD
+										 * 9) A_t
+										 * 10) B_t
+										 * 11) KP_t
+										 * 12) KI_t
+										 * 13) KD_t
 										 * Sets new set of parameters for custom speed controller for specified motor.
 										 * Refer to motorController.h for more info
 										 */
@@ -121,5 +126,9 @@
 										 * Sets new set of parameters for PID speed controller
 										 */
 #endif
+
+#ifdef FOLLOW_TRAJECTORY
+#define TRAJECTORY_REGULATOR_PARAMS 't'
+#endif /* FOLLOW_TRAJECTORY */
 
 #endif
