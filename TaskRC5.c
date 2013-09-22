@@ -29,7 +29,6 @@ void TaskRC5(void * p) {
 	/* Initial semaphore take so it can be given and waited for */
 	xSemaphoreTake(rc5CommandReadySemaphore, 0);
 
-	MotorSpeed_Struct motorSpeed;
 	RC5Frame_TypeDef frame;
 	uint8_t toggle = 2;
 	float maxSpeed = 3.0f;
@@ -43,47 +42,31 @@ void TaskRC5(void * p) {
 		if (toggle != frame.ToggleBit) {
 			switch(frame.Command) {
 			case 1: /*<< 1 button */
-				motorSpeed.LeftSpeed = maxSpeed * 0.5f;
-				motorSpeed.RightSpeed = maxSpeed;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(maxSpeed * 0.5f, maxSpeed);
 				break;
 			case 2: /*<< 2 button */
-				motorSpeed.LeftSpeed = motorSpeed.RightSpeed = maxSpeed;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(maxSpeed, maxSpeed);
 				break;
 			case 3: /*<< 3 button */
-				motorSpeed.LeftSpeed = maxSpeed;
-				motorSpeed.RightSpeed = maxSpeed * 0.5f;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(maxSpeed, maxSpeed * 0.5f);
 				break;
 			case 4: /*<< 4 button */
-				motorSpeed.LeftSpeed = -maxSpeed * 0.5f;
-				motorSpeed.RightSpeed = maxSpeed * 0.5f;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(-maxSpeed * 0.5f, maxSpeed * 0.5f);
 				break;
 			case 5: /*<< 5 button */
-				motorSpeed.LeftSpeed = .0f;
-				motorSpeed.RightSpeed = .0f;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(.0f, .0f);
 				break;
 			case 6: /*<< 6 button */
-				motorSpeed.LeftSpeed = maxSpeed * 0.5f;
-				motorSpeed.RightSpeed = -maxSpeed * 0.5f;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(maxSpeed * 0.5f, -maxSpeed * 0.5f);
 				break;
 			case 7: /*<< 7 button */
-				motorSpeed.LeftSpeed = -maxSpeed * 0.5f;
-				motorSpeed.RightSpeed = -maxSpeed;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(-maxSpeed * 0.5f, -maxSpeed);
 				break;
 			case 8: /*<< 8 button */
-				motorSpeed.LeftSpeed = motorSpeed.RightSpeed = -maxSpeed;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(-maxSpeed, -maxSpeed);
 				break;
 			case 9: /*<< 9 button */
-				motorSpeed.LeftSpeed = -maxSpeed;
-				motorSpeed.RightSpeed = -maxSpeed * 0.5f;
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY);
+				sendSpeeds(-maxSpeed, -maxSpeed * 0.5f);
 				break;
 			case 12: /*<< OFF red button */
 				/* Set too low preload value causing reset to occur */

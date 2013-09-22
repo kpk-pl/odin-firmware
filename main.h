@@ -54,21 +54,7 @@ extern volatile FunctionalState globalLogEvents;
 extern volatile FunctionalState globalLogTelemetry;
 extern volatile FunctionalState globalLogSpeed;
 extern volatile float globalCPUUsage;
-extern volatile TelemetryData_Struct globalTelemetryData;
 
-#ifdef FOLLOW_TRAJECTORY
-	extern TrajectoryControlerGains_Struct globalTrajectoryControlGains;
-#endif
-
-/*
- * Global OS objects - tasks
- */
-
-#ifndef FOLLOW_TRAJECTORY
-	extern xTaskHandle driveTask;
-#else
-	extern xTaskHandle trajectoryTask;
-#endif
 
 /*
  * Global OS objects - queues

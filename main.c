@@ -34,30 +34,12 @@ static void Initialize();
 xQueueHandle WiFi2USBBufferQueue;
 xQueueHandle USB2WiFiBufferQueue;
 
-#ifdef FOLLOW_TRAJECTORY
-xTaskHandle trajectoryTask;
-#endif
 xTaskHandle USBWiFiBridgeTask;
-
-/*
- * Global variable that holds current up-to-date telemetry data.
- * Only telemetryTask should write to it.
- * To read from this one should use getTelemetry function than provides mutual exclusion to ensure data coherency
- */
-volatile TelemetryData_Struct globalTelemetryData = {0.0f, 0.0f, 0.0f};
 
 volatile FunctionalState globalLogTelemetry = DISABLE;
 volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
 volatile float globalCPUUsage = 0.0f;
-
-#ifdef FOLLOW_TRAJECTORY
-	TrajectoryControlerGains_Struct globalTrajectoryControlGains = {
-		.k_x = 10.0f,
-		.k = 10.0f,
-		.k_s = 10.0f
-	};
-#endif
 
 int main(void)
 {
@@ -78,6 +60,7 @@ int main(void)
 	TaskRC5Constructor();
 	TaskTelemetryConstructor();
 #ifdef FOLLOW_TRAJECTORY
+	TaskTrajectoryConstructor();
 #else
 	TaskDriveConstructor();
 #endif
@@ -86,9 +69,6 @@ int main(void)
 	TaskIMUMagScalingConstructor();
 #endif
 
-#ifdef FOLLOW_TRAJECTORY
-	xTaskCreate(TaskTrajectory,		NULL,	1000,						NULL,		PRIORITY_TASK_TRAJECTORY,		&trajectoryTask			);
-#endif
 	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	300,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
 
 	vTaskStartScheduler();

@@ -3,6 +3,8 @@
 
 #include "TaskTrajectory.h"
 #include "main.h"
+#include "priorities.h"
+#include "stackSpace.h"
 #include "pointsBuffer.h"
 
 #include "TaskMotorCtrl.h"
@@ -18,6 +20,14 @@
 static void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 								 TrajectoryPoint_Ptr trajectoryPoint,
 								 MotorSpeed_Struct * outputSpeeds);
+
+xTaskHandle trajectoryTask;		/*!< This task's handle */
+
+TrajectoryControlerGains_Struct globalTrajectoryControlGains = {
+	.k_x = 10.0f,
+	.k = 10.0f,
+	.k_s = 10.0f
+};
 
 void TaskTrajectory(void *p) {
 	TelemetryData_Struct telemetry;
@@ -46,6 +56,10 @@ void TaskTrajectory(void *p) {
 
 		//xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
 	}
+}
+
+void TaskTrajectoryConstructor() {
+	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY,	&trajectoryTask);
 }
 
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,

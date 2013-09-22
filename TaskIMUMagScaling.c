@@ -6,6 +6,12 @@
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 
+#ifndef FOLLOW_TRAJECTORY
+#include "TaskDrive.h"
+#else
+#include "TaskTrajectory.h"
+#endif
+
 volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
 
 xSemaphoreHandle imuMagScalingReq;				/*!< Semaphore to indicate that magnetometer scaling was requested */

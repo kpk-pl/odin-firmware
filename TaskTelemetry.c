@@ -11,6 +11,14 @@
 xQueueHandle telemetryQueue;		/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;			/*!< This task's handle */
 
+/**
+ * \brief Global variable that holds current up-to-date telemetry data.
+ *
+ * Only telemetryTask should write to it.
+ * To read from this one should use getTelemetry function than provides mutual exclusion to ensure data coherency
+ */
+volatile TelemetryData_Struct globalTelemetryData = {0.0f, 0.0f, 0.0f};
+
 void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
 #ifdef USE_IMU_TELEMETRY
