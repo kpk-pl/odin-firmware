@@ -10,12 +10,12 @@
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 
-/*
- * @brief Function for calculating motors speed using trajectory control
+/**
+ * \brief Function for calculating motors speed using trajectory control
  * @param currentPosition Current position from telemetry
  * @param trajectoryPoint Target position and velocities
  * @param outputSpeeds Calculated speeds
- * @retval none
+ * @return none
  */
 static void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 								 TrajectoryPoint_Ptr trajectoryPoint,
@@ -23,7 +23,7 @@ static void calculateTrajectoryControll(const TelemetryData_Struct * currentPosi
 
 xTaskHandle trajectoryTask;		/*!< This task's handle */
 
-TrajectoryControlerGains_Struct globalTrajectoryControlGains = {
+TrajectoryControlerGains_Struct globalTrajectoryControlGains = {	/*!< Controller data */
 	.k_x = 10.0f,
 	.k = 10.0f,
 	.k_s = 10.0f

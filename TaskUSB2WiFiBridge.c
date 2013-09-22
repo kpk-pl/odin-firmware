@@ -1,5 +1,11 @@
 #include "TaskUSB2WiFiBridge.h"
 #include "main.h"
+#include "priorities.h"
+#include "stackSpace.h"
+
+xTaskHandle USBWiFiBridgeTask;
+xQueueHandle WiFi2USBBufferQueue = NULL;
+xQueueHandle USB2WiFiBufferQueue = NULL;
 
 void TaskUSBWiFiBridge(void *p) {
 	WiFi2USBBufferQueue = xQueueCreate(50, sizeof(char));
@@ -24,4 +30,8 @@ void TaskUSBWiFiBridge(void *p) {
 			USART_SendData(WIFI_USART, byte);
 		}
 	}
+}
+
+void TaskUSB2WiFiBridgeConstructor() {
+	xTaskCreate(TaskUSBWiFiBridge, NULL, TASKBRIDGE_STACKSPACE, NULL, PRIOTITY_TASK_BRIDGE, &USBWiFiBridgeTask);
 }

@@ -55,14 +55,6 @@ extern volatile FunctionalState globalLogTelemetry;
 extern volatile FunctionalState globalLogSpeed;
 extern volatile float globalCPUUsage;
 
-
-/*
- * Global OS objects - queues
- */
-
-extern xQueueHandle WiFi2USBBufferQueue;				// Buffer for WiFi to USB characters
-extern xQueueHandle USB2WiFiBufferQueue;				// Buffer for USB to WiFi characters
-
 /*
  * Global functions
  */

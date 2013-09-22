@@ -4,6 +4,7 @@
 #include "stackSpace.h"
 #include "hwinterface.h"
 #include "TaskPrintfConsumer.h"
+#include "TaskUSB2WiFiBridge.h"
 
 #define BUF_RX_LEN 20				/*!< Maximum length of UART command */
 

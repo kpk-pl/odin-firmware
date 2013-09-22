@@ -1,9 +1,10 @@
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include <stdio.h>
 
 #include "compilation.h"
+#include "main.h"
+#include "hardware.h"
+#include "hwinterface.h"
+#include "priorities.h"
 
 #include "TaskTelemetry.h"
 #include "TaskRC5.h"
@@ -23,18 +24,8 @@
 #include "TaskDrive.h"
 #endif
 
-#include "main.h"
-#include "priorities.h"
-#include "hardware.h"
-#include "hwinterface.h"
-
 /* Initialize all hardware. THIS FUNCTION DISABLES INTERRUPTS AND DO NOT ENABLES THEM AGAIN */
 static void Initialize();
-
-xQueueHandle WiFi2USBBufferQueue;
-xQueueHandle USB2WiFiBufferQueue;
-
-xTaskHandle USBWiFiBridgeTask;
 
 volatile FunctionalState globalLogTelemetry = DISABLE;
 volatile FunctionalState globalLogSpeed = DISABLE;
@@ -59,6 +50,7 @@ int main(void)
 	TaskPrintfConsumerConstructor();
 	TaskRC5Constructor();
 	TaskTelemetryConstructor();
+	TaskUSB2WiFiBridgeConstructor();
 #ifdef FOLLOW_TRAJECTORY
 	TaskTrajectoryConstructor();
 #else
@@ -68,8 +60,6 @@ int main(void)
 	TaskIMUConstructor();
 	TaskIMUMagScalingConstructor();
 #endif
-
-	xTaskCreate(TaskUSBWiFiBridge, 	NULL,	300,						NULL,		PRIOTITY_TASK_BRIDGE,			&USBWiFiBridgeTask		);
 
 	vTaskStartScheduler();
     while(1);
