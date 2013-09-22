@@ -5,10 +5,12 @@
 #include "TaskIMU.h"
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
+#include "TaskTelemetry.h"
 
-#ifndef FOLLOW_TRAJECTORY
+#ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
-#else
+#endif
+#ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
 #endif
 
@@ -32,7 +34,8 @@ void TaskIMUMagScaling(void *p) {
 
 #ifdef FOLLOW_TRAJECTORY
 	vTaskSuspend(trajectoryTask);
-#else
+#endif
+#ifdef DRIVE_COMMANDS
 	vTaskSuspend(driveTask);
 #endif
 
@@ -68,7 +71,8 @@ void TaskIMUMagScaling(void *p) {
 
 #ifdef FOLLOW_TRAJECTORY
 	vTaskResume(trajectoryTask);
-#else
+#endif
+#ifdef DRIVE_COMMANDS
 	vTaskResume(driveTask);
 #endif
 

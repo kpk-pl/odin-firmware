@@ -15,12 +15,6 @@
 
 #include "compilation.h"
 
-#ifdef FOLLOW_TRAJECTORY
-#include "TaskTrajectory.h"
-#endif
-
-#include "TaskTelemetry.h"
-
 /*
  * Global defines
  */

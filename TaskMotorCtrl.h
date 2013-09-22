@@ -4,8 +4,10 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
+#include "semphr.h"
 
 extern xTaskHandle motorCtrlTask;						/*!< Export this task's handle */
+extern xSemaphoreHandle motorControllerMutex;			/*!< Export mutex for trajectory regulators */
 extern xQueueHandle motorCtrlQueue;						/*!< Export queue's handle to which motor commands should be passed */
 extern volatile uint32_t globalLogSpeedCounter;			/*!< Export counter useful when logging only a few speed entries */
 extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regulator setting flag */

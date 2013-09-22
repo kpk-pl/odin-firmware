@@ -19,7 +19,8 @@
 #endif
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
-#else
+#endif
+#ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
 #endif
 
@@ -49,7 +50,8 @@ int main(void)
 	TaskUSB2WiFiBridgeConstructor();
 #ifdef FOLLOW_TRAJECTORY
 	TaskTrajectoryConstructor();
-#else
+#endif
+#ifdef DRIVE_COMMANDS
 	TaskDriveConstructor();
 #endif
 #ifdef USE_IMU_TELEMETRY
@@ -75,7 +77,8 @@ void reportStackUsage() {
 #endif
 #ifdef FOLLOW_TRAJECTORY
 	safePrint(24, "trajectoryTask: %d\n", uxTaskGetStackHighWaterMark(trajectoryTask));
-#else
+#endif
+#ifdef DRIVE_COMMANDS
 	safePrint(19, "driveTask: %d\n", uxTaskGetStackHighWaterMark(driveTask));
 #endif
 }

@@ -1,15 +1,22 @@
 #ifndef _MOTORCONTROLLER_H_
 #define _MOTORCONTROLLER_H_
 
+#include "arm_math.h"
+
 typedef struct {
 	float threshold;
 	float A;
 	float B;
 	float C;
 	float KP;
+	float KI;
+	float KD;
 	float A_t;
 	float B_t;
 	float KP_t;
+	float KI_t;
+	float KD_t;
+	arm_pid_instance_f32 PID;
 } MotorControllerParameters_Struct;
 
 

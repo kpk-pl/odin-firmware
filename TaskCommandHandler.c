@@ -14,6 +14,10 @@
 #include "TaskDrive.h"		// for typedefs
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
+#include "TaskTelemetry.h"
+#ifdef FOLLOW_TRAJECTORY
+#include "TaskTrajectory.h"
+#endif
 
 xQueueHandle commandQueue;	/*!< Queue with pointers to messages. It should contain type (char*) */
 xTaskHandle commandHandlerTask;
@@ -38,7 +42,7 @@ void TaskCommandHandler(void * p) {
 }
 
 void COMHandle(const char * command) {
-#ifndef FOLLOW_TRAJECTORY
+#ifdef DRIVE_COMMANDS
 	DriveCommand_Struct *dc;
 #endif
 	char *last;
@@ -84,7 +88,7 @@ void COMHandle(const char * command) {
 	case PEN_UP:
 		setPenUp();
 		break;
-#ifndef FOLLOW_TRAJECTORY
+#ifdef DRIVE_COMMANDS
 	case DRIVE_COMMAND:
 		if (commandCheck( strlen(command) >= 11) ) {
 			dc = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
@@ -246,7 +250,7 @@ void COMHandle(const char * command) {
 		}
 		break;
 	case SPEED_REGULATOR_CUSTOM_PARAMS:
-		if (commandCheck (strlen(command) >= 19 && (command[2] == 'l' || command[2] == 'r') )) {
+		if (commandCheck (strlen(command) >= 27 && (command[2] == 'l' || command[2] == 'r') )) {
 			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
 			else ptrParams = &globalRightMotorParams;
 			taskENTER_CRITICAL();
@@ -256,9 +260,13 @@ void COMHandle(const char * command) {
 				ptrParams->B = strtof(last+1, &last);
 				ptrParams->C = strtof(last+1, &last);
 				ptrParams->KP = strtof(last+1, &last);
+				ptrParams->KI = strtof(last+1, &last);
+				ptrParams->KD = strtof(last+1, &last);
 				ptrParams->A_t = strtof(last+1, &last);
 				ptrParams->B_t = strtof(last+1, &last);
 				ptrParams->KP_t = strtof(last+1, &last);
+				ptrParams->KI_t = strtof(last+1, &last);
+				ptrParams->KD_t = strtof(last+1, NULL);
 			}
 			taskEXIT_CRITICAL();
 		}
@@ -270,7 +278,20 @@ void COMHandle(const char * command) {
 			{
 				globalPidLeft.Kp = globalPidRight.Kp = strtof((char*)&command[2], &last);
 				globalPidLeft.Ki = globalPidRight.Ki = strtof(last+1, &last);
-				globalPidLeft.Kd = globalPidRight.Kd = strtof(last+1, &last);
+				globalPidLeft.Kd = globalPidRight.Kd = strtof(last+1, NULL);
+			}
+			taskEXIT_CRITICAL();
+		}
+		break;
+#endif
+#ifdef FOLLOW_TRAJECTORY
+	case TRAJECTORY_REGULATOR_PARAMS:
+		if(commandCheck (strlen(command) >= 7) ) {
+			taskENTER_CRITICAL();
+			{
+				globalTrajectoryControlGains.k_x = strtof((char*)&command[2], &last);
+				globalTrajectoryControlGains.k = strtof(last+1, &last);
+				globalTrajectoryControlGains.k_s = strtof(last+1, NULL);
 			}
 			taskEXIT_CRITICAL();
 		}

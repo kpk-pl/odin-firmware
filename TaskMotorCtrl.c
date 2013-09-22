@@ -8,9 +8,11 @@
 #include "hwinterface.h"
 
 #include "TaskPrintfConsumer.h"
+#include "TaskTelemetry.h"
 
-xTaskHandle motorCtrlTask;			/*!< This task handle */
-xQueueHandle motorCtrlQueue;		/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+xTaskHandle motorCtrlTask;				/*!< This task handle */
+xQueueHandle motorCtrlQueue;			/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
+xSemaphoreHandle motorControllerMutex;	/*!< Mutex to allow many consecutive speeds to be ordered from trajectory regulator */
 
 volatile uint32_t globalLogSpeedCounter = 0;				/*!< Counter to allow only a few logs from speed to be printed */
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting for regulator */
@@ -25,9 +27,13 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 		.B  = 0.9323f,
 		.C  = 0.1427f,
 		.KP = 0.05f, // TODO: value TBD experimentally
+		.KI = 0.01f,
+		.KD = 0.0f,
 		.A_t  = 19.6755f,
 		.B_t  = 14.2360f,
-		.KP_t = 0.05f//TODO: value TBD experimentally
+		.KP_t = 0.05f,//TODO: value TBD experimentally
+		.KI_t = 0.01f,
+		.KD_t = 0.0f
 	};
 	MotorControllerParameters_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
 		.threshold = 1.5510f,
@@ -35,9 +41,13 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 		.B  = 1.4037f,
 		.C  = 0.1150f,
 		.KP = 0.05f, // TODO: value TBD experimentally
+		.KI = 0.01f,
+		.KD = 0.0f,
 		.A_t  = 17.2120f,
 		.B_t  = 17.5611f,
-		.KP_t = 0.05f //TODO: value TBD experimentally
+		.KP_t = 0.05f, //TODO: value TBD experimentally
+		.KI_t = 0.01f,
+		.KD_t = 0.0f
 	};
 #else
 	arm_pid_instance_f32 globalPidLeft = {	/*!< Left motors PID regulator parameters */
@@ -196,6 +206,7 @@ void TaskMotorCtrl(void * p) {
 void TaskMotorCtrlConstructor() {
 	motorCtrlQueue = xQueueCreate(1, sizeof(MotorSpeed_Struct));
 	xTaskCreate(TaskMotorCtrl, NULL, 300, NULL, PRIORITY_TASK_MOTORCTRL, &motorCtrlTask);
+	motorControllerMutex = xSemaphoreCreateMutex();
 }
 
 void sendSpeeds(float left, float right) {

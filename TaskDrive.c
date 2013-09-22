@@ -4,6 +4,7 @@
 #include "priorities.h"
 #include "stackSpace.h"
 #include "TaskMotorCtrl.h"
+#include "TaskTelemetry.h"
 #include "TaskPrintfConsumer.h"
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
@@ -47,12 +48,16 @@ void TaskDrive(void * p) {
 			/* Recalculate speed from m/s to rad/s */
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
 
+			xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
+
 			if (command->Type == DriveCommand_Type_Line)
 				driveLine(command, &wakeTime);
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc)
 				driveAngleArc(command, &wakeTime);
 			else if (command->Type == DriveCommand_Type_Point)
 				drivePoint(command, &wakeTime);
+
+			xSemaphoreGive(motorControllerMutex);
 		}
 		else { /* command->Speed < 0.0f */
 			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");

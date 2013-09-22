@@ -6,7 +6,7 @@
 #include "TaskPrintfConsumer.h"
 #include "TaskUSB2WiFiBridge.h"
 
-#define BUF_RX_LEN 20				/*!< Maximum length of UART command */
+#define BUF_RX_LEN 80				/*!< Maximum length of UART command */
 
 extern xQueueHandle commandQueue;
 

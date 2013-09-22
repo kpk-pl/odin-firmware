@@ -9,6 +9,7 @@
 
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
+#include "TaskTelemetry.h"
 
 /**
  * \brief Function for calculating motors speed using trajectory control
@@ -34,6 +35,7 @@ void TaskTrajectory(void *p) {
 	MotorSpeed_Struct motorSpeed;
 	portTickType wakeTime = xTaskGetTickCount();
 	bool send1 = true, send2 = false;
+	bool taken = false;
 
 	while(1) {
 		/* Wait for next sampling period */
@@ -49,24 +51,32 @@ void TaskTrajectory(void *p) {
 
 		TrajectoryPoint_Ptr point = TBgetNextPoint();
 		if (point != NULL) {
+			if (!taken) {
+				xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
+				taken = true;
+			}
 			getTelemetry(&telemetry);
 			calculateTrajectoryControll(&telemetry, point, &motorSpeed);
+			xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
 			send2 = false;
 		}
 		else {
-			motorSpeed.LeftSpeed = motorSpeed.RightSpeed = 0.0f;
+			if (taken) {
+				xSemaphoreGive(motorControllerMutex);
+				taken = false;
+			}
 			if (!send2) {
 				safePrint(25, "Trajectory buffer empty\n");
+				sendSpeeds(.0f, .0f);
 				send2 = true;
 			}
 		}
 
-		xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
 	}
 }
 
 void TaskTrajectoryConstructor() {
-	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY,	&trajectoryTask);
+	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY, &trajectoryTask);
 }
 
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
@@ -78,13 +88,14 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 	float v_b, w_b;
 	float v, w;
 
-	float diff_x  = trajectoryPoint->X * 1e4f - currentPosition->X; // trajectoryPoint is in metres but here mm are needed
-	float diff_y  = trajectoryPoint->Y * 1e4f - currentPosition->Y;
+	float diff_x  = trajectoryPoint->X - currentPosition->X * 1e-3f;
+	float diff_y  = trajectoryPoint->Y - currentPosition->Y * 1e-3f;
 	//float diff_fi = trajectoryPoint->O - currentPosition->O; // unused?
 
-	// buehuehuehue :D anyway, is float equivalent to float32_t???
-	arm_sin_cos_f32(currentPosition->O, &s, &c);
-	arm_sin_cos_f32(trajectoryPoint->O, &s_r, &c_r);
+	s = sinf(currentPosition->O);
+	c = cosf(currentPosition->O);
+	s_r = sinf(trajectoryPoint->O);
+	c_r = cosf(trajectoryPoint->O);
 
 	//calculate error model
 	e_x =  c * diff_x + s * diff_y;
@@ -93,20 +104,22 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 	e_c = c_r * c + s_r * s - 1.0f;
 
 	//calculate feedback signal for n=2 and a=7 (see whitepaper)
-
 	e_c_term = 1.0f + e_c / 7.0f; //a = 7;
 	e_c_term = powf(e_c_term, 2.0f);
 
 	v_b = globalTrajectoryControlGains.k_x * e_x;
-	w_b = globalTrajectoryControlGains.k * trajectoryPoint->V * e_y * e_c_term + globalTrajectoryControlGains.k_s * e_s * powf(e_c_term, 2.0f); //n = 2
+	w_b = globalTrajectoryControlGains.k * trajectoryPoint->V * e_y * e_c_term +
+		  globalTrajectoryControlGains.k_s * e_s * powf(e_c_term, 2.0f); //n = 2
 
 	//[m/s]
 	v = trajectoryPoint->V * (e_c + 1.0f) + v_b;
 	w = trajectoryPoint->W + w_b;
 
 	// [rad/s]
-	outputSpeeds->LeftSpeed  = (v - w * ROBOT_DIAM / (1000.0f * 2.0f)) / WHEEL_DIAM;
-	outputSpeeds->RightSpeed = (v + w * ROBOT_DIAM / (1000.0f * 2.0f)) / WHEEL_DIAM;
+	//outputSpeeds->LeftSpeed  = (v - w * ROBOT_DIAM / (1000.0f * 2.0f)) / (WHEEL_DIAM / 2000.0f);
+	//outputSpeeds->RightSpeed = (v + w * ROBOT_DIAM / (1000.0f * 2.0f)) / (WHEEL_DIAM / 2000.0f);
+	outputSpeeds->LeftSpeed = v * 1000.0f / RAD_TO_MM_TRAVELED - w;
+	outputSpeeds->RightSpeed = v * 1000.0f / RAD_TO_MM_TRAVELED + w;
 }
 
 /* ISR for WiFi DMA Rx */
