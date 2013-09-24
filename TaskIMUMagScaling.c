@@ -14,6 +14,8 @@
 #include "TaskTrajectory.h"
 #endif
 
+static void movingCenterAlignedAvarage(float *data, uint32_t points, uint8_t order);
+
 volatile FunctionalState globalMagnetometerScalingInProgress = DISABLE;	/*!< ENABLE if currently doing scaling with robot turning. Set in TaskIMUMagScaling */
 
 xSemaphoreHandle imuMagScalingReq;				/*!< Semaphore to indicate that magnetometer scaling was requested */
@@ -43,31 +45,40 @@ void TaskIMUMagScaling(void *p) {
 	globalMagnetometerScalingInProgress = ENABLE;
 
 	float imuAngle;
+	portTickType startTick, endTick;
 
 	taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 5000/portTICK_RATE_MS);
 	if (taken != pdFALSE) { // something really came in, doing scaling
 		safePrint(23, "Scaling magnetometer\n");
 
-		sendSpeeds(-0.3f, 0.3f);
+		sendSpeeds(-0.6f, 0.6f);
+		startTick = xTaskGetTickCount();
 
 		// turning around, save all reading data in orientation intervals
 		uint16_t i = 0;
-		while(telemetry.O < 2*M_PI) {
+		while(i < 2*720) {
 			do {
 				vTaskDelay(1);
 				getTelemetryRaw(&telemetry);
 				taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 0);	// read everything as soon as possible
 			} while (telemetry.O < globalMagnetometerImprov.xSpacing * i);
 
-			if (i >= 360) imuAngle -= 2.0f*M_PI;
+			if ((i+360)%720 < 360) imuAngle -= TWOM_PI;
+			if (i >= 720) imuAngle -= TWOM_PI;
 			globalMagnetometerImprovData[(i+360)%720] = imuAngle;
-			i++;
+
+			i+=2;
+			if (i == 720) i += 1;
 		}
 
 		globalMagnetometerImprovData[720] = globalMagnetometerImprovData[0] + 2.0f*M_PI;
 
 		sendSpeeds(0.0f, 0.0f);
+		endTick = xTaskGetTickCount();
 	}
+
+	movingCenterAlignedAvarage(globalMagnetometerImprovData, globalMagnetometerImprov.nValues, 35);
+	movingCenterAlignedAvarage(globalMagnetometerImprovData, globalMagnetometerImprov.nValues, 23);
 
 #ifdef FOLLOW_TRAJECTORY
 	vTaskResume(trajectoryTask);
@@ -75,6 +86,8 @@ void TaskIMUMagScaling(void *p) {
 #ifdef DRIVE_COMMANDS
 	vTaskResume(driveTask);
 #endif
+
+	safePrint(55, "Scaling took %d ms, stack high-water mark at %d\n", (endTick-startTick)/portTICK_RATE_MS, uxTaskGetStackHighWaterMark(NULL));
 
 	globalDoneIMUScaling = true;
 	globalMagnetometerScalingInProgress = DISABLE;
@@ -89,5 +102,27 @@ finish:
 void TaskIMUMagScalingConstructor() {
 	vSemaphoreCreateBinary(imuMagScalingReq);
 	xTaskCreate(TaskIMUMagScaling, NULL, TASKIMUMAGSCALING_STACKSPACE, NULL,	PRIORITY_TASK_IMUMAGSCALING, &imuMagScalingTask);
+}
 
+void movingCenterAlignedAvarage(float *data, uint32_t points, uint8_t order) {
+	if (order % 2 != 1) return;			// only odd orders are available
+
+	const uint8_t half = order/2;
+	const uint32_t size = points + order - 1;
+	float filtered[size];
+	for (uint32_t i = 0; i<size; ++i)
+		filtered[i] = 0;
+
+	for (uint32_t i = half; i < size-half; ++i) {
+		for (uint32_t j = i-half; j <= i+half; ++j) {
+			float32_t addon;
+			if (j < half) addon = data[points - half - 1 + j] - 2.0f * M_PI;
+			else if (j >= points + half) addon = data[j - points - half + 1] + 2.0f * M_PI;
+			else addon = data[j - half];
+			filtered[i] += addon;
+		}
+	}
+
+	for (uint32_t i = 0; i < points; ++i)
+		data[i] = filtered[i+half] / (float)order;
 }

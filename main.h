@@ -20,6 +20,7 @@
  */
 
 #define M_PI 				(3.14159265358979323846f)			/*<< PI */
+#define TWOM_PI				(6.28318530717958647692f)			/*<< 2PI */
 #define IMPS_PER_REV 		(3592.0f)							/*<< Number of encoder impulses per wheel revolution */
 #define IMPS_TO_RAD 		(2.0f * M_PI / IMPS_PER_REV)		/*<< Coefficient to convert encoder impulses to radians */
 #define ROBOT_DIAM			(187.3f)//(187.0f)//(184.9f)		/*<< Distance between two wheels */

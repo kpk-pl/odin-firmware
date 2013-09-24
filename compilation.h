@@ -7,7 +7,7 @@
 #define DRIVE_COMMANDS					/*!< If defined then drive commands will be available */
 
 #ifdef FOLLOW_TRAJECTORY
-#define COMPILE_CIRCULAR_BUFFER			/*<< If defined then circular buffer will be compiled with not zero size */
+#define COMPILE_CIRCULAR_BUFFER			/*!< If defined then circular buffer will be compiled with not zero size */
 #endif
 
 #endif /* _ODIN_COMPILATION_H */

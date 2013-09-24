@@ -56,7 +56,7 @@ int main(void)
 #endif
 #ifdef USE_IMU_TELEMETRY
 	TaskIMUConstructor();
-	TaskIMUMagScalingConstructor();
+	TaskIMUMagScalingConstructor();	// this should be called at last
 #endif
 
 	vTaskStartScheduler();
