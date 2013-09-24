@@ -69,7 +69,9 @@ void TaskTelemetryConstructor() {
 }
 
 float normalizeOrientation(float in) {
-	return (in > M_PI ? in - 2.0f*M_PI : (in <= -M_PI ? in + 2.0f*M_PI : in));
+	while (in > M_PI) in -= TWOM_PI;
+	while (in <= -M_PI) in += TWOM_PI;
+	return in;
 }
 
 void getTelemetry(TelemetryData_Struct *data) {

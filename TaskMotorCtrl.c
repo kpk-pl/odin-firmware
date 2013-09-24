@@ -69,7 +69,7 @@ void TaskMotorCtrl(void * p) {
 
 	//const float maxSpeedAllowed = 6300.0f * IMPS_TO_RAD; // 6300 is max ticks per second on both motors
 	const float maxSpeedAllowed = 10.0f;  // 10 rad/s - It looks like this is the limit for motor controllers' parameters to hold
-	const uint16_t delayMsPerPeriod = 10;
+	uint16_t delayMsPerPeriod = 10;
 
 	float errorLeft, errorRight;
 	float outLeft, outRight;
@@ -98,6 +98,9 @@ void TaskMotorCtrl(void * p) {
 	enableMotors(ENABLE);
 
 	while(1) {
+		/* Wait for next sampling period */
+		vTaskDelayUntil(&wakeTime, delayMsPerPeriod/portTICK_RATE_MS);
+
 		/*
 		 * Receive from the queue, if it is empty then nothing is saved nowhere
 		 * If smth was really received it should be checked.
@@ -197,9 +200,6 @@ void TaskMotorCtrl(void * p) {
 		/* Update current encoders position for next loop pass */
 		prevPosLeft = posLeft;
 		prevPosRight = posRight;
-
-		/* Wait for next sampling period */
-		vTaskDelayUntil(&wakeTime, delayMsPerPeriod/portTICK_RATE_MS);
 	}
 }
 
