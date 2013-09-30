@@ -156,8 +156,10 @@ void COMHandle(const char * command) {
 			case Logging_Type_Speed:
 				if (command[4] == '1') {
 					taskENTER_CRITICAL();
-					globalLogSpeed = ENABLE;
-					globalLogSpeedCounter = 1<<31;
+					{
+						globalLogSpeed = ENABLE;
+						globalLogSpeedCounter = 1<<31;
+					}
 					taskEXIT_CRITICAL();
 				}
 				else {
