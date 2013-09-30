@@ -5,8 +5,9 @@
 #include "task.h"
 #include "queue.h"
 
-extern xQueueHandle telemetryQueue;		/*!< Export queue to which telemetry updates may be send */
-extern xTaskHandle telemetryTask;		/*!< Export this task handle */
+extern float globalOdometryCorrectionGain;	/*!< Export the parameter that corrects odometry while turning */
+extern xQueueHandle telemetryQueue;			/*!< Export queue to which telemetry updates may be send */
+extern xTaskHandle telemetryTask;			/*!< Export this task handle */
 
 /**
  * \brief Type of telemetry update

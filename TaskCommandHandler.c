@@ -239,9 +239,17 @@ void COMHandle(const char * command) {
 	case STACK_USAGE:
 		reportStackUsage();
 		break;
-	case '$':
-		temp_float = strtof((char*)&command[2], NULL);
-		safePrint(60, "Float %f: %x %x %x %x\n", temp_float, *((uint8_t*)(&temp_float)), *(((uint8_t*)(&temp_float)+1)), *(((uint8_t*)(&temp_float)+2)), *(((uint8_t*)(&temp_float))+3));
+	case ODOMETRY_CORRECTION:
+		if (commandCheck( strlen(command) >= 3 )) {
+			temp_float = strtof((char*)&command[2], NULL);
+			if (temp_float > 0.0f) {
+				taskENTER_CRITICAL();
+				{
+					globalOdometryCorrectionGain = temp_float;
+				}
+				taskEXIT_CRITICAL();
+			}
+		}
 		break;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	case SPEER_REGULATOR_VOLTAGE_CORRECTION:

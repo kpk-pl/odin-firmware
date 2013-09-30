@@ -8,8 +8,9 @@
 
 #include "TaskPrintfConsumer.h"
 
-xQueueHandle telemetryQueue;		/*!< Queue to which telemetry updates are sent to */
-xTaskHandle telemetryTask;			/*!< This task's handle */
+float globalOdometryCorrectionGain = 1.0f;	/*!< Gain that is used to correct odometry data (turning angle) */
+xQueueHandle telemetryQueue;				/*!< Queue to which telemetry updates are sent to */
+xTaskHandle telemetryTask;					/*!< This task's handle */
 
 /**
  * \brief Global variable that holds current up-to-date telemetry data.
@@ -43,7 +44,7 @@ void TaskTelemetry(void * p) {
 			{
 				globalTelemetryData.X += update.dX;
 				globalTelemetryData.Y += update.dY;
-				globalTelemetryData.O += update.dO;
+				globalTelemetryData.O += update.dO * globalOdometryCorrectionGain;
 				if (globalLogTelemetry && (fabsf(update.dX) > 0.1f || fabsf(update.dY) > 0.1f || fabsf(update.dO) > 0.001f)) {
 					safePrint(52, "Odometry update: X:%.2f Y:%.2f O:%.1f\n", globalTelemetryData.X, globalTelemetryData.Y, globalTelemetryData.O / DEGREES_TO_RAD);
 				}
