@@ -65,7 +65,7 @@ void TaskDrive(void * p) {
 
 		/* Stop motors if no other command available */
 		if (uxQueueMessagesWaiting(driveQueue) == 0) {
-			sendSpeeds(0.0f, 0.0f);
+			sendSpeeds(0.0f, 0.0f, portMAX_DELAY);
 		}
 
 		/* Free space where the command was held */
@@ -90,7 +90,7 @@ void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime) {
 	/* Start driving at max speed if far away from target */
 	if (dist > breakingDistance) {
 		/* Set motors speed allowing negative speed */
-		sendSpeeds(maxSpeed, maxSpeed);
+		sendSpeeds(maxSpeed, maxSpeed, portMAX_DELAY);
 
 		/* Wait in periods until position is too close to target position */
 		while(1) {
@@ -114,7 +114,7 @@ void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime) {
 
 		/* Set motors speed constantly as robot approaches target distance */
 		float speed = maxSpeed * (0.8f * rem / breakingDistance + 0.2f);
-		sendSpeeds(speed, speed);
+		sendSpeeds(speed, speed, portMAX_DELAY);
 	}
 	/* Wait for a bit */
 	vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
@@ -140,7 +140,7 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 	if (fabsf(targetO) > 20.0f * DEGREES_TO_RAD) {
 		/* Compute speeds and send them to queue */
 		float leftspeed = (float)dir * (-1.0f) * command->Speed;
-		sendSpeeds(leftspeed, -leftspeed);
+		sendSpeeds(leftspeed, -leftspeed, portMAX_DELAY);
 
 		/* Wait for angle distance to become small enough */
 		while(1) {
@@ -191,7 +191,7 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		}
 
 		/* Set wheels speeds */
-		sendSpeeds(v - w * ROBOT_DIAM / 2.0f, v + w * ROBOT_DIAM / 2.0f);
+		sendSpeeds(v - w * ROBOT_DIAM / 2.0f, v + w * ROBOT_DIAM / 2.0f, portMAX_DELAY);
 
 		/* Wait a moment */
 		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
@@ -237,7 +237,7 @@ void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
 	/* Turn with maximum speed as long as turning angle is big */
 	if (fabsf(normalizeOrientation(targetO - begTelData.O)) > breakingAngle) {
 		/* Set maximum speed */
-		sendSpeeds(maxLeft, maxRight);
+		sendSpeeds(maxLeft, maxRight, portMAX_DELAY);
 
 		/* Wait for reaching close proximity of target angle */
 		while(1) {
@@ -262,7 +262,7 @@ void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
 
 		/* Calculate speeds */
 		float speedCoef = 0.9f * dist / breakingAngle + 0.1f;
-		sendSpeeds(maxLeft * speedCoef, maxRight * speedCoef);
+		sendSpeeds(maxLeft * speedCoef, maxRight * speedCoef, portMAX_DELAY);
 
 		/* Wait a little */
 		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);

@@ -67,7 +67,7 @@ void TaskTrajectory(void *p) {
 			}
 			if (!send2) {
 				safePrint(25, "Trajectory buffer empty\n");
-				sendSpeeds(.0f, .0f);
+				sendSpeeds(.0f, .0f, portMAX_DELAY);
 				send2 = true;
 			}
 		}
@@ -83,25 +83,27 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 								 TrajectoryPoint_Ptr trajectoryPoint,
 								 MotorSpeed_Struct * outputSpeeds)
 {
-	float s, c, s_r, c_r;
+	float s, c;//, s_r, c_r;
 	float e_x, e_y, e_s, e_c, e_c_term;
 	float v_b, w_b;
 	float v, w;
 
 	float diff_x  = trajectoryPoint->X - currentPosition->X * 1e-3f;
 	float diff_y  = trajectoryPoint->Y - currentPosition->Y * 1e-3f;
-	//float diff_fi = trajectoryPoint->O - currentPosition->O; // unused?
+	float diff_fi = trajectoryPoint->O - currentPosition->O; // unused?
 
 	s = sinf(currentPosition->O);
 	c = cosf(currentPosition->O);
-	s_r = sinf(trajectoryPoint->O);
-	c_r = cosf(trajectoryPoint->O);
+	//s_r = sinf(trajectoryPoint->O);
+	//c_r = cosf(trajectoryPoint->O);
 
 	//calculate error model
 	e_x =  c * diff_x + s * diff_y;
 	e_y = -s * diff_x + c * diff_y;
-	e_s = s_r * c - c_r * s;
-	e_c = c_r * c + s_r * s - 1.0f;
+	//e_s = s_r * c - c_r * s;
+	//e_c = c_r * c + s_r * s - 1.0f;
+	e_s = sinf(diff_fi);
+	e_c = cosf(diff_fi) - 1.0f;
 
 	//calculate feedback signal for n=2 and a=7 (see whitepaper)
 	e_c_term = 1.0f + e_c / 7.0f; //a = 7;

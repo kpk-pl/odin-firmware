@@ -209,10 +209,10 @@ void TaskMotorCtrlConstructor() {
 	motorControllerMutex = xSemaphoreCreateMutex();
 }
 
-void sendSpeeds(float left, float right) {
+void sendSpeeds(float left, float right, unsigned portLONG delay) {
 	MotorSpeed_Struct motorsSpeed = {
 		.LeftSpeed = left,
 		.RightSpeed = right
 	};
-	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, delay);
 }

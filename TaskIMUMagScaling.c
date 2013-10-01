@@ -51,7 +51,7 @@ void TaskIMUMagScaling(void *p) {
 	if (taken != pdFALSE) { // something really came in, doing scaling
 		safePrint(23, "Scaling magnetometer\n");
 
-		sendSpeeds(-0.6f, 0.6f);
+		sendSpeeds(-0.6f, 0.6f, portMAX_DELAY);
 		startTick = xTaskGetTickCount();
 
 		// turning around, save all reading data in orientation intervals
@@ -73,7 +73,7 @@ void TaskIMUMagScaling(void *p) {
 
 		globalMagnetometerImprovData[720] = globalMagnetometerImprovData[0] + 2.0f*M_PI;
 
-		sendSpeeds(0.0f, 0.0f);
+		sendSpeeds(0.0f, 0.0f, portMAX_DELAY);
 		endTick = xTaskGetTickCount();
 	}
 

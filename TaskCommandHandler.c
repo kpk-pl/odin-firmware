@@ -140,7 +140,7 @@ void COMHandle(const char * command) {
 		if (commandCheck( strlen(command) >= 3 )) {
 			globalSpeedRegulatorOn = ENABLE;
 			temp_float = strtof((char*)&command[2], &last);
-			sendSpeeds(temp_float, strtof(last+1, NULL));
+			sendSpeeds(temp_float, strtof(last+1, NULL), 0);
 		}
 		break;
 	case TELEMETRY_PRINT:
