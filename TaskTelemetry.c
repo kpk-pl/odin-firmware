@@ -8,9 +8,9 @@
 
 #include "TaskPrintfConsumer.h"
 
-float globalOdometryCorrectionGain = 1.0f;	/*!< Gain that is used to correct odometry data (turning angle) */
-xQueueHandle telemetryQueue;				/*!< Queue to which telemetry updates are sent to */
-xTaskHandle telemetryTask;					/*!< This task's handle */
+float globalOdometryCorrectionGain = 1.0075f;	/*!< Gain that is used to correct odometry data (turning angle) */
+xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
+xTaskHandle telemetryTask;						/*!< This task's handle */
 
 /**
  * \brief Global variable that holds current up-to-date telemetry data.

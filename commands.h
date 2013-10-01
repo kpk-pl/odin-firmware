@@ -129,7 +129,13 @@
 #endif
 
 #ifdef FOLLOW_TRAJECTORY
-#define TRAJECTORY_REGULATOR_PARAMS 't'
+#define TRAJECTORY_REGULATOR_PARAMS 't'	/*
+										 * 3 params
+										 * 1) k_x
+										 * 2) k
+										 * 3) k_s
+										 * Sets new trajectory regulator parameters
+										 */
 #endif /* FOLLOW_TRAJECTORY */
 
 #endif
