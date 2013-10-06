@@ -61,12 +61,13 @@ void TaskPenCtrl(void *p) {
 			reset = false;
 		}
 
+		getTelemetry(&telemetry);
+		distance += hypotf(telemetryOld.X - telemetry.X, telemetryOld.Y - telemetry.Y);
+		telemetryOld = telemetry;
+
 		// do not allow too frequent changes
 		tick = xTaskGetTickCount();
 		if ((tick - tickOld) / portTICK_RATE_MS < 100) continue;
-
-		getTelemetry(&telemetry);
-		distance = hypotf(telemetryOld.X - telemetry.X, telemetryOld.Y- telemetry.Y);
 
 		// state machine for various line types
 		switch (copyPen) {
@@ -84,8 +85,8 @@ void TaskPenCtrl(void *p) {
 					setPenUp();
 
 				stateMachine = (stateMachine+1)%4;
-				telemetryOld = telemetry;
 				tickOld = tick;
+				distance = 0.0f;
 			}
 			break;
 		default:
