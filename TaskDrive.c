@@ -6,6 +6,7 @@
 #include "TaskMotorCtrl.h"
 #include "TaskTelemetry.h"
 #include "TaskPrintfConsumer.h"
+#include "TaskPenCtrl.h"
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
 
@@ -56,8 +57,7 @@ void TaskDrive(void * p) {
 		/* Check if speed is not less than zero */
 		if (command->Speed >= 0.0f) {
 			/* Handle pen */
-			if (command->UsePen) setPenDown();
-			else setPenUp();
+			xQueueSendToBack(penCommandQueue, &command->UsePen, portMAX_DELAY);
 
 			/* Recalculate speed from m/s to rad/s */
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;

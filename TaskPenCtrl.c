@@ -33,7 +33,7 @@ void TaskPenCtrl(void *p) {
 
 	while (1) {
 		// wait for the next sampling period
-		vTaskDelayUntil(&wakeTime, 50/portTICK_RATE_MS);
+		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
 
 		// receive request to set pen up or down
 		if (xQueueReceive(penCommandQueue, &received, 0) == pdTRUE) {

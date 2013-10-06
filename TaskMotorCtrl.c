@@ -128,18 +128,7 @@ void TaskMotorCtrl(void * p) {
 		telemetryUpdate.dO = (speedRight - speedLeft) * IMPS_TO_MM_TRAVELED / ROBOT_DIAM;
 		telemetryUpdate.dX = deltaS * cosf(telemetryData.O);
 		telemetryUpdate.dY = deltaS * sinf(telemetryData.O);
-		/*if (speedLeft != speedRight) {
-			float a = ROBOT_DIAM / 2.0f * (speedRight + speedLeft) / (speedRight - speedLeft);
-			telemetryUpdate.dO = (speedRight - speedLeft) * IMPS_TO_MM_TRAVELED / ROBOT_DIAM;
-			telemetryUpdate.dX = a*(sinf(telemetryUpdate.dO + telemetryData.O) - sinf(telemetryData.O));
-			telemetryUpdate.dY = -a*(cosf(telemetryUpdate.dO + telemetryData.O) - cosf(telemetryData.O));
-		}
-		else {
-			float deltaS = (speedRight + speedLeft) * IMPS_TO_MM_TRAVELED / 2.0f;
-			telemetryUpdate.dX = deltaS * cosf(telemetryData.O);
-			telemetryUpdate.dY = deltaS * sinf(telemetryData.O);
-			telemetryUpdate.dO = 0.0f;
-		}*/
+
 		if (xQueueSendToBack(telemetryQueue, &telemetryUpdate, 0) == errQUEUE_FULL) {
 			if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
 		}
