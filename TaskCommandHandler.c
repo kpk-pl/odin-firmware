@@ -15,6 +15,7 @@
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskTelemetry.h"
+#include "TaskPenCtrl.h"
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
 #endif
@@ -168,6 +169,11 @@ void COMHandle(const char * command) {
 		break;
 	case STACK_USAGE:
 		reportStackUsage();
+		break;
+	case SET_PEN_LINE:
+		if (commandCheck( strlen(command) >= 3 && IS_PENLINE_TYPE(command[2] - '0') )) {
+			setPenLineType(command[2] - '0');
+		}
 		break;
 	case SPEED_REGULATOR_ENABLE:
 		if (commandCheck( strlen(command) >= 3 )) {

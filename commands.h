@@ -46,6 +46,7 @@
 #define CPU_USAGE				'u'		/* No params; Returns CPU usage in percent as float %.1f in form "CPU usage: %.1f%%\n" */
 #define STACK_USAGE				's'		/* Reports free stack space of each running task */
 #define ODOMETRY_CORRECTION		'c'		/* One param: correction gain (float close to one, not negative) | Sets the correction parameter for odometry */
+#define SET_PEN_LINE			'd'		/* One param: pen line type as in PenLine_Type in TaskPenCtrl.h */
 
 #define LOGGING_COMMAND			'V'		/*
 										 * Two params: first - what to log, second - 1/0 wheather to turn logging on or off

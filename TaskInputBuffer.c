@@ -51,11 +51,9 @@ void TaskInputBuffer(void * p) {
 
 				RXBUFPOS[i] = 0;
 
-				portBASE_TYPE contextSwitch = pdFALSE;
-				if (xQueueSendToBackFromISR(commandQueue, &ptr, &contextSwitch) == errQUEUE_FULL) {
+				if (xQueueSendToBack(commandQueue, &ptr, 0) == errQUEUE_FULL) {
 					vPortFree(ptr);
 				}
-				portEND_SWITCHING_ISR(contextSwitch);
 			}
 			break;
 		default:

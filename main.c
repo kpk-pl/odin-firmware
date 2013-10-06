@@ -13,6 +13,7 @@
 #include "TaskLED.h"
 #include "TaskUSB2WiFiBridge.h"
 #include "TaskInputBuffer.h"
+#include "TaskPenCtrl.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
 #include "TaskIMUMagScaling.h"
@@ -79,6 +80,7 @@ int main(void)
 	TaskRC5Constructor();
 	TaskTelemetryConstructor();
 	TaskUSB2WiFiBridgeConstructor();
+	TaskPenCtrlConstructor();
 #ifdef FOLLOW_TRAJECTORY
 	TaskTrajectoryConstructor();
 #endif
@@ -103,6 +105,7 @@ void reportStackUsage() {
 	safePrint(23, "telemetryTask: %d\n", uxTaskGetStackHighWaterMark(telemetryTask));
 	safePrint(27, "USBWiFiBridgeTask: %d\n", uxTaskGetStackHighWaterMark(USBWiFiBridgeTask));
 	safePrint(29, "commInputBufferTask: %d\n", uxTaskGetStackHighWaterMark(commInputBufferTask));
+	safePrint(21, "penCtrlTask: %d\n", uxTaskGetStackHighWaterMark(penCtrlTask));
 #ifdef USE_IMU_TELEMETRY
 	safePrint(17, "imuTask: %d\n", uxTaskGetStackHighWaterMark(imuTask));
 #endif

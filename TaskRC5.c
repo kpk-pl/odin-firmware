@@ -12,6 +12,7 @@
 #include "TaskIMUMagScaling.h"
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
+#include "TaskPenCtrl.h"
 
 xTaskHandle RC5Task;						/*!< This task handle */
 xSemaphoreHandle rc5CommandReadySemaphore;	/*!< Semaphore used by rc5_tim_exti.h library to incicate incomming command */
@@ -32,6 +33,7 @@ void TaskRC5(void * p) {
 	RC5Frame_TypeDef frame;
 	uint8_t toggle = 2;
 	float maxSpeed = 3.0f;
+	bool tempboolean;
 
 	while(1) {
 		/* Blocking wait - suspend task till semaphore is set */
@@ -80,10 +82,12 @@ void TaskRC5(void * p) {
 				maxSpeed /= 1.2f;
 				break;
 			case 32: /*<< CH up button */
-				setPenUp();
+				tempboolean = false;
+				xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
 				break;
 			case 33: /*<< CH down button */
-				setPenDown();
+				tempboolean = true;
+				xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
 				break;
 #ifdef USE_IMU_TELEMETRY
 			case 42: /*<< clock button */
