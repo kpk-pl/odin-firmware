@@ -96,6 +96,14 @@
 										 * 	Speed regulator can be enabled with another command.
 										 */
 
+#ifdef USE_IMU_TELEMETRY
+#define USE_IMU_UPDATES			'I'		/*
+										 * 1 param:
+										 * 0 / 1 - 1 to turn IMU updates on
+										 * Example: <I:1> turns IMU updates on
+										 */
+#endif
+
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #define SPEER_REGULATOR_VOLTAGE_CORRECTION 'B'
 										/* One param: 1 - enable, 0 - disable | enables or disables voltage regulation for custom motor controller */

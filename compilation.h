@@ -12,6 +12,11 @@
 #define COMPILE_CIRCULAR_BUFFER			/*!< If defined then circular buffer will be compiled with not zero size */
 #endif
 
+// Possibility to exclude Gyroscope usage
+#ifdef USE_IMU_TELEMETRY
+//#define USE_GYRO_FOR_IMU
+#endif
+
 // Protect from compiling IMU without drive commands
 #ifdef USE_IMU_TELEMETRY
 #ifndef DRIVE_COMMANDS

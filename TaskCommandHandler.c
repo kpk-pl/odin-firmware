@@ -149,6 +149,14 @@ void COMHandle(const char * command) {
 			if (globalLogEvents) safePrint(24, "WiFi reset changed to %d\n", getWiFiReset());
 		}
 		break;
+#ifdef USE_IMU_TELEMETRY
+	case USE_IMU_UPDATES:
+		if (commandCheck( strlen(command) >= 3 )) {
+			globalUseIMUUpdates = command[2] == '1';
+			if (globalLogEvents) safePrint(26, "IMU updates changed to %d\n", globalUseIMUUpdates);
+		}
+		break;
+#endif
 	case LANTERN_ENABLE:
 		if (commandCheck( strlen(command) >= 3 )) {
 			enableLantern(command[2] == '1' ? ENABLE : DISABLE);

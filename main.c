@@ -39,7 +39,9 @@ int main(void)
 	//RCC_HSEConfig(RCC_HSE_ON);
 
 	Initialize();
-	if (globalLogEvents) printf("Reset!\n");
+	if (globalLogEvents) {
+		printf("Reset!\n");
+	}
 
 	TaskCommandHandlerConstructor();
 	TaskInputBufferConstructor();

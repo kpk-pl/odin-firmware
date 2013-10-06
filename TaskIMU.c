@@ -12,7 +12,10 @@
 
 #include "imu.h"				// reading IMU data
 #include "vector.h"				// operations on 3D vectors
+
+#ifdef USE_GYRO_FOR_IMU
 #include "complementary.h"		// complementary filter
+#endif
 
 #include "TaskTelemetry.h"		// for typedefs
 #include "TaskIMUMagScaling.h"	// for external declarations
@@ -72,15 +75,18 @@ void TaskIMU(void * p) {
 	VectorF read; 								// one reading from I2C, temporary variable
 	VectorF accSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from accelerometer
 	VectorF magSum = {0.0f, 0.0f, 0.0f};		// place for 3 readings from magnetometer
-	VectorF gyroSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from gyro
 	const VectorF front = {0.0f, -1.0f, 0.0f};	// front of the robot relative to IMU mounting
-	float estDir, angle, cangle, prev_angle;
-	Complementary_State cState;					// filter state
+	float angle, cangle, prev_angle;
 	static int32_t turn_counter = 0;			// static means that it will survive restart
 	TelemetryData_Struct telemetry;
+#ifdef USE_GYRO_FOR_IMU
+	VectorF gyroSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from gyro
+	float estDir;
+	Complementary_State cState;					// filter state
+	ComplementaryInit(&cState, 0.93f); 			// 0.5s time constant with 25Hz sampling
+#endif
 
 	uint8_t samplingState = 7;					// state machine's state
-	ComplementaryInit(&cState, 0.93f); // 0.5s time constant with 25Hz sampling
 
 	/* Take semaphores initially, so that they can be given later */
 	xSemaphoreTake(imuI2CEV, 0);
@@ -89,7 +95,9 @@ void TaskIMU(void * p) {
 	xTimerReset(imuWatchdogTimer, 0);
 	InitAcc();
 	InitMag();
+#ifdef USE_GYRO_FOR_IMU
 	InitGyro();
+#endif
 	xTimerStop(imuWatchdogTimer, 0);
 
 	/* If timer was successfully stopped then all units must have been correctly initialized, so I2C
@@ -108,9 +116,10 @@ void TaskIMU(void * p) {
 		case 0: // all data sampled in this common point
 			VectorScale(&accSum, 0.25f, &accSum);
 			VectorScale(&magSum, 1.0f / 3.0f, &magSum);
+#ifdef USE_GYRO_FOR_IMU
 			VectorScale(&gyroSum, 0.25f, &gyroSum);
-
 			estDir -= gyroSum.z * 0.04f;
+#endif
 
 			angle = GetHeading(&accSum, &magSum, &front);
 
@@ -131,7 +140,11 @@ void TaskIMU(void * p) {
 			angle += TWOM_PI * (float)turn_counter;
 
 			if (globalMagnetometerScalingInProgress == DISABLE) {
+#ifdef USE_GYRO_FOR_IMU
 				cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
+#else
+				cangle = angle;
+#endif
 				update.dO = cangle;
 				if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
 					if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
@@ -139,14 +152,20 @@ void TaskIMU(void * p) {
 
 				if (globalLogIMU) {
 					getTelemetryRaw(&telemetry);
+#ifdef USE_GYRO_FOR_IMU
 					safePrint(60, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+#else
+					safePrint(60, "Mag: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+#endif
 				}
 			}
 			else {
 				xQueueSendToBack(magnetometerScalingQueue, &angle, 0); // this queue should exist if globalMagnetometerScaling == ENABLE
 			}
 
+#ifdef USE_GYRO_FOR_IMU
 			VectorSet(&gyroSum, 0.0f);
+#endif
 			VectorSet(&magSum, 0.0f);
 			VectorSet(&accSum, 0.0f);
 			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
@@ -155,10 +174,12 @@ void TaskIMU(void * p) {
 		case 1:	// first point of 100Hz
 		case 3: // second point of 100Hz
 		case 5: // third point of 100Hz
+#ifdef USE_GYRO_FOR_IMU
 			xTimerReset(imuWatchdogTimer, 0);
 			ReadGyroScaled(&read);
 			xTimerStop(imuWatchdogTimer, 0);
 			VectorAdd(&gyroSum, &read, &gyroSum);
+#endif
 
 			xTimerReset(imuWatchdogTimer, 0);
 			ReadAccScaled(&read);
@@ -183,10 +204,12 @@ void TaskIMU(void * p) {
 			break;
 		case 6: // common point: fourth of 100Hz and third of 75Hz
 		case 7: // prepare - enter state
+#ifdef USE_GYRO_FOR_IMU
 			xTimerReset(imuWatchdogTimer, 0);
 			ReadGyroScaled(&read);
 			xTimerStop(imuWatchdogTimer, 0);
 			VectorAdd(&gyroSum, &read, &gyroSum);
+#endif
 
 			xTimerReset(imuWatchdogTimer, 0);
 			ReadAccScaled(&read);
@@ -201,14 +224,18 @@ void TaskIMU(void * p) {
 			if (samplingState == 7) { 						// initialize all values to first reading
 				VectorScale(&accSum, 4.0f, &accSum);		// will be scaled back at state 0
 				VectorScale(&magSum, 3.0f, &magSum);
+#ifdef USE_GYRO_FOR_IMU
 				VectorScale(&gyroSum, 4.0f, &gyroSum);
+#endif
 				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
 				prev_angle = cangle;
 				getTelemetry(&telemetry);
 				if (!globalDoneIMUScaling)
 					initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
 				cangle = interpolateAngle(telemetry.O) + TWOM_PI * (float)turn_counter;
+#ifdef USE_GYRO_FOR_IMU
 				estDir = cangle;
+#endif
 			}
 
 			samplingState = 0;

@@ -5,10 +5,12 @@
 #include "compilation.h"
 #include "priorities.h"
 #include "stackSpace.h"
+#include "complementary.h"
 
 #include "TaskPrintfConsumer.h"
 
 float globalOdometryCorrectionGain = 1.0075f;	/*!< Gain that is used to correct odometry data (turning angle) */
+bool globalUseIMUUpdates = true;
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;						/*!< This task's handle */
 
@@ -24,6 +26,7 @@ void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
 #ifdef USE_IMU_TELEMETRY
 	portTickType startTime = xTaskGetTickCount();
+	Complementary_State filter;
 	bool useIMU = false;
 #endif
 
@@ -32,6 +35,7 @@ void TaskTelemetry(void * p) {
 		if (!useIMU) { // use IMU data after timeout to let magnetometer scaling kick in
 			if ((xTaskGetTickCount() - startTime)/portTICK_RATE_MS > 10000) useIMU = true;
 		}
+		ComplementaryInit(&filter, 0.998f);	// 20s time constant with 25Hz sampling
 #endif
 
 		/* Wait indefinitely while there is no update */
@@ -53,8 +57,14 @@ void TaskTelemetry(void * p) {
 			break;
 #ifdef USE_IMU_TELEMETRY
 		case TelemetryUpdate_Source_IMU:
-			if (useIMU) {
+			if (!useIMU || !globalUseIMUUpdates) break;
+			taskENTER_CRITICAL();
+			{
+				globalTelemetryData.O = ComplementaryGet(&filter, globalTelemetryData.O, update.dO);
+				if (globalLogTelemetry)
+					safePrint(27, "IMU update: O:%.1f\n", globalTelemetryData.O / DEGREES_TO_RAD);
 			}
+			taskEXIT_CRITICAL();
 			break;
 #endif
 		default:
