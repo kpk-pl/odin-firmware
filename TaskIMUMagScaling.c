@@ -7,9 +7,8 @@
 #include "TaskPrintfConsumer.h"
 #include "TaskTelemetry.h"
 
-#ifdef DRIVE_COMMANDS
-#include "TaskDrive.h"
-#endif
+#include "TaskDrive.h" // needed at all cost
+
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
 #endif
@@ -37,9 +36,6 @@ void TaskIMUMagScaling(void *p) {
 #ifdef FOLLOW_TRAJECTORY
 	vTaskSuspend(trajectoryTask);
 #endif
-#ifdef DRIVE_COMMANDS
-	vTaskSuspend(driveTask);
-#endif
 
 	magnetometerScalingQueue = xQueueCreate(10,	sizeof(float));
 	globalMagnetometerScalingInProgress = ENABLE;
@@ -51,40 +47,76 @@ void TaskIMUMagScaling(void *p) {
 	if (taken != pdFALSE) { // something really came in, doing scaling
 		safePrint(23, "Scaling magnetometer\n");
 
-		sendSpeeds(-0.6f, 0.6f, portMAX_DELAY);
+		//sendSpeeds(-0.6f, 0.6f, portMAX_DELAY);
 		startTick = xTaskGetTickCount();
+
+		DriveCommand_Struct turn_command = {
+			.Type = DriveCommand_Type_Angle,
+			.UsePen = false,
+			.Speed = 0.3f,
+			.Param1 = 1	// absolute angle
+		};
+		DriveCommand_Struct *dc;
 
 		// turning around, save all reading data in orientation intervals
 		uint16_t i = 0;
-		while(i < 2*720) {
-			do {
-				vTaskDelay(1);
-				getTelemetryRaw(&telemetry);
-				taken = xQueueReceive(magnetometerScalingQueue, &imuAngle, 0);	// read everything as soon as possible
-			} while (telemetry.O < globalMagnetometerImprov.xSpacing * i);
+		while(i < MAG_IMPROV_DATA_POINTS) {
+			// turn to desired orientation (absolute angles)
+			turn_command.Param2 = (i * (360 / MAG_IMPROV_DATA_POINTS));
+			dc = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
+			*dc = turn_command;
+			xQueueSendToBack(driveQueue, &dc, portMAX_DELAY);
+			vTaskDelay(100/portTICK_RATE_MS);	// wait for the other task to start processing command
+			xSemaphoreTake(motorControllerMutex, portMAX_DELAY);	// if the semaphore is taken, it was free, as other task gave it - driving is done after this point
+			xSemaphoreGive(motorControllerMutex);
 
-			if ((i+360)%720 < 360) imuAngle -= TWOM_PI;
-			if (i >= 720) imuAngle -= TWOM_PI;
-			globalMagnetometerImprovData[(i+360)%720] = imuAngle;
+			xQueueReset(magnetometerScalingQueue);  // clear queue content
 
-			i+=2;
-			if (i == 720) i += 1;
+			float sum = 0.0f;
+			for (uint8_t count = 0; count < 25; count++) {
+				xQueueReceive(magnetometerScalingQueue, &imuAngle, portMAX_DELAY);
+				if (i >= MAG_IMPROV_DATA_POINTS/2) imuAngle -= TWOM_PI;
+				sum += imuAngle;
+			}
+
+			globalMagnetometerImprovData[(i + MAG_IMPROV_DATA_POINTS/2) % MAG_IMPROV_DATA_POINTS] = sum / 25.0f;
+
+			i++;
 		}
 
-		globalMagnetometerImprovData[720] = globalMagnetometerImprovData[0] + 2.0f*M_PI;
+		turn_command.Param2 = 360.0f;
+		dc = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
+		*dc = turn_command;
+		xQueueSendToBack(driveQueue, &dc, portMAX_DELAY);
 
-		sendSpeeds(0.0f, 0.0f, portMAX_DELAY);
+		globalMagnetometerImprovData[MAG_IMPROV_DATA_POINTS] = globalMagnetometerImprovData[0] + TWOM_PI;
+
 		endTick = xTaskGetTickCount();
 	}
 
-	movingCenterAlignedAvarage(globalMagnetometerImprovData, globalMagnetometerImprov.nValues, 35);
-	movingCenterAlignedAvarage(globalMagnetometerImprovData, globalMagnetometerImprov.nValues, 23);
+	movingCenterAlignedAvarage(globalMagnetometerImprovData, globalMagnetometerImprov.nValues, 5);
+
+	// check if collected & filtered data is valid
+	// characteristic should be growing in time and should round zero point in Cartesian
+	uint8_t cartesian = 0;
+	uint16_t i;
+	for (i = 0; i<MAG_IMPROV_DATA_POINTS; ++i) {
+		if (globalMagnetometerImprovData[i] > globalMagnetometerImprovData[i+1]) break;
+		float norm = normalizeOrientation(globalMagnetometerImprovData[i]);
+		if (norm < 0.0f) {
+			if (norm < -HALFM_PI) cartesian |= 0x08;
+			else cartesian |= 0x04;
+		}
+		else {
+			if (norm < HALFM_PI) cartesian |= 0x02;
+			else cartesian |= 0x01;
+		}
+	}
+	if (i != MAG_IMPROV_DATA_POINTS || cartesian != 0x0F)
+		safePrint(34, "Magnetometer scaling went wrong!\n");
 
 #ifdef FOLLOW_TRAJECTORY
 	vTaskResume(trajectoryTask);
-#endif
-#ifdef DRIVE_COMMANDS
-	vTaskResume(driveTask);
 #endif
 
 	safePrint(55, "Scaling took %d ms, stack high-water mark at %d\n", (endTick-startTick)/portTICK_RATE_MS, uxTaskGetStackHighWaterMark(NULL));

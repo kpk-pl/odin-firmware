@@ -27,6 +27,7 @@
 volatile FunctionalState globalLogTelemetry = DISABLE;
 volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
+volatile FunctionalState globalLogIMU = DISABLE;
 volatile float globalCPUUsage = 0.0f;
 
 int main(void)

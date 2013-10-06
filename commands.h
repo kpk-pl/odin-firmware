@@ -54,6 +54,7 @@
 										 * t - telemetry
 										 * s - speed
 										 * e - events
+										 * i - IMU
 										 */
 
 #define IMPORT_TRAJECTORY_POINTS 'P' 	/*

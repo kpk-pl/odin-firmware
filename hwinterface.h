@@ -134,6 +134,7 @@ OnOff getWiFi2USBBridgeStatus(void);
 OnOff getSwitchStatus(uint8_t no);
 
 void setWiFiReset(FunctionalState state);
+FunctionalState getWiFiReset();
 
 void setWiFiAlarm(FunctionalState state);
 

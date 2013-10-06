@@ -34,10 +34,24 @@ xTaskHandle driveTask;		/*!< This task handler */
 void TaskDrive(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
 	DriveCommand_Struct * command;
+	bool taken = false;
 
 	while(1) {
-		/* Take one command from queue */
+		/* Take one command from queue or wait for the command to arrive */
+		if (uxQueueMessagesWaiting(driveQueue) == 0) {		// free resources
+			sendSpeeds(0.0f, 0.0f, portMAX_DELAY);			// stop motors as there is no command available
+			if (taken) {
+				xSemaphoreGive(motorControllerMutex);
+				taken = false;
+			}
+		}
+
 		xQueueReceive(driveQueue, &command, portMAX_DELAY);
+
+		if (!taken) {	// block resources
+			xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
+			taken = true;
+		}
 
 		/* Check if speed is not less than zero */
 		if (command->Speed >= 0.0f) {
@@ -48,24 +62,15 @@ void TaskDrive(void * p) {
 			/* Recalculate speed from m/s to rad/s */
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
 
-			xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
-
 			if (command->Type == DriveCommand_Type_Line)
 				driveLine(command, &wakeTime);
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc)
 				driveAngleArc(command, &wakeTime);
 			else if (command->Type == DriveCommand_Type_Point)
 				drivePoint(command, &wakeTime);
-
-			xSemaphoreGive(motorControllerMutex);
 		}
 		else { /* command->Speed < 0.0f */
 			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");
-		}
-
-		/* Stop motors if no other command available */
-		if (uxQueueMessagesWaiting(driveQueue) == 0) {
-			sendSpeeds(0.0f, 0.0f, portMAX_DELAY);
 		}
 
 		/* Free space where the command was held */

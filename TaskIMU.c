@@ -47,10 +47,11 @@ static float interpolateAngle(float angle);
 
 static volatile bool globalIMUHang = false;								/*!< Indicates if IMU hanged lately */
 volatile bool globalDoneIMUScaling = false;								/*!< false if scaling was never done before, true otherwise. May be set in TaskIMUMagScaling */
-float globalMagnetometerImprovData[721];	/*!< Array of scaling points used by interpolation to correct magnetometer readings */
-arm_linear_interp_instance_f32 globalMagnetometerImprov = {				/*!< Struct used for interpolation of magnetometer readings */
-	.nValues = 721,
-	.xSpacing = PI / 360.0f,
+float globalMagnetometerImprovData[MAG_IMPROV_DATA_POINTS+1];	/*!< Array of scaling points used by interpolation to correct magnetometer readings */
+arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*!< Struct used for interpolation of magnetometer readings */
+	.nValues = MAG_IMPROV_DATA_POINTS+1,
+	.xSpacing = TWOM_PI / (float)MAG_IMPROV_DATA_POINTS,
+	.x1 = -M_PI,
 	.pYData = globalMagnetometerImprovData
 };
 
@@ -127,7 +128,7 @@ void TaskIMU(void * p) {
 			}
 			prev_angle = angle;
 
-			angle += 2.0f * M_PI * (float)turn_counter;
+			angle += TWOM_PI * (float)turn_counter;
 
 			if (globalMagnetometerScalingInProgress == DISABLE) {
 				cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
@@ -136,8 +137,10 @@ void TaskIMU(void * p) {
 					if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
 				}
 
-				getTelemetry(&telemetry);
-				safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+				if (globalLogIMU) {
+					getTelemetryRaw(&telemetry);
+					safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+				}
 			}
 			else {
 				xQueueSendToBack(magnetometerScalingQueue, &angle, 0); // this queue should exist if globalMagnetometerScaling == ENABLE
@@ -311,8 +314,7 @@ void initI2CforIMU(void) {
 }
 
 void initMagnetometerImprovInstance(float x0) {
-	globalMagnetometerImprov.x1 = -M_PI;
-	float offset = -M_PI - x0;
+	float offset = -M_PI + x0;
 
 	for (uint16_t i = 0; i<globalMagnetometerImprov.nValues; i++) {
 		globalMagnetometerImprovData[i] = globalMagnetometerImprov.xSpacing * i + offset; // Must be continuous, no normalization. Normalize afterwards.
@@ -320,7 +322,13 @@ void initMagnetometerImprovInstance(float x0) {
 }
 
 float interpolateAngle(float angle) {
-	return normalizeOrientation(arm_linear_interp_f32(&globalMagnetometerImprov, angle));
+	uint16_t i;
+	for (i = 0; i < globalMagnetometerImprov.nValues; ++i) {
+		if (angle < globalMagnetometerImprov.pYData[i]) break;
+	}
+
+	float prc = (angle - globalMagnetometerImprov.pYData[i-1]) / (globalMagnetometerImprov.pYData[i] - globalMagnetometerImprov.pYData[i-1]);
+	return normalizeOrientation((prc + (float)(i-1)) * globalMagnetometerImprov.xSpacing + globalMagnetometerImprov.x1);
 }
 
 void IMUI2CEVHandler(void) {
