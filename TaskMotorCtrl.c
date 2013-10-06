@@ -63,6 +63,7 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 #endif
 
 void TaskMotorCtrl(void * p) {
+	safePrint(19, "Booting completed\n");
 	portTickType wakeTime = xTaskGetTickCount();
 	/* Speed is given in radians per second */
 	MotorSpeed_Struct motorSpeed = {0.0f, 0.0f};

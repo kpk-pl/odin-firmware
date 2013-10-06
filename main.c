@@ -42,33 +42,33 @@ int main(void)
 	if (globalLogEvents) {
 		printf("Reset!\nCompilation settings:\n");
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-		printf("Custom motor controller\n");
+		printf("\tCustom motor controller\n");
 #else
-		printf("PID motor controller\n");
+		printf("\tPID motor controller\n");
 #endif
 #ifdef USE_IMU_TELEMETRY
 #ifdef USE_GYRO_FOR_IMU
-		printf("Using IMU with Gyro\n");
+		printf("\tUsing IMU with Gyro\n");
 #else
-		printf("Using IMU without Gyro\n");
+		printf("\tUsing IMU without Gyro\n");
 #endif
 #else
-		printf("IMU not used\n");
+		printf("\tIMU not used\n");
 #endif
 #ifdef FOLLOW_TRAJECTORY
-		printf("Following trajectory enabled\n");
+		printf("\tFollowing trajectory enabled\n");
 #ifndef COMPILE_CIRCULAR_BUFFER
-		printf("Circular buffer DISABLED\n");
+		printf("\tCircular buffer DISABLED\n");
 #endif
 #else
-		printf("Following trajectory DISABLED\n");
+		printf("\tFollowing trajectory DISABLED\n");
 #endif
 #ifdef DRIVE_COMMANDS
-		printf("Drive commands enabled\n");
+		printf("\tDrive commands enabled\n");
 #else
-		printf("Drive commands DISABLED\n");
+		printf("\tDrive commands DISABLED\n");
 #endif
-		printf("Booting...\n");
+		printf("Booting...\n"); // "Booting done is printed from TaskMotorCtrl as it always starts with high priority"
 	}
 
 	TaskCommandHandlerConstructor();
@@ -196,11 +196,13 @@ void OSBusyTimerHandler() {
 
 void vApplicationMallocFailedHook( void )
 {
+	printf("Malloc failed\n");
 	while(1);
 }
 
 void vApplicationStackOverflowHook( void )
 {
+	printf("Stack overflow\n");
 	while(1);
 }
 
