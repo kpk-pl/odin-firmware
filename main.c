@@ -27,6 +27,7 @@
 volatile FunctionalState globalLogTelemetry = DISABLE;
 volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
+volatile FunctionalState globalLogIMU = DISABLE;
 volatile float globalCPUUsage = 0.0f;
 
 int main(void)
@@ -38,7 +39,37 @@ int main(void)
 	//RCC_HSEConfig(RCC_HSE_ON);
 
 	Initialize();
-	if (globalLogEvents) printf("Reset!\n");
+	if (globalLogEvents) {
+		printf("Reset!\nCompilation settings:\n");
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+		printf("\tCustom motor controller\n");
+#else
+		printf("\tPID motor controller\n");
+#endif
+#ifdef USE_IMU_TELEMETRY
+#ifdef USE_GYRO_FOR_IMU
+		printf("\tUsing IMU with Gyro\n");
+#else
+		printf("\tUsing IMU without Gyro\n");
+#endif
+#else
+		printf("\tIMU not used\n");
+#endif
+#ifdef FOLLOW_TRAJECTORY
+		printf("\tFollowing trajectory enabled\n");
+#ifndef COMPILE_CIRCULAR_BUFFER
+		printf("\tCircular buffer DISABLED\n");
+#endif
+#else
+		printf("\tFollowing trajectory DISABLED\n");
+#endif
+#ifdef DRIVE_COMMANDS
+		printf("\tDrive commands enabled\n");
+#else
+		printf("\tDrive commands DISABLED\n");
+#endif
+		printf("Booting...\n"); // "Booting done is printed from TaskMotorCtrl as it always starts with high priority"
+	}
 
 	TaskCommandHandlerConstructor();
 	TaskInputBufferConstructor();
@@ -138,7 +169,7 @@ void BatteryTooLow() {
 	/* Stop all tasks */
 	vTaskEndScheduler();
 	/* Inform about low battery level */
-	printf("Battery Low!\nShutting Down\n");
+	printf("Battery Low (%.2fV)!\nShutting Down\n", getBatteryVoltage());
 	/* Turn off motors and lantern */
 	enableMotors(DISABLE);
 	enableLantern(DISABLE);
@@ -165,11 +196,13 @@ void OSBusyTimerHandler() {
 
 void vApplicationMallocFailedHook( void )
 {
+	printf("Malloc failed\n");
 	while(1);
 }
 
 void vApplicationStackOverflowHook( void )
 {
+	printf("Stack overflow\n");
 	while(1);
 }
 

@@ -21,6 +21,8 @@
 
 #define M_PI 				(3.14159265358979323846f)			/*<< PI */
 #define TWOM_PI				(6.28318530717958647692f)			/*<< 2PI */
+#define HALFM_PI			(1.57079632679489661923f)			/*<< PI / 2 */
+#define RAD_TO_DEG			(180.0f / M_PI)						/*<< Coefficient to convert between radians and degrees */
 #define IMPS_PER_REV 		(3592.0f)							/*<< Number of encoder impulses per wheel revolution */
 #define IMPS_TO_RAD 		(2.0f * M_PI / IMPS_PER_REV)		/*<< Coefficient to convert encoder impulses to radians */
 #define ROBOT_DIAM			(187.3f)//(187.0f)//(184.9f)		/*<< Distance between two wheels */
@@ -36,6 +38,7 @@
 /* Types of different logging commands */
 typedef enum {
 	Logging_Type_Telemetry = 't',		/*<< Log position and orientation when it changes */
+	Logging_Type_IMU = 'i',				/*<< Log IMU updates */
 	Logging_Type_Speed = 's',			/*<< Log wheels speed */
 	Logging_Type_Events = 'e'			/*<< Log system events */
 } Logging_Type;
@@ -48,6 +51,7 @@ typedef enum {
 extern volatile FunctionalState globalLogEvents;
 extern volatile FunctionalState globalLogTelemetry;
 extern volatile FunctionalState globalLogSpeed;
+extern volatile FunctionalState globalLogIMU;
 extern volatile float globalCPUUsage;
 
 /*

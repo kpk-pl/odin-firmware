@@ -323,6 +323,11 @@ void setWiFiReset(FunctionalState state) {
 	taskEXIT_CRITICAL();
 }
 
+FunctionalState getWiFiReset() {
+	if (GPIO_ReadOutputDataBit(WIFI_GPIO_SIG, WIFI_GPIO_SIG_CMDDATA_PIN) == Bit_SET) return ENABLE;
+	else return DISABLE;
+}
+
 void setWiFiAlarm(FunctionalState state) {
 	assert_param(IS_FUNCTIONAL_STATE(state));
 	taskENTER_CRITICAL();

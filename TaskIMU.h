@@ -8,6 +8,11 @@
 #include "timers.h"
 #include "task.h"
 
+#define MAG_IMPROV_DATA_POINTS (72)
+#if 360 % MAG_IMPROV_DATA_POINTS != 0 || MAG_IMPROV_DATA_POINTS % 2 != 0
+#error "Number of scaling points for magnetometer is not right, use a number that divides 360 and is even."
+#endif
+
 extern xTaskHandle imuTask;										/*!< Handle to IMU task exported for other units */
 extern arm_linear_interp_instance_f32 globalMagnetometerImprov;	/*!< Handle to magnetometer interpolation structure */
 extern float globalMagnetometerImprovData[];					/*!< Handle to magnetometer interpolation data */

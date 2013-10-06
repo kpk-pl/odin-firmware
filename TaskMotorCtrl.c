@@ -63,6 +63,7 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 #endif
 
 void TaskMotorCtrl(void * p) {
+	safePrint(19, "Booting completed\n");
 	portTickType wakeTime = xTaskGetTickCount();
 	/* Speed is given in radians per second */
 	MotorSpeed_Struct motorSpeed = {0.0f, 0.0f};
@@ -209,10 +210,10 @@ void TaskMotorCtrlConstructor() {
 	motorControllerMutex = xSemaphoreCreateMutex();
 }
 
-void sendSpeeds(float left, float right) {
+void sendSpeeds(float left, float right, unsigned portLONG delay) {
 	MotorSpeed_Struct motorsSpeed = {
 		.LeftSpeed = left,
 		.RightSpeed = right
 	};
-	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, portMAX_DELAY);
+	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, delay);
 }

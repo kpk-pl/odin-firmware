@@ -5,8 +5,12 @@
 #include "task.h"
 #include "queue.h"
 
-extern xQueueHandle telemetryQueue;		/*!< Export queue to which telemetry updates may be send */
-extern xTaskHandle telemetryTask;		/*!< Export this task handle */
+#include <stdbool.h>
+
+extern float globalOdometryCorrectionGain;	/*!< Export the parameter that corrects odometry while turning */
+extern bool globalUseIMUUpdates;			/*!< Export flag wheather to use IMU updates or not */
+extern xQueueHandle telemetryQueue;			/*!< Export queue to which telemetry updates may be send */
+extern xTaskHandle telemetryTask;			/*!< Export this task handle */
 
 /**
  * \brief Type of telemetry update

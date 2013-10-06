@@ -45,6 +45,7 @@
 #define DELAY_COMMANDS			'W'		/* One param: number of milliseconds to wait before executing next command */
 #define CPU_USAGE				'u'		/* No params; Returns CPU usage in percent as float %.1f in form "CPU usage: %.1f%%\n" */
 #define STACK_USAGE				's'		/* Reports free stack space of each running task */
+#define ODOMETRY_CORRECTION		'c'		/* One param: correction gain (float close to one, not negative) | Sets the correction parameter for odometry */
 
 #define LOGGING_COMMAND			'V'		/*
 										 * Two params: first - what to log, second - 1/0 wheather to turn logging on or off
@@ -53,6 +54,7 @@
 										 * t - telemetry
 										 * s - speed
 										 * e - events
+										 * i - IMU
 										 */
 
 #define IMPORT_TRAJECTORY_POINTS 'P' 	/*
@@ -94,6 +96,14 @@
 										 * 	Speed regulator can be enabled with another command.
 										 */
 
+#ifdef USE_IMU_TELEMETRY
+#define USE_IMU_UPDATES			'I'		/*
+										 * 1 param:
+										 * 0 / 1 - 1 to turn IMU updates on
+										 * Example: <I:1> turns IMU updates on
+										 */
+#endif
+
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #define SPEER_REGULATOR_VOLTAGE_CORRECTION 'B'
 										/* One param: 1 - enable, 0 - disable | enables or disables voltage regulation for custom motor controller */
@@ -128,7 +138,13 @@
 #endif
 
 #ifdef FOLLOW_TRAJECTORY
-#define TRAJECTORY_REGULATOR_PARAMS 't'
+#define TRAJECTORY_REGULATOR_PARAMS 't'	/*
+										 * 3 params
+										 * 1) k_x
+										 * 2) k
+										 * 3) k_s
+										 * Sets new trajectory regulator parameters
+										 */
 #endif /* FOLLOW_TRAJECTORY */
 
 #endif

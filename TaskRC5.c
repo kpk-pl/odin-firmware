@@ -42,31 +42,31 @@ void TaskRC5(void * p) {
 		if (toggle != frame.ToggleBit) {
 			switch(frame.Command) {
 			case 1: /*<< 1 button */
-				sendSpeeds(maxSpeed * 0.5f, maxSpeed);
+				sendSpeeds(maxSpeed * 0.5f, maxSpeed, 0);
 				break;
 			case 2: /*<< 2 button */
-				sendSpeeds(maxSpeed, maxSpeed);
+				sendSpeeds(maxSpeed, maxSpeed, 0);
 				break;
 			case 3: /*<< 3 button */
-				sendSpeeds(maxSpeed, maxSpeed * 0.5f);
+				sendSpeeds(maxSpeed, maxSpeed * 0.5f, 0);
 				break;
 			case 4: /*<< 4 button */
-				sendSpeeds(-maxSpeed * 0.5f, maxSpeed * 0.5f);
+				sendSpeeds(-maxSpeed * 0.5f, maxSpeed * 0.5f, 0);
 				break;
 			case 5: /*<< 5 button */
-				sendSpeeds(.0f, .0f);
+				sendSpeeds(.0f, .0f, 0);
 				break;
 			case 6: /*<< 6 button */
-				sendSpeeds(maxSpeed * 0.5f, -maxSpeed * 0.5f);
+				sendSpeeds(maxSpeed * 0.5f, -maxSpeed * 0.5f, 0);
 				break;
 			case 7: /*<< 7 button */
-				sendSpeeds(-maxSpeed * 0.5f, -maxSpeed);
+				sendSpeeds(-maxSpeed * 0.5f, -maxSpeed, 0);
 				break;
 			case 8: /*<< 8 button */
-				sendSpeeds(-maxSpeed, -maxSpeed);
+				sendSpeeds(-maxSpeed, -maxSpeed, 0);
 				break;
 			case 9: /*<< 9 button */
-				sendSpeeds(-maxSpeed, -maxSpeed * 0.5f);
+				sendSpeeds(-maxSpeed, -maxSpeed * 0.5f, 0);
 				break;
 			case 12: /*<< OFF red button */
 				/* Set too low preload value causing reset to occur */

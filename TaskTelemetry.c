@@ -5,11 +5,14 @@
 #include "compilation.h"
 #include "priorities.h"
 #include "stackSpace.h"
+#include "complementary.h"
 
 #include "TaskPrintfConsumer.h"
 
-xQueueHandle telemetryQueue;		/*!< Queue to which telemetry updates are sent to */
-xTaskHandle telemetryTask;			/*!< This task's handle */
+float globalOdometryCorrectionGain = 1.0075f;	/*!< Gain that is used to correct odometry data (turning angle) */
+bool globalUseIMUUpdates = true;
+xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
+xTaskHandle telemetryTask;						/*!< This task's handle */
 
 /**
  * \brief Global variable that holds current up-to-date telemetry data.
@@ -23,6 +26,7 @@ void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
 #ifdef USE_IMU_TELEMETRY
 	portTickType startTime = xTaskGetTickCount();
+	Complementary_State filter;
 	bool useIMU = false;
 #endif
 
@@ -31,6 +35,7 @@ void TaskTelemetry(void * p) {
 		if (!useIMU) { // use IMU data after timeout to let magnetometer scaling kick in
 			if ((xTaskGetTickCount() - startTime)/portTICK_RATE_MS > 10000) useIMU = true;
 		}
+		ComplementaryInit(&filter, 0.999f);	// 40s time constant with 25Hz sampling
 #endif
 
 		/* Wait indefinitely while there is no update */
@@ -43,7 +48,7 @@ void TaskTelemetry(void * p) {
 			{
 				globalTelemetryData.X += update.dX;
 				globalTelemetryData.Y += update.dY;
-				globalTelemetryData.O += update.dO;
+				globalTelemetryData.O += update.dO * globalOdometryCorrectionGain;
 				if (globalLogTelemetry && (fabsf(update.dX) > 0.1f || fabsf(update.dY) > 0.1f || fabsf(update.dO) > 0.001f)) {
 					safePrint(52, "Odometry update: X:%.2f Y:%.2f O:%.1f\n", globalTelemetryData.X, globalTelemetryData.Y, globalTelemetryData.O / DEGREES_TO_RAD);
 				}
@@ -52,8 +57,14 @@ void TaskTelemetry(void * p) {
 			break;
 #ifdef USE_IMU_TELEMETRY
 		case TelemetryUpdate_Source_IMU:
-			if (useIMU) {
+			if (!useIMU || !globalUseIMUUpdates) break;
+			taskENTER_CRITICAL();
+			{
+				globalTelemetryData.O = ComplementaryGet(&filter, globalTelemetryData.O, update.dO);
+				if (globalLogTelemetry)
+					safePrint(27, "IMU update: O:%.1f\n", globalTelemetryData.O / DEGREES_TO_RAD);
 			}
+			taskEXIT_CRITICAL();
 			break;
 #endif
 		default:
