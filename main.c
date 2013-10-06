@@ -40,7 +40,35 @@ int main(void)
 
 	Initialize();
 	if (globalLogEvents) {
-		printf("Reset!\n");
+		printf("Reset!\nCompilation settings:\n");
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+		printf("Custom motor controller\n");
+#else
+		printf("PID motor controller\n");
+#endif
+#ifdef USE_IMU_TELEMETRY
+#ifdef USE_GYRO_FOR_IMU
+		printf("Using IMU with Gyro\n");
+#else
+		printf("Using IMU without Gyro\n");
+#endif
+#else
+		printf("IMU not used\n");
+#endif
+#ifdef FOLLOW_TRAJECTORY
+		printf("Following trajectory enabled\n");
+#ifndef COMPILE_CIRCULAR_BUFFER
+		printf("Circular buffer DISABLED\n");
+#endif
+#else
+		printf("Following trajectory DISABLED\n");
+#endif
+#ifdef DRIVE_COMMANDS
+		printf("Drive commands enabled\n");
+#else
+		printf("Drive commands DISABLED\n");
+#endif
+		printf("Booting...\n");
 	}
 
 	TaskCommandHandlerConstructor();

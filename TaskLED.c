@@ -2,8 +2,10 @@
 #include "main.h"
 #include "priorities.h"
 #include "stackSpace.h"
+#include "TaskPrintfConsumer.h"
 
 void TaskLED(void * p) {
+	safePrint(19, "Booting completed\n");
 	IWDG_Enable();
 	while(1) {
 		GPIO_ToggleBits(LEDS_GPIO_26, LEDS_GPIO_3_PIN);
