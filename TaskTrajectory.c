@@ -26,8 +26,8 @@ xTaskHandle trajectoryTask;		/*!< This task's handle */
 
 TrajectoryControlerGains_Struct globalTrajectoryControlGains = {	/*!< Controller data */
 	.k_x = 10.0f,
-	.k = 50.0f,
-	.k_s = 50.0f
+	.k = 7000.0f,
+	.k_s = 25.0f
 };
 
 void TaskTrajectory(void *p) {

@@ -35,7 +35,7 @@ void TaskTelemetry(void * p) {
 		if (!useIMU) { // use IMU data after timeout to let magnetometer scaling kick in
 			if ((xTaskGetTickCount() - startTime)/portTICK_RATE_MS > 10000) useIMU = true;
 		}
-		ComplementaryInit(&filter, 0.998f);	// 20s time constant with 25Hz sampling
+		ComplementaryInit(&filter, 0.999f);	// 40s time constant with 25Hz sampling
 #endif
 
 		/* Wait indefinitely while there is no update */
