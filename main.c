@@ -139,7 +139,7 @@ void BatteryTooLow() {
 	/* Stop all tasks */
 	vTaskEndScheduler();
 	/* Inform about low battery level */
-	printf("Battery Low!\nShutting Down\n");
+	printf("Battery Low (%.2fV)!\nShutting Down\n", getBatteryVoltage());
 	/* Turn off motors and lantern */
 	enableMotors(DISABLE);
 	enableLantern(DISABLE);

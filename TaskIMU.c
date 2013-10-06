@@ -118,7 +118,7 @@ void TaskIMU(void * p) {
 				angle = interpolateAngle(angle);
 
 			// if abs angle > 90 deg and angle sign changes
-			if (fabsf(angle) > M_PI/2.0f && angle*prev_angle < 0.0f) {
+			if (fabsf(angle) > HALFM_PI && angle*prev_angle < 0.0f) {
 				if (angle > 0.0f) { // switching from -180 -> 180
 					turn_counter--;
 				}
@@ -139,7 +139,7 @@ void TaskIMU(void * p) {
 
 				if (globalLogIMU) {
 					getTelemetryRaw(&telemetry);
-					safePrint(55, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+					safePrint(60, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 				}
 			}
 			else {
@@ -203,11 +203,11 @@ void TaskIMU(void * p) {
 				VectorScale(&magSum, 3.0f, &magSum);
 				VectorScale(&gyroSum, 4.0f, &gyroSum);
 				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
+				prev_angle = cangle;
 				getTelemetry(&telemetry);
 				if (!globalDoneIMUScaling)
 					initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
-				cangle = interpolateAngle(telemetry.O) + 2.0f * M_PI * (float)turn_counter;;
-				prev_angle = cangle;
+				cangle = interpolateAngle(telemetry.O) + TWOM_PI * (float)turn_counter;
 				estDir = cangle;
 			}
 
