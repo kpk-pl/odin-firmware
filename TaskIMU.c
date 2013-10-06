@@ -323,11 +323,17 @@ void initMagnetometerImprovInstance(float x0) {
 
 float interpolateAngle(float angle) {
 	uint16_t i;
-	for (i = 0; i < globalMagnetometerImprov.nValues; ++i) {
-		if (angle < globalMagnetometerImprov.pYData[i]) break;
+
+	angle += (ceil(globalMagnetometerImprov.pYData[0] / TWOM_PI) + 1.0f) * TWOM_PI;		// make sure that input angle is in range
+
+	for (i = 0; ; ++i) {
+		if (angle < globalMagnetometerImprov.pYData[i % globalMagnetometerImprov.nValues] + (float)(i/globalMagnetometerImprov.nValues) * TWOM_PI) break;
 	}
 
-	float prc = (angle - globalMagnetometerImprov.pYData[i-1]) / (globalMagnetometerImprov.pYData[i] - globalMagnetometerImprov.pYData[i-1]);
+	float a = globalMagnetometerImprov.pYData[i % globalMagnetometerImprov.nValues - 1] + (float)(i/globalMagnetometerImprov.nValues) * TWOM_PI;
+	float b = globalMagnetometerImprov.pYData[i % globalMagnetometerImprov.nValues] + (float)(i/globalMagnetometerImprov.nValues) * TWOM_PI;
+
+	float prc = (angle - a) / (b - a);
 	return normalizeOrientation((prc + (float)(i-1)) * globalMagnetometerImprov.xSpacing + globalMagnetometerImprov.x1);
 }
 
