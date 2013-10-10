@@ -292,6 +292,7 @@ void Initialize() {
 	TIM_OCInitStructure.TIM_Pulse = 0;
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
 	TIM_OC1Init(MOTOR_PWM_TIM, &TIM_OCInitStructure);
+	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 	TIM_OC2Init(MOTOR_PWM_TIM, &TIM_OCInitStructure);
 	/* Buffer writing to registers */
 	TIM_OC1PreloadConfig(MOTOR_PWM_TIM, TIM_OCPreload_Enable);
