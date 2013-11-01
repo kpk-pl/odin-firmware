@@ -31,6 +31,10 @@ volatile FunctionalState globalLogEvents = ENABLE;
 volatile FunctionalState globalLogIMU = DISABLE;
 volatile float globalCPUUsage = 0.0f;
 
+#ifdef USE_SHORT_ASSERT
+static volatile uint16_t globalAssertionFailed = 0;
+#endif
+
 int main(void)
 {
 	/* Ensure all priority bits are assigned as preemption priority bits. */
@@ -42,6 +46,13 @@ int main(void)
 	Initialize();
 	if (globalLogEvents) {
 		printf("Reset!\nCompilation settings:\n");
+#ifndef USE_FULL_ASSERT
+#ifndef USE_SHORT_ASSERT
+		printf("WARNING! Assertion disabled\n");
+#else
+		printf("WARNING! Only short assertion enabled\n");
+#endif
+#endif
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 		printf("\tCustom motor controller\n");
 #else
@@ -69,7 +80,7 @@ int main(void)
 #else
 		printf("\tDrive commands DISABLED\n");
 #endif
-		printf("Booting...\n"); // "Booting done is printed from TaskMotorCtrl as it always starts with high priority"
+		printf("Booting...\n");
 	}
 
 	TaskCommandHandlerConstructor();
@@ -91,6 +102,12 @@ int main(void)
 	TaskIMUConstructor();
 	TaskIMUMagScalingConstructor();	// this should be called at last
 #endif
+
+#ifdef USE_SHORT_ASSERT
+	if (globalAssertionFailed != 0)
+		printf("Detected %d assertion errors\n", globalAssertionFailed);
+#endif
+	printf("Booting completed\nStarting scheduler now\n");
 
 	vTaskStartScheduler();
     while(1);
@@ -227,4 +244,15 @@ void assert_failed(uint8_t* file, uint32_t line)
 	while (1);
 }
 
+#else
+#ifdef  USE_SHORT_ASSERT
+/**
+ * @brief  Indicates that some assertion failed. No additional information is retrieved. Increments failed assertion counter
+ * @retval None
+ */
+void sh_assert_failed(void) {
+	globalAssertionFailed++;
+	printf("Assertion failed\n");
+}
+#endif
 #endif

@@ -81,7 +81,12 @@
 /* Exported functions ------------------------------------------------------- */
   void assert_failed(uint8_t* file, uint32_t line);
 #else
+#ifdef	USE_SHORT_ASSERT
+  #define assert_param(expr) ((expr) ? (void)0 : sh_assert_failed())
+  void sh_assert_failed(void);
+#else
   #define assert_param(expr) ((void)0)
+#endif /* USE_SHORT_ASSERT */
 #endif /* USE_FULL_ASSERT */
 
 #endif /* __STM32F4xx_CONF_H */
