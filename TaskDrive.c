@@ -38,6 +38,7 @@ static void driveAngleAbsolute(const DriveCommand_Struct* command, portTickType*
 
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 xTaskHandle driveTask;		/*!< This task handler */
+static bool isDriving = false;
 
 void TaskDrive(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
@@ -52,9 +53,11 @@ void TaskDrive(void * p) {
 				xSemaphoreGive(motorControllerMutex);
 				taken = false;
 			}
+			isDriving = false;
 		}
 
 		xQueueReceive(driveQueue, &command, portMAX_DELAY);
+		isDriving = true;
 
 		if (!taken) {	// block resources
 			xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
@@ -143,7 +146,7 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 
 	/* First of all, turn to target point with desired accuracy */
 	/* Get starting point telemetry data */
-	getTelemetryRaw(&begTelData);
+	getTelemetry(&begTelData);
 
 	/* Calculate target orientation */
 	float targetO = normalizeOrientation(atan2f(command->Param2 - begTelData.Y, command->Param1 - begTelData.X));
@@ -159,7 +162,7 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		/* Wait for angle distance to become small enough */
 		while(1) {
 			/* Read current telemetry data */
-			getTelemetryRaw(&telemetryData);
+			getTelemetry(&telemetryData);
 
 			/* End turning if close enough to target angle */
 			if (fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) < 20.0f * DEGREES_TO_RAD)
@@ -173,7 +176,7 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 	/* Start regulator - driving to point requires constant speeds updates */
 	while(1) {
 		/* Read current position */
-		getTelemetryRaw(&telemetryData);
+		getTelemetry(&telemetryData);
 
 		/* Finish up if target is really close or robot's missing the target */
 		float d = hypotf(telemetryData.X - command->Param1, telemetryData.Y - command->Param2);
@@ -337,6 +340,10 @@ void driveAngleAbsolute(const DriveCommand_Struct* command, portTickType* wakeTi
 		/* Wait a little */
 		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
+}
+
+bool isCurrentlyDriving() {
+	return isDriving;
 }
 
 void TaskDriveConstructor() {

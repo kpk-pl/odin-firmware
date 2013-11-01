@@ -23,6 +23,10 @@
  *  	can be only 0 / 1 but here is 3). 1 is not always default. Usually it is 0, like in LOGGING_COMMAND, WIFI_RESET etc.
  */
 
+/*
+ * Free letters: aefijkmnovyzAFJKNQYZ
+ */
+
 #define LOW_LEVEL_AUA 			'!'		/* No params | toggles LED 1 */
 #define HIGH_LEVEL_AUA 			'?'		/* No params | prints 'Hello!' using OS tasks | ex 'Hello!' */
 #define AVAILABLE_MEMORY 		'M'		/* No params | prints 'Available memory: {memory in kB}kB' | ex. 'Available memory: 65045kB' */
@@ -47,6 +51,7 @@
 #define STACK_USAGE				's'		/* Reports free stack space of each running task */
 #define ODOMETRY_CORRECTION		'c'		/* One param: correction gain (float close to one, not negative) | Sets the correction parameter for odometry */
 #define SET_PEN_LINE			'd'		/* One param: pen line type as in PenLine_Type in TaskPenCtrl.h */
+#define WAIT_FOR_DRIVE_COMPLETE 'q'		/* Waits until all previously sent drive commands ('C') are done */
 
 #define LOGGING_COMMAND			'V'		/*
 										 * Two params: first - what to log, second - 1/0 wheather to turn logging on or off

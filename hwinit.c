@@ -481,7 +481,6 @@ void Initialize() {
 	TIM_OCInitStructure.TIM_Pulse = 0;
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
 	TIM_OC2Init(SERVO_TIM, &TIM_OCInitStructure);
-	setPenUp();
 	/* Enable preload */
 	TIM_OC2PreloadConfig(SERVO_TIM, TIM_OCPreload_Enable);
 	/* Enable timer */

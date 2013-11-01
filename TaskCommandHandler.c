@@ -61,6 +61,13 @@ void COMHandle(const char * command) {
 		}
 		return p;
 	}
+#ifdef DRIVE_COMMANDS
+	void waitForDrivingEnd() {
+		while (isCurrentlyDriving()) {
+			vTaskDelay(10/portTICK_RATE_MS);
+		}
+	}
+#endif
 
 	switch(command[0]) {
 	case LOW_LEVEL_AUA:
@@ -220,6 +227,11 @@ void COMHandle(const char * command) {
 			if (globalLogEvents) safePrint(14, "Done waiting\n");
 		}
 		break;
+#ifdef DRIVE_COMMANDS
+	case WAIT_FOR_DRIVE_COMPLETE:
+		waitForDrivingEnd();
+		break;
+#endif
 	case ODOMETRY_CORRECTION:
 		if (commandCheck( strlen(command) >= 3 )) {
 			temp_float = strtof((char*)&command[2], NULL);
@@ -345,5 +357,5 @@ void COMHandle(const char * command) {
 
 void TaskCommandHandlerConstructor() {
 	xTaskCreate(TaskCommandHandler, NULL, TASKCOMMANDHANDLER_STACKSPACE, NULL, PRIOTITY_TASK_COMMANDHANDLER, &commandHandlerTask);
-	commandQueue = xQueueCreate(15, sizeof(char*));
+	commandQueue = xQueueCreate(30, sizeof(char*));
 }

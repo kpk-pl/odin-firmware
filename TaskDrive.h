@@ -39,6 +39,8 @@ typedef struct {
  */
 void TaskDrive(void *);
 
+bool isCurrentlyDriving();
+
 /**
  * \brief Sets all OS-related objects for use. It should be called on startup, only once, before scheduler starts
  */

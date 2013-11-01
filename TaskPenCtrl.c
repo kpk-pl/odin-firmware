@@ -31,6 +31,8 @@ void TaskPenCtrl(void *p) {
 	bool received, reset = false;
 	uint8_t stateMachine;
 
+	setPenUp();
+
 	while (1) {
 		// wait for the next sampling period
 		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
