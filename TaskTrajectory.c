@@ -55,7 +55,7 @@ void TaskTrajectory(void *p) {
 				xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
 				taken = true;
 			}
-			getTelemetry(&telemetry);
+			getTelemetryScaled(&telemetry);
 			calculateTrajectoryControll(&telemetry, point, &motorSpeed);
 			xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
 			send2 = false;

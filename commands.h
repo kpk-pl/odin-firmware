@@ -24,7 +24,7 @@
  */
 
 /*
- * Free letters: aefijkmnovyzAFJKNQYZ
+ * Free letters: aefijknovyzAFJKNQYZ
  */
 
 #define LOW_LEVEL_AUA 			'!'		/* No params | toggles LED 1 */
@@ -52,6 +52,7 @@
 #define ODOMETRY_CORRECTION		'c'		/* One param: correction gain (float close to one, not negative) | Sets the correction parameter for odometry */
 #define SET_PEN_LINE			'd'		/* One param: pen line type as in PenLine_Type in TaskPenCtrl.h */
 #define WAIT_FOR_DRIVE_COMPLETE 'q'		/* Waits until all previously sent drive commands ('C') are done */
+#define SET_POSITION_SCALE		'm'		/* One param: float with scale; Sets position scale. Ex if set to 2, robot will drive 80cm when it is told to drive 40cm */
 
 #define LOGGING_COMMAND			'V'		/*
 										 * Two params: first - what to log, second - 1/0 wheather to turn logging on or off

@@ -227,8 +227,15 @@ void COMHandle(const char * command) {
 			if (globalLogEvents) safePrint(14, "Done waiting\n");
 		}
 		break;
+	case SET_POSITION_SCALE:
+		if (commandCheck( strlen(command) >= 3) ) {
+			globalPositionScale = strtof((char*)&command[2], NULL);
+			if (globalLogEvents) safePrint(31, "Position scale set to %.3f\n", globalPositionScale);
+		}
+		break;
 #ifdef DRIVE_COMMANDS
 	case WAIT_FOR_DRIVE_COMPLETE:
+		if (globalLogEvents) safePrint(31, "Waiting for driving to finish\n");
 		waitForDrivingEnd();
 		break;
 #endif

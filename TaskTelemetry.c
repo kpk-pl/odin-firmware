@@ -10,6 +10,7 @@
 #include "TaskPrintfConsumer.h"
 
 float globalOdometryCorrectionGain = 1.0075f;	/*!< Gain that is used to correct odometry data (turning angle) */
+float globalPositionScale = 1.0f;				/*!< Scale for position; if set to 2 then robot will drive 80cm when told to drive 40cm */
 bool globalUseIMUUpdates = true;
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;						/*!< This task's handle */
@@ -86,14 +87,8 @@ float normalizeOrientation(float in) {
 }
 
 void getTelemetry(TelemetryData_Struct *data) {
-	/* Ensure that data is coherent and nothing is changed in between */
-	taskENTER_CRITICAL();
-	{
-		data->X = globalTelemetryData.X;
-		data->Y = globalTelemetryData.Y;
-		data->O = normalizeOrientation(globalTelemetryData.O);
-	}
-	taskEXIT_CRITICAL();
+	getTelemetryRaw(data);
+	data->O = normalizeOrientation(data->O);
 }
 
 void getTelemetryRaw(TelemetryData_Struct *data) {
@@ -105,4 +100,15 @@ void getTelemetryRaw(TelemetryData_Struct *data) {
 		data->O = globalTelemetryData.O;
 	}
 	taskEXIT_CRITICAL();
+}
+
+void getTelemetryRawScaled(TelemetryData_Struct *data) {
+	getTelemetryRaw(data);
+	data->X /= globalPositionScale;
+	data->Y /= globalPositionScale;
+}
+
+void getTelemetryScaled(TelemetryData_Struct *data) {
+	getTelemetryRawScaled(data);
+	data->O = normalizeOrientation(data->O);
 }

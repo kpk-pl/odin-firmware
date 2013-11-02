@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 extern float globalOdometryCorrectionGain;	/*!< Export the parameter that corrects odometry while turning */
+extern float globalPositionScale;			/*!< Scale for position */
 extern bool globalUseIMUUpdates;			/*!< Export flag wheather to use IMU updates or not */
 extern xQueueHandle telemetryQueue;			/*!< Export queue to which telemetry updates may be send */
 extern xTaskHandle telemetryTask;			/*!< Export this task handle */
@@ -57,6 +58,16 @@ void getTelemetry(TelemetryData_Struct *data);
  *  \brief Returns current telemetry data without orientation normalization to +-M_PI
  */
 void getTelemetryRaw(TelemetryData_Struct *data);
+
+/**
+ * \brief Returns telemetry with scaled position
+ */
+void getTelemetryScaled(TelemetryData_Struct *data);
+
+/**
+ * \brief Returns raw telemetry with scaled position
+ */
+void getTelemetryRawScaled(TelemetryData_Struct *data);
 
 /**
  *  \brief Returns normalized orientation angle provided as input in radians, output is [-PI, +PI]

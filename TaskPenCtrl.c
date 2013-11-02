@@ -63,7 +63,7 @@ void TaskPenCtrl(void *p) {
 			reset = false;
 		}
 
-		getTelemetry(&telemetry);
+		getTelemetryRaw(&telemetry);
 		distance += hypotf(telemetryOld.X - telemetry.X, telemetryOld.Y - telemetry.Y);
 		telemetryOld = telemetry;
 
