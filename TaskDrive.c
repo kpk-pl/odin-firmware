@@ -53,6 +53,7 @@ void TaskDrive(void * p) {
 			if (taken) {
 				xSemaphoreGive(motorControllerMutex);
 				taken = false;
+				xQueueSendToBack(penCommandQueue, &taken, portMAX_DELAY);	// set pen up, use 'taken' variable as it is false either way
 			}
 			isDriving = false;
 		}
