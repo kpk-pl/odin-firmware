@@ -155,7 +155,7 @@
 #define MOTOR_PWM_RIGHT_SET_FUN			TIM_SetCompare2
 #define MOTOR_PWM_LEFT_GET_FUN			TIM_GetCapture1
 #define MOTOR_PWM_RIGHT_GET_FUN			TIM_GetCapture2
-#define MOTOR_PWM_FREQ					15000
+#define MOTOR_PWM_FREQ					10000
 #define MOTOR_PWM_TIM_PRESCALER			0
 #define MOTOR_PWM_TIM_PERIOD			((SystemCoreClock / 2) / MOTOR_PWM_FREQ - 1)
 

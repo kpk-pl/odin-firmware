@@ -364,5 +364,5 @@ void COMHandle(const char * command) {
 
 void TaskCommandHandlerConstructor() {
 	xTaskCreate(TaskCommandHandler, NULL, TASKCOMMANDHANDLER_STACKSPACE, NULL, PRIOTITY_TASK_COMMANDHANDLER, &commandHandlerTask);
-	commandQueue = xQueueCreate(30, sizeof(char*));
+	commandQueue = xQueueCreate(50, sizeof(char*));
 }
