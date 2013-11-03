@@ -14,6 +14,16 @@
 #include "TaskPrintfConsumer.h"
 #include "TaskPenCtrl.h"
 
+/*
+ *              (2)
+ *           (1)   (3)
+ *        (4)   (5)   (6)
+ *           (7)   (9)
+ *              (8)
+ *   0 - last command
+ */
+static void issueDrive(uint8_t direction, float speed);
+
 xTaskHandle RC5Task;						/*!< This task handle */
 xSemaphoreHandle rc5CommandReadySemaphore;	/*!< Semaphore used by rc5_tim_exti.h library to incicate incomming command */
 
@@ -42,64 +52,44 @@ void TaskRC5(void * p) {
 		RC5_Decode(&frame);
 		/* If this is a unique press (ignore continuous pressing) */
 		if (toggle != frame.ToggleBit) {
-			switch(frame.Command) {
-			case 1: /*<< 1 button */
-				sendSpeeds(maxSpeed * 0.5f, maxSpeed, 0);
-				break;
-			case 2: /*<< 2 button */
-				sendSpeeds(maxSpeed, maxSpeed, 0);
-				break;
-			case 3: /*<< 3 button */
-				sendSpeeds(maxSpeed, maxSpeed * 0.5f, 0);
-				break;
-			case 4: /*<< 4 button */
-				sendSpeeds(-maxSpeed * 0.5f, maxSpeed * 0.5f, 0);
-				break;
-			case 5: /*<< 5 button */
-				sendSpeeds(.0f, .0f, 0);
-				break;
-			case 6: /*<< 6 button */
-				sendSpeeds(maxSpeed * 0.5f, -maxSpeed * 0.5f, 0);
-				break;
-			case 7: /*<< 7 button */
-				sendSpeeds(-maxSpeed * 0.5f, -maxSpeed, 0);
-				break;
-			case 8: /*<< 8 button */
-				sendSpeeds(-maxSpeed, -maxSpeed, 0);
-				break;
-			case 9: /*<< 9 button */
-				sendSpeeds(-maxSpeed, -maxSpeed * 0.5f, 0);
-				break;
-			case 12: /*<< OFF red button */
-				/* Set too low preload value causing reset to occur */
-				IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-				IWDG_SetReload(1);
-				break;
-			case 16: /*<< VOL up button */
-				maxSpeed *= 1.2f;
-				break;
-			case 17: /*<< VOL down button */
-				maxSpeed /= 1.2f;
-				break;
-			case 32: /*<< CH up button */
-				tempboolean = false;
-				xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
-				break;
-			case 33: /*<< CH down button */
-				tempboolean = true;
-				xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
-				break;
+			if (frame.Command >= 1 && frame.Command <= 9) { /* buttons 1-9 */
+				issueDrive(frame.Command, maxSpeed);
+			}
+			else {
+				switch(frame.Command) {
+				case 12: /*<< OFF red button */
+					/* Set too low preload value causing reset to occur */
+					IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+					IWDG_SetReload(1);
+					break;
+				case 16: /*<< VOL up button */
+					maxSpeed *= 1.2f;
+					issueDrive(0, maxSpeed);
+					break;
+				case 17: /*<< VOL down button */
+					maxSpeed /= 1.2f;
+					issueDrive(0, maxSpeed);
+					break;
+				case 32: /*<< CH up button */
+					tempboolean = false;
+					xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
+					break;
+				case 33: /*<< CH down button */
+					tempboolean = true;
+					xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
+					break;
 #ifdef USE_IMU_TELEMETRY
-			case 42: /*<< clock button */
-				xSemaphoreGive(imuMagScalingReq);
-				break;
+				case 42: /*<< clock button */
+					xSemaphoreGive(imuMagScalingReq);
+					break;
 #endif
-			case 43: /*<< screen button above purple button */
-				setWiFiMode(getWiFiMode() == WiFiMode_Data ? WiFiMode_Command : WiFiMode_Data);
-				break;
-			case 52: /*<< purple button */
-				enableLantern(!getLanternState());
-				break;
+				case 43: /*<< screen button above purple button */
+					setWiFiMode(getWiFiMode() == WiFiMode_Data ? WiFiMode_Command : WiFiMode_Data);
+					break;
+				case 52: /*<< purple button */
+					enableLantern(!getLanternState());
+					break;
+				}
 			}
 
 			if (globalLogEvents) safePrint(10, "RC5: %d\n", frame.Command);
@@ -109,6 +99,45 @@ void TaskRC5(void * p) {
 		}
 		toggle = frame.ToggleBit;
 	}
+}
+
+void issueDrive(uint8_t direction, float speed) {
+	static uint8_t lastCommand = 5; // means stop
+
+	if (direction == 0)
+		direction = lastCommand;
+
+	switch(direction) {
+	case 1:
+		sendSpeeds(speed * 0.75f, speed, 0);
+		break;
+	case 2:
+		sendSpeeds(speed, speed, 0);
+		break;
+	case 3:
+		sendSpeeds(speed, speed * 0.75f, 0);
+		break;
+	case 4:
+		sendSpeeds(-speed * 0.75f, speed * 0.75f, 0);
+		break;
+	case 5:
+		sendSpeeds(.0f, .0f, 0);
+		break;
+	case 6:
+		sendSpeeds(speed * 0.75f, -speed * 0.75f, 0);
+		break;
+	case 7:
+		sendSpeeds(-speed * 0.75f, -speed, 0);
+		break;
+	case 8:
+		sendSpeeds(-speed, -speed, 0);
+		break;
+	case 9:
+		sendSpeeds(-speed, -speed * 0.75f, 0);
+		break;
+	}
+
+	lastCommand = direction;
 }
 
 void TaskRC5Constructor() {
