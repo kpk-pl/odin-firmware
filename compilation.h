@@ -25,3 +25,37 @@
 #endif
 
 #endif /* _ODIN_COMPILATION_H */
+
+
+/*
+ * Compilation params:
+ * compiler: GNU Tools ARM Embedded\4.7 2013q1\bin
+ * No external include files
+ * FPU hard
+ * Symbols:
+ * 		STM32F407VG
+ * 		STM32F4XX
+ * 		USE_STDPERIPH_DRIVER
+ * 		__ASSEMBLY__
+ * 		__FPU_USED
+ * 		ARM_MATH_CM4
+ * 		HSE_VALUE=16000000
+ * 		USE_FULL_ASSERT
+ *
+ * 	Misc controls:
+ * 	-std=c99
+ *
+ * 	Link:
+ * 	Use memory layout from memory window
+ * 	Discard unused sections
+ * 	Don't use the standard system startup files
+ * 	Use base C library
+ *
+ * 	Libraries:
+ * 	g  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
+ * 	c  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
+ * 	m  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
+ * 	gcc   gnu tools arm embedded\4.7 2013q1\lib\gcc\arm-none-eabi\4.7.3\armv7e-m\fpu\
+ * 	arm_cortexm4lf_math  \DSP
+ * 	-mcpu=cortex-m4; -mthumb; -g; -nostartfiles; -Map=FreeRTOSOdinFW.map; -O0; --gc-sections; -lgcc; -lc; -lm; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lg; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lc; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lm; -Lc:\gnu tools arm embedded\4.7 2013q1\lib\gcc\arm-none-eabi\4.7.3\armv7e-m\fpu\; -lgcc; -Ldsp\; -larm_cortexm4lf_math; -L${linkdir}; -T${linkdir}/arm-gcc-link.ld;
+ */
