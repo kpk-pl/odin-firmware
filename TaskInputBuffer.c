@@ -8,7 +8,7 @@
 #include "TaskCommandHandler.h"
 #include "TaskCLI.h"
 
-#define BUF_RX_LEN 80				/*!< Maximum length of UART command */
+#define BUF_RX_LEN 100				/*!< Maximum length of UART command */
 
 xTaskHandle commInputBufferTask;	/*!< This task handle */
 xQueueHandle commInputBufferQueue;	/*!< Queue for incoming data that was received in ISR's */
@@ -16,7 +16,7 @@ xQueueHandle commInputBufferQueue;	/*!< Queue for incoming data that was receive
 void TaskInputBuffer(void * p) {
 	PrintInput_Struct newInput;
 
-	bool incoming[2] = {false, false};
+	bool incoming[2] = {false, false}; // state machine
 	char RXBUF[2][BUF_RX_LEN+1];
 	uint8_t RXBUFPOS[2] = {0, 0};
 	uint8_t i;
@@ -36,13 +36,12 @@ void TaskInputBuffer(void * p) {
 		default: break;
 		}
 
-		switch (newInput.Input) {
-		case '<':	// msg begin character
+		if (!globalUsingCLI && newInput.Input == '<') {  // msg begin character
 			RXBUFPOS[i] = 0;
 			incoming[i] = true;
-			break;
-		case '>':	// msg end character
-			if (incoming[i]) {
+		}
+		else if ((!globalUsingCLI && newInput.Input == '>') || (globalUsingCLI && newInput.Input == '\n')) {
+			if (incoming[i] || globalUsingCLI) { // if not using CLI then do this only in in the right state
 				RXBUF[i][RXBUFPOS[i]++] = '\0';
 				incoming[i] = false;
 
@@ -63,13 +62,12 @@ void TaskInputBuffer(void * p) {
 					vPortFree(ptr);
 				}
 			}
-			break;
-		default:
-			if (incoming[i]) {
+		}
+		else {
+			if (incoming[i] || globalUsingCLI) {
 				if (RXBUFPOS[i] < BUF_RX_LEN)
 					RXBUF[i][RXBUFPOS[i]++] = newInput.Input;
 			}
-			break;
 		}
 	}
 }
