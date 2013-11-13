@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -13,7 +14,7 @@
 #include "TaskCLI.h"
 #include "TaskPrintfConsumer.h"
 
-#define CLI_INPUT_BUF_MAX_LEN 100
+#define CLI_INPUT_BUF_MAX_LEN 200
 
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
@@ -23,13 +24,92 @@ static const char* const promptMessage = "\nodin>";
 
 static void registerAllCommands();
 static portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE lanternCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE delayCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 
 static const CLI_Command_Definition_t systemComDef =
 {
     (int8_t*)"system",
-    (int8_t*)"system <reset|battery|cpu|stack|memory|aua>: System maintenance and diagnostic\n",
+    (int8_t*)"system <reset|battery|cpu|stack|memory|aua>\n",
     systemCommand,
     1
+};
+static const CLI_Command_Definition_t lanternComDef =
+{
+    (int8_t*)"lantern",
+    (int8_t*)"lantern <enable|disable>\n",
+    lanternCommand,
+    1
+};
+static const CLI_Command_Definition_t delayComDef =
+{
+    (int8_t*)"delay",
+    (int8_t*)"delay #milliseconds\n",
+    delayCommand,
+    1
+};
+static const CLI_Command_Definition_t penComDef =
+{
+    (int8_t*)"pen",
+    (int8_t*)"pen <up|down|line [solid|dotted|dashed|ldashed|dotdashed]>\n",
+    penCommand,
+    -1
+};
+static const CLI_Command_Definition_t telemetryComDef =
+{
+    (int8_t*)"telemetry",
+    (int8_t*)"telemetry ...\n"
+    		 "\todometry correction [#param]\n"
+    		 "\timu <enable|disable>\n",
+    telemetryCommand,
+    -1
+};
+static const CLI_Command_Definition_t motorComDef =
+{
+    (int8_t*)"motor",
+    (int8_t*)"motor ...\n"
+    		 "\tspeed <<left #val>|<right #val>|<#valL #valR>>\n"
+    		 "\tpwm <<left #val>|<right #val>|<#valL #valR)>>\n"
+    		 "\tregulator <enable|disable|<params #P #I #D>>\n"
+    		 "\tencoder [left|right]\n"
+    		 "\tenable|disable\n"
+    		 "\tbrake\n",
+    motorCommand,
+    -1
+};
+static const CLI_Command_Definition_t wifiComDef =
+{
+    (int8_t*)"wifi",
+    (int8_t*)"wifi <reset|<set <command|data>>>",
+    wifiCommand,
+    -1
+};
+static const CLI_Command_Definition_t logComDef =
+{
+    (int8_t*)"log",
+    (int8_t*)"log ...\n"
+    		 "\toff\n"
+    		 "\tall\n"
+    		 "\t <event|telemetry|speed|imu> [off]\n"
+    		 "\t motor something here\n",
+    logCommand,
+    -1
+};
+static const CLI_Command_Definition_t trajectoryComDef =
+{
+    (int8_t*)"trajectory",
+    (int8_t*)"trajectory ...\n"
+    		 "\tcontroller params [iles paramsow]\n"
+    		 "\tregulator params [iles paramsow]\n"
+    		 "\timport <(Npoints)>\n",
+    trajectoryCommand,
+    -1
 };
 
 void TaskCLI(void *p) {
@@ -66,6 +146,14 @@ void TaskCLI(void *p) {
 
 void registerAllCommands() {
 	FreeRTOS_CLIRegisterCommand(&systemComDef);
+	FreeRTOS_CLIRegisterCommand(&lanternComDef);
+	FreeRTOS_CLIRegisterCommand(&delayComDef);
+	FreeRTOS_CLIRegisterCommand(&penComDef);
+	FreeRTOS_CLIRegisterCommand(&telemetryComDef);
+	FreeRTOS_CLIRegisterCommand(&motorComDef);
+	FreeRTOS_CLIRegisterCommand(&wifiComDef);
+	FreeRTOS_CLIRegisterCommand(&logComDef);
+	FreeRTOS_CLIRegisterCommand(&trajectoryComDef);
 }
 
 portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
@@ -100,6 +188,71 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 		strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
 	}
 
+	return pdFALSE;
+}
+
+portBASE_TYPE lanternCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	char* param;
+	portBASE_TYPE paramLen;
+
+	param = (char*)FreeRTOS_CLIGetParameter(command, 1, &paramLen);
+	param[paramLen] = '\0';
+
+	if (strcmp(param, "enable") == 0) {
+		enableLantern(ENABLE);
+		strncpy((char*)outBuffer, "Lantern enabled\n", outBufferLen);
+	}
+	else if (strcmp(param, "disable") == 0) {
+		enableLantern(DISABLE);
+		strncpy((char*)outBuffer, "Lantern disabled\n", outBufferLen);
+	}
+	else {
+		strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
+	}
+
+	return pdFALSE;
+}
+
+portBASE_TYPE delayCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	char* param;
+	portBASE_TYPE paramLen;
+
+	param = (char*)FreeRTOS_CLIGetParameter(command, 1, &paramLen);
+	param[paramLen] = '\0';
+
+	vTaskDelay(strtol(param, NULL, 10) / portTICK_RATE_MS);
+
+	snprintf((char*)outBuffer, outBufferLen, "Delayed %s milliseconds\n", param);
+	return pdFALSE;
+}
+
+portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	strncpy((char*)outBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", outBufferLen);
 	return pdFALSE;
 }
 
