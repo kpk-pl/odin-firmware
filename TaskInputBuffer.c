@@ -5,10 +5,10 @@
 #include "hwinterface.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskUSB2WiFiBridge.h"
+#include "TaskCommandHandler.h"
+#include "TaskCLI.h"
 
 #define BUF_RX_LEN 80				/*!< Maximum length of UART command */
-
-extern xQueueHandle commandQueue;
 
 xTaskHandle commInputBufferTask;	/*!< This task handle */
 xQueueHandle commInputBufferQueue;	/*!< Queue for incoming data that was received in ISR's */
@@ -51,7 +51,15 @@ void TaskInputBuffer(void * p) {
 
 				RXBUFPOS[i] = 0;
 
-				if (xQueueSendToBack(commandQueue, &ptr, 0) == errQUEUE_FULL) {
+				portBASE_TYPE send;
+				if (globalUsingCLI) {
+					send = xQueueSendToBack(CLIInputQueue, &ptr, 0);
+				}
+				else {
+					send = xQueueSendToBack(commandQueue, &ptr, 0);
+				}
+
+				if (send == errQUEUE_FULL) {
 					vPortFree(ptr);
 				}
 			}

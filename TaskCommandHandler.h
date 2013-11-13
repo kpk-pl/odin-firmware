@@ -3,8 +3,10 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
 extern xTaskHandle commandHandlerTask;
+extern xQueueHandle commandQueue;
 
 /**
  * \brief Handles incomming commands from UART via USB or WiFi

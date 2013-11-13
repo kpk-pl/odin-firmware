@@ -10,6 +10,7 @@
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskCommandHandler.h"
+#include "TaskCLI.h"
 #include "TaskLED.h"
 #include "TaskUSB2WiFiBridge.h"
 #include "TaskInputBuffer.h"
@@ -30,6 +31,7 @@ volatile FunctionalState globalLogSpeed = DISABLE;
 volatile FunctionalState globalLogEvents = ENABLE;
 volatile FunctionalState globalLogIMU = DISABLE;
 volatile float globalCPUUsage = 0.0f;
+volatile bool globalUsingCLI = false;
 
 #ifdef USE_SHORT_ASSERT
 static volatile uint16_t globalAssertionFailed = 0;
@@ -83,7 +85,14 @@ int main(void)
 		printf("Booting...\n");
 	}
 
-	TaskCommandHandlerConstructor();
+	if (globalUsingCLI) {
+		TaskCLIConstructor();
+		printf("Using CLI\n");
+	}
+	else {
+		TaskCommandHandlerConstructor();
+		printf("Using command handler\n");
+	}
 	TaskInputBufferConstructor();
 	TaskLEDConstructor();
 	TaskMotorCtrlConstructor();
