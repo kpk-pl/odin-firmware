@@ -516,16 +516,16 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 						p5[p5Len] = '\0';
 						taskENTER_CRITICAL();
 						{
-							globalPidLeft.Kp = globalPidRight.Kp = strtof(p2, NULL);
-							globalPidLeft.Ki = globalPidRight.Ki = strtof(p3, NULL);
-							globalPidLeft.Kd = globalPidRight.Kd = strtof(p4, NULL);
+							globalMotorPidKp = strtof(p2, NULL);
+							globalMotorPidKi = strtof(p3, NULL);
+							globalMotorPidKd = strtof(p4, NULL);
 						}
 						taskEXIT_CRITICAL();
 						strncpy((char*)outBuffer, "New params set\n", outBufferLen);
 						ok = true;
 					}
 					else if (p3 == NULL) {
-						snprintf((char*)outBuffer, outBufferLen, "P %.3f\nI %.3f\nD %.3f\n", globalPidLeft.Kp, globalPidLeft.Ki, globalPidLeft.Kd);
+						snprintf((char*)outBuffer, outBufferLen, "P %.3f\nI %.3f\nD %.3f\n", globalMotorPidKp, globalMotorPidKi, globalMotorPidKd);
 						ok = true;
 					}
 #endif

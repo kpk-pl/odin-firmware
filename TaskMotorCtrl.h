@@ -22,8 +22,9 @@ extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regul
 	extern MotorControllerParameters_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
 #else
 #include "arm_math.h"
-	extern arm_pid_instance_f32 globalPidLeft;		/*!< Export left wheel's PID regulator params */
-	extern arm_pid_instance_f32 globalPidRight;		/*!< Export right wheel's PID regulator params */
+	extern volatile float globalMotorPidKp;				/*!< Export Kp for the PID controller */
+	extern volatile float globalMotorPidKi;				/*!< Export Ki for the PID controller */
+	extern volatile float globalMotorPidKd;				/*!< Export Kd for the PID controller */
 #endif
 
 /**
