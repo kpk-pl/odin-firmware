@@ -18,8 +18,8 @@ extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regul
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #include "motorController.h"
-	extern MotorControllerParameters_Struct globalLeftMotorParams;		/*!< Export left wheel's custom regulator params */
-	extern MotorControllerParameters_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
+	extern MotorControllerState_Struct globalLeftMotorParams;		/*!< Export left wheel's custom regulator params */
+	extern MotorControllerState_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
 #else
 #include "arm_math.h"
 	extern volatile float globalMotorPidKp;				/*!< Export Kp for the PID controller */

@@ -50,7 +50,8 @@ void COMHandle(const char * command) {
 	TelemetryData_Struct td;
 	float temp_float;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	MotorControllerParameters_Struct* ptrParams;
+	MotorControllerState_Struct* ptrParams;
+	PID_Params *pidParams;
 #endif
 
 	const char wrongComm[] = "Incorrect command\n";
@@ -284,7 +285,7 @@ void COMHandle(const char * command) {
 		}
 		break;
 	case SPEED_REGULATOR_CUSTOM_PARAMS:
-		if (commandCheck (strlen(command) >= 27 && (command[2] == 'l' || command[2] == 'r') )) {
+		if (commandCheck (strlen(command) >= 13 && (command[2] == 'l' || command[2] == 'r') )) {
 			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
 			else ptrParams = &globalRightMotorParams;
 			taskENTER_CRITICAL();
@@ -293,14 +294,32 @@ void COMHandle(const char * command) {
 				ptrParams->A = strtof(last+1, &last);
 				ptrParams->B = strtof(last+1, &last);
 				ptrParams->C = strtof(last+1, &last);
-				ptrParams->KP = strtof(last+1, &last);
-				ptrParams->KI = strtof(last+1, &last);
-				ptrParams->KD = strtof(last+1, &last);
 				ptrParams->A_t = strtof(last+1, &last);
-				ptrParams->B_t = strtof(last+1, &last);
-				ptrParams->KP_t = strtof(last+1, &last);
-				ptrParams->KI_t = strtof(last+1, &last);
-				ptrParams->KD_t = strtof(last+1, NULL);
+				ptrParams->B_t = strtof(last+1, NULL);
+			}
+			taskEXIT_CRITICAL();
+			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
+		}
+		break;
+	case SPEED_REGULATOR_PID_PARAMS:
+		if (commandCheck (strlen(command) >= 11 && (command[2] == 'l' || command[2] == 'r') )) {
+			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
+			else ptrParams = &globalRightMotorParams;
+			switch (strtol(&command[4], &last, 10)) {
+			case 0:
+				pidParams = &(ptrParams->pid2.p1);
+				break;
+			case 1:
+				pidParams = &(ptrParams->pid2.p2);
+				break;
+			default:
+				return; // not valid number
+			}
+			taskENTER_CRITICAL();
+			{
+				pidParams->Kp = strtof(last+1, &last);
+				pidParams->Ki = strtof(last+1, &last);
+				pidParams->Kd = strtof(last+1, NULL);
 			}
 			taskEXIT_CRITICAL();
 			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
