@@ -184,13 +184,7 @@ void COMHandle(const char * command) {
 		break;
 	case SPEED_REGULATOR_ENABLE:
 		if (commandCheck( strlen(command) >= 3 )) {
-			taskENTER_CRITICAL();
-			{
-				globalSpeedRegulatorOn = (command[2] != '0');
-				setMotorLSpeed(0.0f);
-				setMotorRSpeed(0.0f);
-			}
-			taskEXIT_CRITICAL();
+			globalSpeedRegulatorOn = (command[2] != '0');
 			if (globalLogEvents) safePrint(36, "Speed regulator state changed to %d\n", globalSpeedRegulatorOn);
 		}
 		break;
@@ -317,9 +311,9 @@ void COMHandle(const char * command) {
 		if(commandCheck (strlen(command) >= 7) ) {
 			taskENTER_CRITICAL();
 			{
-				globalPidLeft.Kp = globalPidRight.Kp = strtof((char*)&command[2], &last);
-				globalPidLeft.Ki = globalPidRight.Ki = strtof(last+1, &last);
-				globalPidLeft.Kd = globalPidRight.Kd = strtof(last+1, NULL);
+				globalMotorPidKp = strtof((char*)&command[2], &last);
+				globalMotorPidKi = strtof(last+1, &last);
+				globalMotorPidKd = strtof(last+1, NULL);
 			}
 			taskEXIT_CRITICAL();
 			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
