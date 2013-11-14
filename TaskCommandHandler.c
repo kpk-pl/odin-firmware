@@ -320,6 +320,8 @@ void COMHandle(const char * command) {
 				globalPidLeft.Kp = globalPidRight.Kp = strtof((char*)&command[2], &last);
 				globalPidLeft.Ki = globalPidRight.Ki = strtof(last+1, &last);
 				globalPidLeft.Kd = globalPidRight.Kd = strtof(last+1, NULL);
+				arm_pid_init_f32(&globalPidLeft, 0);
+				arm_pid_init_f32(&globalPidRight, 0);
 			}
 			taskEXIT_CRITICAL();
 			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
