@@ -26,8 +26,6 @@
 #include "TaskDrive.h"
 #endif
 
-#define CLI_INPUT_BUF_MAX_LEN 210
-
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
 
@@ -152,7 +150,7 @@ static const CLI_Command_Definition_t driveComDef =
 void TaskCLI(void *p) {
 	portBASE_TYPE moreDataComing;
 	char * msg;
-	static char outputString[CLI_INPUT_BUF_MAX_LEN];
+	char * outputString = (char*)FreeRTOS_CLIGetOutputBuffer();
 
 	registerAllCommands();
 
@@ -172,7 +170,7 @@ void TaskCLI(void *p) {
 
 		/* Process command and print as many lines as necessary */
 		do {
-			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msg, (int8_t*)outputString, CLI_INPUT_BUF_MAX_LEN);
+			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msg, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
 			safePrint(strlen(outputString)+1, "%s", outputString);
 		} while(moreDataComing != pdFALSE);
 
