@@ -140,42 +140,57 @@ portBASE_TYPE xReturn = pdFAIL;
 portBASE_TYPE FreeRTOS_CLIProcessCommand( const int8_t * const pcCommandInput, int8_t * pcWriteBuffer, size_t xWriteBufferLen  )
 {
 static const CLI_Definition_List_Item_t *pxCommand = NULL;
+const CLI_Definition_List_Item_t *pxCommandIterator = NULL;
 portBASE_TYPE xReturn = pdTRUE;
-const int8_t *pcRegisteredCommandString;
+const int8_t *pcRegisteredCommandString, *pcInputIterator;
 size_t xCommandStringLength;
 
 	/* Note:  This function is not re-entrant.  It must not be called from more
 	thank one task. */
 
-	if( pxCommand == NULL )
+	if ( pxCommand == NULL)
 	{
-		/* Search for the command string in the list of registered commands. */
-		for( pxCommand = &xRegisteredCommands; pxCommand != NULL; pxCommand = pxCommand->pxNext )
+		/* Find length of the command input. */
+		xCommandStringLength = 0;
+		pcInputIterator = pcCommandInput;
+		while(*pcInputIterator && *pcInputIterator != ' ')
 		{
-			pcRegisteredCommandString = pxCommand->pxCommandLineDefinition->pcCommand;
-			xCommandStringLength = strlen( ( const char * ) pcRegisteredCommandString );
+			xCommandStringLength++;
+			pcInputIterator++;
+		}
 
-			/* To ensure the string lengths match exactly, so as not to pick up
-			a sub-string of a longer command, check the byte after the expected
-			end of the string is either the end of the string or a space before
-			a parameter. */
-			if( ( pcCommandInput[ xCommandStringLength ] == ' ' ) || ( pcCommandInput[ xCommandStringLength ] == 0x00 ) )
+		/* Search for the command string in the list of registered commands. */
+		for( pxCommandIterator = &xRegisteredCommands; pxCommandIterator != NULL; pxCommandIterator = pxCommandIterator->pxNext )
+		{
+			pcRegisteredCommandString = pxCommandIterator->pxCommandLineDefinition->pcCommand;
+
+			/* Check if currently checked command begins with given input command */
+			if (strncmp((const char*)pcRegisteredCommandString, (const char*)pcCommandInput, xCommandStringLength) == 0)
 			{
-				if( strncmp( ( const char * ) pcCommandInput, ( const char * ) pcRegisteredCommandString, xCommandStringLength ) == 0 )
+				/* Check if it the first matching command found. Remember it.
+				If not then report error (ambiguous command input) */
+				if (pxCommand == NULL)
 				{
-					/* The command has been found.  Check it has the expected
-					number of parameters.  If cExpectedNumberOfParameters is -1,
-					then there could be a variable number of parameters and no
-					check is made. */
-					if( pxCommand->pxCommandLineDefinition->cExpectedNumberOfParameters >= 0 )
-					{
-						if( prvGetNumberOfParameters( pcCommandInput ) != pxCommand->pxCommandLineDefinition->cExpectedNumberOfParameters )
-						{
-							xReturn = pdFALSE;
-						}
-					}
-
+					pxCommand = pxCommandIterator;
+				}
+				else
+				{
+					pxCommand = NULL;
 					break;
+				}
+			}
+		}
+
+		/* If unique command is found then check for number of parameters */
+		if (pxCommand != NULL)
+		{
+			/* If cExpectedNumberOfParameters is -1, then there could be a
+			variable number of parameters and no check is made. */
+			if (pxCommand->pxCommandLineDefinition->cExpectedNumberOfParameters >= 0)
+			{
+				if( prvGetNumberOfParameters( pcCommandInput ) != pxCommand->pxCommandLineDefinition->cExpectedNumberOfParameters )
+				{
+					xReturn = pdFALSE;
 				}
 			}
 		}
