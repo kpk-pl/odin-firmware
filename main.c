@@ -46,6 +46,7 @@ int main(void)
 	//RCC_HSEConfig(RCC_HSE_ON);
 
 	Initialize();
+
 	if (globalLogEvents) {
 		printf("Reset!\nCompilation settings:\n");
 #ifndef USE_FULL_ASSERT

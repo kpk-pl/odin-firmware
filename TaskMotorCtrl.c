@@ -10,6 +10,11 @@
 #include "TaskPrintfConsumer.h"
 #include "TaskTelemetry.h"
 
+/**
+ * TODO: Operate on local copies of regulator enabled and pid params, reset pid instance if params changed, reset
+ * pid instance if regulator was turned on
+ */
+
 xTaskHandle motorCtrlTask;				/*!< This task handle */
 xQueueHandle motorCtrlQueue;			/*!< Queue with speeds for motor regulator. It should contain type (MotorSpeed_Struct) */
 xSemaphoreHandle motorControllerMutex;	/*!< Mutex to allow many consecutive speeds to be ordered from trajectory regulator */
