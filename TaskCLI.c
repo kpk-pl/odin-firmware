@@ -12,6 +12,7 @@
 #include "hwinterface.h"
 #include "main.h"
 #include "pointsBuffer.h"
+#include "strbgw.h"
 
 #include "TaskCLI.h"
 #include "TaskPrintfConsumer.h"
@@ -25,8 +26,6 @@
 #ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
 #endif
-
-#define CLI_INPUT_BUF_MAX_LEN 210
 
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
@@ -152,7 +151,7 @@ static const CLI_Command_Definition_t driveComDef =
 void TaskCLI(void *p) {
 	portBASE_TYPE moreDataComing;
 	char * msg;
-	static char outputString[CLI_INPUT_BUF_MAX_LEN];
+	char * outputString = (char*)FreeRTOS_CLIGetOutputBuffer();
 
 	registerAllCommands();
 
@@ -172,7 +171,7 @@ void TaskCLI(void *p) {
 
 		/* Process command and print as many lines as necessary */
 		do {
-			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msg, (int8_t*)outputString, CLI_INPUT_BUF_MAX_LEN);
+			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msg, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
 			safePrint(strlen(outputString)+1, "%s", outputString);
 		} while(moreDataComing != pdFALSE);
 
@@ -205,24 +204,24 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 	param = (char*)FreeRTOS_CLIGetParameter(command, 1, &paramLen);
 	param[paramLen] = '\0';
 
-	if (strcmp(param, "aua") == 0) {
+	if (cmatch("aua", param, 1)) { // a
 		strncpy((char*)outBuffer, "I am alive!", outBufferLen);
 	}
-	else if (strcmp(param, "memory") == 0) {
+	else if (cmatch("memory", param, 1)) { // m
 		snprintf((char*)outBuffer, outBufferLen, "Available memory: %dkB\n", xPortGetFreeHeapSize());
 	}
-	else if (strcmp(param, "reset") == 0) {
+	else if (cmatch("reset", param, 1)) { // r
 		IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
 		IWDG_SetReload(1);
 		while(1);
 	}
-	else if (strcmp(param, "battery") == 0) {
+	else if (cmatch("battery", param, 1)) { // b
 		snprintf((char*)outBuffer, outBufferLen, "Battery voltage: %.2fV\n", getBatteryVoltage());
 	}
-	else if (strcmp(param, "cpu") == 0) {
+	else if (cmatch("cpu", param, 1)) { // c
 		snprintf((char*)outBuffer, outBufferLen, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
 	}
-	else if (strcmp(param, "stack") == 0) {
+	else if (cmatch("stack", param, 1)) { // s
 		reportStackUsage();
 		strncpy((char*)outBuffer, "\n", outBufferLen);
 	}
