@@ -180,7 +180,10 @@ void setMotorLSpeed(float prc) {
 	/* To ensure that PWM period matches direction there need to be critical section */
 	taskENTER_CRITICAL();
 	MOTOR_PWM_LEFT_SET_FUN(MOTOR_PWM_TIM, roundf(fabsf(prc) * MOTOR_PWM_TIM_PERIOD));
-	prc > 0.0f ? setMotorLFwd() : setMotorLRev();
+	if (prc > 0.0f)
+		setMotorLFwd();
+	else if (prc < 0.0f)
+		setMotorLRev();
 	taskEXIT_CRITICAL();
 }
 
@@ -191,7 +194,10 @@ void setMotorRSpeed(float prc) {
 	/* To ensure that PWM period matches direction there need to be critical section */
 	taskENTER_CRITICAL();
 	MOTOR_PWM_RIGHT_SET_FUN(MOTOR_PWM_TIM, roundf((1.0f - fabsf(prc)) * MOTOR_PWM_TIM_PERIOD));
-	prc > 0.0f ? setMotorRFwd() : setMotorRRev();
+	if (prc > 0.0f)
+		setMotorRFwd();
+	else if (prc < 0.0f)
+		setMotorRRev();
 	taskEXIT_CRITICAL();
 }
 
