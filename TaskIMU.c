@@ -240,6 +240,9 @@ void TaskIMU(void * p) {
 
 			samplingState = 0;
 			break;
+		default:
+			samplingState = 7;
+			break;
 		}
 	}
 }

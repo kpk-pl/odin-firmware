@@ -89,6 +89,8 @@ void TaskRC5(void * p) {
 				case 52: /*<< purple button */
 					enableLantern(!getLanternState());
 					break;
+				default:
+					break;
 				}
 			}
 
@@ -135,6 +137,8 @@ void issueDrive(uint8_t direction, float speed) {
 	case 9:
 		sendSpeeds(-speed, -speed * 0.75f, 0);
 		break;
+	default:
+		return;
 	}
 
 	lastCommand = direction;

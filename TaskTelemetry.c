@@ -56,8 +56,8 @@ void TaskTelemetry(void * p) {
 			}
 			taskEXIT_CRITICAL();
 			break;
-#ifdef USE_IMU_TELEMETRY
 		case TelemetryUpdate_Source_IMU:
+#ifdef USE_IMU_TELEMETRY
 			if (!useIMU || !globalUseIMUUpdates) break;
 			taskENTER_CRITICAL();
 			{
@@ -66,8 +66,8 @@ void TaskTelemetry(void * p) {
 					safePrint(27, "IMU update: O:%.1f\n", globalTelemetryData.O / DEGREES_TO_RAD);
 			}
 			taskEXIT_CRITICAL();
-			break;
 #endif
+			break;
 		default:
 			if (globalLogEvents) safePrint(37, "Invalid telemetry update type: %d\n", update.Source);
 			break;

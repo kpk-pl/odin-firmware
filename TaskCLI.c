@@ -698,7 +698,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 			}
 			if (!error) {
 				*log = state;
-				char* c = (state == ENABLE ? "enabled" : "disabled");
+				const char* c = (state == ENABLE ? "enabled" : "disabled");
 				snprintf((char*)outBuffer, outBufferLen, "Logging %s %s\n", p1, c);
 				ok = true;
 			}
