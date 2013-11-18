@@ -127,6 +127,7 @@ void reportStackUsage() {
 	safePrint(45, "High water mark of stack usage (free space)\n");
 	safePrint(28, "printfConsumerTask: %d\n", uxTaskGetStackHighWaterMark(printfConsumerTask));
 	safePrint(28, "commandHandlerTask: %d\n", uxTaskGetStackHighWaterMark(commandHandlerTask));
+	safePrint(28, "CLITask: %d\n", uxTaskGetStackHighWaterMark(CLITask));
 	safePrint(23, "motorCtrlTask: %d\n", uxTaskGetStackHighWaterMark(motorCtrlTask));
 	safePrint(17, "RC5Task: %d\n", uxTaskGetStackHighWaterMark(RC5Task));
 	safePrint(23, "telemetryTask: %d\n", uxTaskGetStackHighWaterMark(telemetryTask));

@@ -80,7 +80,7 @@ void TaskCLI(void *p) {
 
 		/* Free allocated resources */
 		vPortFree(msg);
-    }
+     }
 }
 
 /////////////////////////////// COMMAND HANDLERS ///////////////////////////////////////
@@ -293,7 +293,11 @@ portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 			}
 		}
 		else if (cmatch("line", param[0], 1)) { // l
-			if (nOfParams == 2) {
+			if (nOfParams == 1){
+				strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
+				ok = true;
+			}
+			else if (nOfParams == 2) {
 				if (cmatch("solid", param[1], 1)) { // s
 					setPenLineType(PenLine_Continuous);
 					strncpy((char*)outBuffer, "Continuous line set\n", outBufferLen);
@@ -320,10 +324,6 @@ portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 					ok = true;
 				}
 			}
-			else { // p2 == NULL
-				strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
-				ok = true;
-			}
 		}
 	}
 
@@ -344,12 +344,12 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 		if (cmatch("odometry", param[0], 1)) { // o
 			if (nOfParams > 1) {
 				if (cmatch("correction", param[1], 1)) { // c
-					if (nOfParams == 3) {
-						globalOdometryCorrectionGain = strtof(param[2], NULL);
+					if (nOfParams == 2) {
 						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6f\n", globalOdometryCorrectionGain);
 						ok = true;
 					}
-					else {
+					else if (nOfParams == 3) {
+						globalOdometryCorrectionGain = strtof(param[2], NULL);
 						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6f\n", globalOdometryCorrectionGain);
 						ok = true;
 					}
@@ -379,19 +379,19 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 			}
 		}
 		else if (cmatch("scaled", param[0], 1)) { // s
-			if (nOfParams == 2) {
+			if (nOfParams == 1) {
+				TelemetryData_Struct tl;
+				getTelemetryScaled(&tl);
+				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
+				ok = true;
+			}
+			else if (nOfParams == 2) {
 				if (cmatch("raw", param[1], 1)) { // r
 					TelemetryData_Struct tl;
 					getTelemetryRawScaled(&tl);
 					snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
 					ok = true;
 				}
-			}
-			else {
-				TelemetryData_Struct tl;
-				getTelemetryScaled(&tl);
-				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
-				ok = true;
 			}
 		}
 	}
@@ -409,58 +409,47 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 }
 
 portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *p1, *p2, *p3, *p4, *p5, *p6;
-	portBASE_TYPE p1Len, p2Len, p3Len, p4Len, p5Len, p6Len;
+	char *param[6];
 	bool ok = false;
 
-	p1 = (char*)FreeRTOS_CLIGetParameter(command, 1, &p1Len);
-	p2 = (char*)FreeRTOS_CLIGetParameter(command, 2, &p2Len);
-	p3 = (char*)FreeRTOS_CLIGetParameter(command, 3, &p3Len);
-	p4 = (char*)FreeRTOS_CLIGetParameter(command, 4, &p4Len);
-	p5 = (char*)FreeRTOS_CLIGetParameter(command, 5, &p5Len);
-	p6 = (char*)FreeRTOS_CLIGetParameter(command, 6, &p6Len);
+	size_t nOfParams = sliceCommand((char*)command, param, 6);
 
-	if (p1 != NULL) {
-		p1[p1Len] = '\0';
-		if (cmatch("speed", p1, 1)) { // s
-			if (p2 != NULL && p3 != NULL && p4 == NULL) {
-				p2[p2Len] = '\0';
-				p3[p3Len] = '\0';
+	if (nOfParams > 0) {
+		if (cmatch("speed", param[0], 1)) { // s
+			if (nOfParams == 3) {
 				float left = 0.0f, right = 0.0f;
-				if (cmatch("left", p2, 1)) { // l
-					left = strtof(p3, NULL);
+				if (cmatch("left", param[1], 1)) { // l
+					left = strtof(param[2], NULL);
 				}
-				else if (cmatch("right", p2, 1)) { // r
-					right = strtof(p3, NULL);
+				else if (cmatch("right", param[1], 1)) { // r
+					right = strtof(param[2], NULL);
 				}
 				else {
-					left = strtof(p2, NULL);
-					right = strtof(p3, NULL);
+					left = strtof(param[1], NULL);
+					right = strtof(param[2], NULL);
 				}
 				snprintf((char*)outBuffer, outBufferLen, "Speeds set to %.2f left and %.2f right\n", left, right);
 				sendSpeeds(left, right, 0);
 				ok = true;
 			}
 		}
-		else if (cmatch("pwm", p1, 1)) { // p
-			if (p2 != NULL && p3 != NULL && p4 == NULL) {
-				p2[p2Len] = '\0';
-				p3[p3Len] = '\0';
-				if (cmatch("left", p2, 1)) { // l
-					float left = strtof(p3, NULL);
+		else if (cmatch("pwm", param[0], 1)) { // p
+			if (nOfParams == 3) {
+				if (cmatch("left", param[1], 1)) { // l
+					float left = strtof(param[2], NULL);
 					setMotorLSpeed(left/100.0f);
 					snprintf((char*)outBuffer, outBufferLen, "Left PWM set to %.1f%%\n", left);
 					ok = true;
 				}
-				else if (cmatch("right", p2, 1)) { // r
-					float right = strtof(p3, NULL);
+				else if (cmatch("right", param[1], 1)) { // r
+					float right = strtof(param[2], NULL);
 					setMotorRSpeed(right/100.0f);
 					snprintf((char*)outBuffer, outBufferLen, "Right PWM set to %.1f%%\n", right);
 					ok = true;
 				}
 				else {
-					float left = strtof(p2, NULL);
-					float right = strtof(p3, NULL);
+					float left = strtof(param[1], NULL);
+					float right = strtof(param[2], NULL);
 					setMotorLSpeed(left/100.0f);
 					setMotorRSpeed(right/100.0f);
 					snprintf((char*)outBuffer, outBufferLen, "Left PWM set to %.1f%%\nRight PWM set to %.1f%%\n", left, right);
@@ -468,47 +457,43 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 				}
 			}
 		}
-		else if (cmatch("regulator", p1, 1)) { // r
-			if (p2 != NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("enable", p2, 1)) { // e
-					if (p3 == NULL) {
+		else if (cmatch("regulator", param[0], 1)) { // r
+			if (nOfParams > 1) {
+				if (cmatch("enable", param[1], 1)) { // e
+					if (nOfParams == 2) {
 						globalSpeedRegulatorOn = ENABLE;
 						strncpy((char*)outBuffer, "Regulator enabled\n", outBufferLen);
 						ok = true;
 					}
 				}
-				else if (cmatch("disable", p2, 1)) { // d
-					if (p3 == NULL) {
+				else if (cmatch("disable", param[1], 1)) { // d
+					if (nOfParams == 2) {
 						globalSpeedRegulatorOn = DISABLE;
 						strncpy((char*)outBuffer, "Regulator disabled\n", outBufferLen);
 						ok = true;
 					}
 				}
-				else if (strcmp(p2, "params")) {
+				else if (cmatch("params", param[1], 1)) { // p
 #ifndef USE_CUSTOM_MOTOR_CONTROLLER
-					if (p3 != NULL && p4 != NULL && p5 != NULL && p6 == NULL) {
-						p3[p3Len] = '\0';
-						p4[p4Len] = '\0';
-						p5[p5Len] = '\0';
+					if (nOfParams == 2) {
+						snprintf((char*)outBuffer, outBufferLen, "P %.3f\nI %.3f\nD %.3f\n", globalMotorPidKp, globalMotorPidKi, globalMotorPidKd);
+						ok = true;
+					}
+					else if (nOfParams == 5) {
 						taskENTER_CRITICAL();
 						{
-							globalMotorPidKp = strtof(p2, NULL);
-							globalMotorPidKi = strtof(p3, NULL);
-							globalMotorPidKd = strtof(p4, NULL);
+							globalMotorPidKp = strtof(param[2], NULL);
+							globalMotorPidKi = strtof(param[3], NULL);
+							globalMotorPidKd = strtof(param[4], NULL);
 						}
 						taskEXIT_CRITICAL();
 						strncpy((char*)outBuffer, "New params set\n", outBufferLen);
 						ok = true;
 					}
-					else if (p3 == NULL) {
-						snprintf((char*)outBuffer, outBufferLen, "P %.3f\nI %.3f\nD %.3f\n", globalMotorPidKp, globalMotorPidKi, globalMotorPidKd);
-						ok = true;
-					}
 #endif
 				}
 			}
-			else {
+			else { // nOfParams == 1
 				if (globalSpeedRegulatorOn == ENABLE) {
 					strncpy((char*)outBuffer, "Regulator enabled\n", outBufferLen);
 				}
@@ -518,45 +503,40 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 				ok = true;
 			}
 		}
-		else if (cmatch("encoder", p1, 3)) { // enc
-			if (p2 != NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("left", p2, 1)) { // l
-					if (p3 == NULL) {
-						snprintf((char*)outBuffer, outBufferLen, "Encoder left: %ld\n", getEncoderL());
-						ok = true;
-					}
-				}
-				else if (cmatch("right", p2, 1)) { // r
-					if (p3 == NULL) {
-						snprintf((char*)outBuffer, outBufferLen, "Encoder right: %ld\n", getEncoderR());
-						ok = true;
-					}
-				}
-			}
-			else { // p2 == NULL
+		else if (cmatch("encoder", param[0], 3)) { // enc
+			if (nOfParams == 1) {
 				snprintf((char*)outBuffer, outBufferLen, "Encoder left: %ld\nEncoder right: %ld\n", getEncoderL(), getEncoderR());
 				ok = true;
 			}
+			else if (nOfParams == 2) {
+				if (cmatch("left", param[1], 1)) { // l
+					snprintf((char*)outBuffer, outBufferLen, "Encoder left: %ld\n", getEncoderL());
+					ok = true;
+				}
+				else if (cmatch("right", param[1], 1)) { // r
+					snprintf((char*)outBuffer, outBufferLen, "Encoder right: %ld\n", getEncoderR());
+					ok = true;
+				}
+			}
 		}
-		else if (cmatch("disable", p1, 1)) { // d
-			if (p2 == NULL) {
+		else if (cmatch("disable", param[0], 1)) { // d
+			if (nOfParams == 1) {
 				globalSpeedRegulatorOn = DISABLE;
 				enableMotors(DISABLE);
 				strncpy((char*)outBuffer, "Motors disabled\n", outBufferLen);
 				ok = true;
 			}
 		}
-		else if (cmatch("enable", p1, 3)) { // ena
-			if (p2 == NULL) {
+		else if (cmatch("enable", param[0], 3)) { // ena
+			if (nOfParams == 1) {
 				globalSpeedRegulatorOn = ENABLE;
 				enableMotors(ENABLE);
 				strncpy((char*)outBuffer, "Motors enabled\n", outBufferLen);
 				ok = true;
 			}
 		}
-		else if (cmatch("brake", p1, 1)) { // b
-			if (p2 == NULL) {
+		else if (cmatch("brake", param[0], 1)) { // b
+			if (nOfParams == 1) {
 				sendSpeeds(0.0f, 0.0f, 0);
 				setMotorLBrake();
 				setMotorRBrake();
@@ -573,34 +553,29 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 }
 
 portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *p1, *p2, *p3;
-	portBASE_TYPE p1Len, p2Len, p3Len;
+	char *param[3];
 	bool ok = false;
 
-	p1 = (char*)FreeRTOS_CLIGetParameter(command, 1, &p1Len);
-	p2 = (char*)FreeRTOS_CLIGetParameter(command, 2, &p2Len);
-	p3 = (char*)FreeRTOS_CLIGetParameter(command, 3, &p3Len);
+	size_t nOfParams = sliceCommand((char*)command, param, 3);
 
-	if (p1 != NULL) {
-		p1[p1Len] = '\0';
-		if (cmatch("set", p1, 1)) { // s
+	if (nOfParams > 0) {
+		if (cmatch("set", param[0], 1)) { // s
 			if (false) {} else // set command is dangerous because there is loop in printing commands and responses
-			if (p2 != NULL && p3 == NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("command", p2, 1)) { // c
+			if (nOfParams == 2) {
+				if (cmatch("command", param[1], 1)) { // c
 					setWiFiMode(WiFiMode_Command);
 					strncpy((char*)outBuffer, "Command mode set\nCommunication terminated\n", outBufferLen);
 					ok = true;
 				}
-				else if (cmatch("data", p2, 1)) { // d
+				else if (cmatch("data", param[1], 1)) { // d
 					setWiFiMode(WiFiMode_Data);
 					strncpy((char*)outBuffer, "Data mode set\n", outBufferLen);
 					ok = true;
 				}
 			}
 		}
-		else if (cmatch("reset", p1, 1)) { // r
-			if (p2 == NULL) {
+		else if (cmatch("reset", param[0], 1)) { // r
+			if (nOfParams == 1) {
 				setWiFiReset(ENABLE);
 				vTaskDelay(200/portTICK_RATE_MS);
 				setWiFiReset(DISABLE);
@@ -618,71 +593,68 @@ portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 }
 
 portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *p1, *p2, *p3;
-	portBASE_TYPE p1Len, p2Len, p3Len;
+	char *param[3];
 	bool ok = false;
 
-	p1 = (char*)FreeRTOS_CLIGetParameter(command, 1, &p1Len);
-	p2 = (char*)FreeRTOS_CLIGetParameter(command, 2, &p2Len);
-	p3 = (char*)FreeRTOS_CLIGetParameter(command, 3, &p3Len);
+	size_t nOfParams = sliceCommand((char*)command, param, 3);
 
-	if (p1 != NULL) {
-		p1[p1Len] = '\0';
-		if (cmatch("all", p1, 1)) { // a
-			if (p2 == NULL) {
+	if (nOfParams > 0) {
+		if (cmatch("all", param[0], 1)) { // a
+			if (nOfParams == 1) {
 				globalLogEvents = globalLogTelemetry = globalLogSpeed = globalLogIMU = ENABLE;
 				strncpy((char*)outBuffer, "Logging all\n", outBufferLen);
 				ok = true;
 			}
 		}
-		else if (cmatch("off", p1, 1)) { // o
-			if (p2 == NULL) {
+		else if (cmatch("off", param[0], 1)) { // o
+			if (nOfParams == 1) {
 				globalLogEvents = globalLogTelemetry = globalLogSpeed = globalLogIMU = DISABLE;
 				strncpy((char*)outBuffer, "Logging off\n", outBufferLen);
 				ok = true;
 			}
 		}
-		else if (cmatch("motor", p1, 1)) { // m
+		else if (cmatch("motor", param[0], 1)) { // m
 			strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
 			ok = true;
 		}
 		else { // events, speed, telemetry, imu
-			FunctionalState state = ENABLE;
-			bool error = false;
-			volatile FunctionalState *log;
-			if (p2 != NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("off", p2, 1) && p3 == NULL) { // must be equal 'off' and nothing follows
-					state = DISABLE;
+			if (nOfParams <= 2) {
+				FunctionalState state = ENABLE;
+				bool error = false;
+				if (nOfParams == 2) {
+					if (cmatch("off", param[1], 1)) { // must be equal 'off' and nothing follows
+						state = DISABLE;
+					}
+					else {
+						error = true;
+					}
 				}
-				else {
-					error = true;
+				if (!error) {
+					if (cmatch("events", param[0], 1)) { // e
+						globalLogEvents = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "events", (state == ENABLE ? "enabled" : "disabled"));
+						ok = true;
+					}
+					else if (cmatch("speed", param[0], 1)) { // s
+						globalLogSpeed = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "speed", (state == ENABLE ? "enabled" : "disabled"));
+						ok = true;
+					}
+					else if (cmatch("telemetry", param[0], 1)) { // t
+						globalLogTelemetry = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "telemetry", (state == ENABLE ? "enabled" : "disabled"));
+						ok = true;
+					}
+					else if (cmatch("imu", param[0], 1)) { // i
+						globalLogIMU = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "imu", (state == ENABLE ? "enabled" : "disabled"));
+						ok = true;
+					}
 				}
-			}
-			if (cmatch("events", p1, 1)) { // e
-				log = &globalLogEvents;
-			}
-			else if (cmatch("speed", p1, 1)) { // s
-				log = &globalLogSpeed;
-			}
-			else if (cmatch("telemetry", p1, 1)) { // t
-				log = &globalLogTelemetry;
-			}
-			else if (cmatch("imu", p1, 1)) { // i
-				log = &globalLogIMU;
-			}
-			else {
-				error = true;
-			}
-			if (!error) {
-				*log = state;
-				const char* c = (state == ENABLE ? "enabled" : "disabled");
-				snprintf((char*)outBuffer, outBufferLen, "Logging %s %s\n", p1, c);
-				ok = true;
 			}
 		}
 	}
-	else {
+	else { // nOfParams == 0
 		snprintf((char*)outBuffer, outBufferLen, "Logging settings:\n"
 				"\tEvents: %d\n\tTelemetry: %d\n"
 				"\tSpeed: %d\n\tIMU: %d\n",
@@ -699,36 +671,29 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 #ifdef FOLLOW_TRAJECTORY
 portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *p1, *p2, *p3;
-	portBASE_TYPE p1Len, p2Len, p3Len;
+	char *param[3];
 	bool ok = false;
 
-	p1 = (char*)FreeRTOS_CLIGetParameter(command, 1, &p1Len);
-	p2 = (char*)FreeRTOS_CLIGetParameter(command, 2, &p2Len);
-	p3 = (char*)FreeRTOS_CLIGetParameter(command, 3, &p3Len);
+	size_t nOfParams = sliceCommand((char*)command, param, 3);
 
-	if (p1 != NULL) {
-		p1[p1Len] = '\0';
-		if (cmatch("import", p1, 1)) { // i
-			if (p2 != NULL && p3 == NULL) {
-				p2[p2Len] = '\0';
-				snprintf((char*)outBuffer, outBufferLen, "<#Please send only %d points#>\n", TBloadNewPoints(strtol(p2, NULL, 10)));
+	if (nOfParams > 0) {
+		if (cmatch("import", param[0], 1)) { // i
+			if (nOfParams == 2) {
+				snprintf((char*)outBuffer, outBufferLen, "<#Please send only %d points#>\n", TBloadNewPoints(strtol(param[1], NULL, 10)));
 				ok = true;
 			}
 		}
-		else if (cmatch("regulator", p1, 1)) { // r
-			if (p2 != NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("params", p2, 1)) { // p
+		else if (cmatch("regulator", param[0], 1)) { // r
+			if (nOfParams == 2) {
+				if (cmatch("params", param[1], 1)) { // p
 					strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
 					ok = true;
 				}
 			}
 		}
-		else if (cmatch("controller", p1, 1)) { // c
-			if (p2 != NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("params", p1, 1)) { // p
+		else if (cmatch("controller", param[0], 1)) { // c
+			if (nOfParams == 2) {
+				if (cmatch("params", param[1], 1)) { // p
 					strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);\
 					ok = true;
 				}
@@ -745,43 +710,33 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 
 #ifdef DRIVE_COMMANDS
 portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *p1, *p2, *p3, *p4, *p5, *p6, *p7, *p8, *p9;
-	portBASE_TYPE p1Len, p2Len, p3Len, p4Len, p5Len, p6Len, p7Len, p8Len, p9Len;
+	char *param[9];
 	bool ok = false;
 
-	p1 = (char*)FreeRTOS_CLIGetParameter(command, 1, &p1Len);
-	p2 = (char*)FreeRTOS_CLIGetParameter(command, 2, &p2Len);
-	p3 = (char*)FreeRTOS_CLIGetParameter(command, 3, &p3Len);
-	p4 = (char*)FreeRTOS_CLIGetParameter(command, 4, &p4Len);
-	p5 = (char*)FreeRTOS_CLIGetParameter(command, 5, &p5Len);
-	p6 = (char*)FreeRTOS_CLIGetParameter(command, 6, &p6Len);
-	p7 = (char*)FreeRTOS_CLIGetParameter(command, 7, &p7Len);
-	p8 = (char*)FreeRTOS_CLIGetParameter(command, 8, &p8Len);
-	p9 = (char*)FreeRTOS_CLIGetParameter(command, 9, &p9Len);
+	size_t nOfParams = sliceCommand((char*)command, param, 9);
 
-	if (p1 != NULL) {
-		p1[p1Len] = '\0';
-		if (cmatch("scale", p1, 1)) { // s
-			if (p2 != NULL) {
-				if (p3 == NULL) {
-					p2[p2Len] = '\0';
-					float s = strtof(p2, NULL);
-					if (s > 0.0f) {
-						globalPositionScale = s;
-						snprintf((char*)outBuffer, outBufferLen, "Scale set to %.4f\n", globalPositionScale);
-						ok = true;
-					}
+	if (nOfParams > 0) {
+		if (cmatch("scale", param[0], 1)) { // s
+			if (nOfParams == 2) {
+				float s = strtof(param[1], NULL);
+				if (s > 0.0f) {
+					globalPositionScale = s;
+					snprintf((char*)outBuffer, outBufferLen, "Scale set to %.4f\n", globalPositionScale);
 				}
+				else {
+					strncpy((char*)outBuffer, "Scale can be only positive!\n", outBufferLen);
+				}
+				ok = true;
 			}
-			else { // p2 == NULL
+			else if (nOfParams == 1) {
 				snprintf((char*)outBuffer, outBufferLen, "Scale: %.4f\n", globalPositionScale);
 				ok = true;
 			}
 		}
-		else if (cmatch("wait", p1, 1)) { // w
-			if (p2 != NULL && p3 == NULL) {
-				p2[p2Len] = '\0';
-				if (cmatch("finish", p2, 1)) { // f
+		else if (cmatch("wait", param[0], 1)) { // w
+			if (nOfParams == 2) {
+				if (cmatch("finish", param[1], 1)) { // f
+					safePrint(30, "Waiting for driving to finish\n");
 					while (isCurrentlyDriving()) {
 						vTaskDelay(10/portTICK_RATE_MS);
 					}
@@ -790,159 +745,127 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 				}
 			}
 		}
-		else if (cmatch("line", p1, 1)) { // l // p2 == 'dist', p3 == mm, p4 == 'speed', p5 == 'sp', p6 optional 'pen'
-			bool pen = false;
-			bool error = false;
-			if (p6 != NULL) {
-				p6[p6Len] = '\0';
-				if (cmatch("pen", p6, 1)) { // p
-					pen = true;
+		else if (cmatch("line", param[0], 1)) { // l // p2 == 'dist', p3 == mm, p4 == 'speed', p5 == 'sp', p6 optional 'pen'
+			if ((nOfParams == 6 || nOfParams == 5) && cmatch("dist", param[1], 1) && cmatch("speed", param[3], 1)) {
+				bool pen = false;
+				bool error = false;
+				if (nOfParams == 6) {
+					if (cmatch("pen", param[5], 1)) { // p
+						pen = true;
+					}
+					else {
+						error = true;
+					}
 				}
-				else {
-					error = true;
+				if (!error) {
+					float dist = strtof(param[2], NULL);
+					float speed = strtof(param[4], NULL);
+					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
+					cmd->Type = DriveCommand_Type_Line;
+					cmd->UsePen = pen;
+					cmd->Speed = speed;
+					cmd->Param1 = dist;
+					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
+					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
+					ok = true;
 				}
-			}
-			if (p5 == NULL || p7 != NULL) {
-				error = true;
-			}
-			if (!error) {
-				p2[p2Len] = p3[p3Len] = p4[p4Len] = p5[p5Len] = '\0';
-				if (!cmatch("dist", p2, 1) || !cmatch("speed", p4, 1)) {
-					error = true;
-				}
-			}
-			if (!error) {
-				float dist = strtof(p3, NULL);
-				float speed = strtof(p5, NULL);
-				DriveCommand_Struct cmd = {
-					.Type = DriveCommand_Type_Line,
-					.UsePen = pen,
-					.Speed = speed,
-					.Param1 = dist
-				};
-				xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-				strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-				ok = true;
 			}
 		}
-		else if (cmatch("turn", p1, 1)) { // t // p2 == relative or absolute, p3 == 'angle', p4 == deg, p5 == 'speed', p6 == sp, p7 == optional pen
-			bool pen = false;
-			bool error = false;
-			bool relative;
-			if (p7 != NULL) {
-				p7[p7Len] = '\0';
-				if (cmatch("pen", p7, 1)) { // p
-					pen = true;
+		else if (cmatch("turn", param[0], 1)) { // t // p2 == relative or absolute, p3 == 'angle', p4 == deg, p5 == 'speed', p6 == sp, p7 == optional pen
+			if ((nOfParams == 7 || nOfParams == 6) && cmatch("angle", param[2], 1) && cmatch("speed", param[4], 1)) {
+				bool pen = false;
+				bool error = false;
+				bool relative;
+				if (nOfParams == 7) {
+					if (cmatch("pen", param[6], 1)) { // p
+						pen = true;
+					}
+					else {
+						error = true;
+					}
 				}
-				else {
-					error = true;
-				}
-			}
-			if (p6 == NULL || p8 != NULL) {
-				error = true;
-			}
-			if (!error) {
-				p2[p2Len] = p3[p3Len] = p4[p4Len] = p5[p5Len] = p6[p6Len] = '\0';
-				if (!cmatch("angle", p3, 1) || !cmatch("speed", p5, 1)) {
-					error = true;
-				}
-				if (cmatch("relative", p2, 1)) { // r
+
+				if (cmatch("relative", param[1], 1)) { // r
 					relative = true;
 				}
-				else if (cmatch("absolute", p2, 1)) { // a
+				else if (cmatch("absolute", param[1], 1)) { // a
 					relative = false;
 				}
 				else {
 					error = true;
 				}
-			}
-			if (!error) {
-				float ang = strtof(p4, NULL);
-				float speed = strtof(p6, NULL);
-				DriveCommand_Struct cmd = {
-					.Type = DriveCommand_Type_Angle,
-					.UsePen = pen,
-					.Speed = speed,
-					.Param1 = (relative ? 0.0f : 1.0f),
-					.Param2 = ang
-				};
-				xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-				strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-				ok = true;
+
+				if (!error) {
+					float ang = strtof(param[3], NULL);
+					float speed = strtof(param[5], NULL);
+					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
+					cmd->Type = DriveCommand_Type_Angle;
+					cmd->UsePen = pen;
+					cmd->Speed = speed;
+					cmd->Param1 = (relative ? 0.0f : 1.0f);
+					cmd->Param2 = ang;
+					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
+					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
+					ok = true;
+				}
 			}
 		}
-		else if (cmatch("arc", p1, 1)) { // a  // p2 == 'angle', p3 == ang, p4 == 'radius', p5 == 'mm', p6 == 'speed', p7 == sp, p8 == optional 'pen'
-			bool pen = false;
-			bool error = false;
-			if (p8 != NULL) {
-				p8[p8Len] = '\0';
-				if (cmatch("pen", p8, 1)) { // p
-					pen = true;
+		else if (cmatch("arc", param[0], 1)) { // a  // p2 == 'angle', p3 == ang, p4 == 'radius', p5 == 'mm', p6 == 'speed', p7 == sp, p8 == optional 'pen'
+			if ((nOfParams == 8 || nOfParams == 7) && cmatch("angle", param[1], 1) && cmatch("radius", param[3], 1) && cmatch("speed", param[5], 1)) {
+				bool pen = false;
+				bool error = false;
+				if (nOfParams == 8) {
+					if (cmatch("pen", param[7], 1)) { // p
+						pen = true;
+					}
+					else {
+						error = true;
+					}
 				}
-				else {
-					error = true;
+
+				if (!error) {
+					float angle = strtof(param[2], NULL);
+					float radius = strtof(param[4], NULL);
+					float speed = strtof(param[6], NULL);
+					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
+					cmd->Type = DriveCommand_Type_Arc;
+					cmd->UsePen = pen;
+					cmd->Speed = speed;
+					cmd->Param1 = radius;
+					cmd->Param2 = angle;
+					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
+					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
+					ok = true;
 				}
-			}
-			if (p7 == NULL || p9 != NULL) {
-				error = true;
-			}
-			if (!error) {
-				p2[p2Len] = p3[p3Len] = p4[p4Len] = p5[p5Len] = p6[p6Len] = p7[p7Len] = '\0';
-				if (!cmatch("angle", p2, 1) || !cmatch("radius", p4, 1) || !cmatch("speed", p6, 1)) {
-					error = true;
-				}
-			}
-			if (!error) {
-				float angle = strtof(p3, NULL);
-				float radius = strtof(p5, NULL);
-				float speed = strtof(p7, NULL);
-				DriveCommand_Struct cmd = {
-					.Type = DriveCommand_Type_Arc,
-					.UsePen = pen,
-					.Speed = speed,
-					.Param1 = radius,
-					.Param2 = angle
-				};
-				xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-				strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-				ok = true;
 			}
 		}
-		else if (cmatch("point", p1, 1)) { // p // p2 == 'x', p3 = x, p4 = 'y', p5 = y, p6 == 'speed', p7 == sp, p8 optional 'pen'
-			bool pen = false;
-			bool error = false;
-			if (p8 != NULL) {
-				p8[p8Len] = '\0';
-				if (cmatch("pen", p8, 1)) { // p
-					pen = true;
+		else if (cmatch("point", param[0], 1)) { // p // p2 == 'x', p3 = x, p4 = 'y', p5 = y, p6 == 'speed', p7 == sp, p8 optional 'pen'
+			if ((nOfParams == 8 || nOfParams == 7) && strcmp("x", param[1]) == 0 && strcmp("y", param[3]) == 0 && cmatch("speed", param[5], 1)) {
+				bool pen = false;
+				bool error = false;
+				if (nOfParams == 8) {
+					if (cmatch("pen", param[7], 1)) { // p
+						pen = true;
+					}
+					else {
+						error = true;
+					}
 				}
-				else {
-					error = true;
+
+				if (!error) {
+					float x = strtof(param[2], NULL);
+					float y = strtof(param[4], NULL);
+					float speed = strtof(param[6], NULL);
+					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
+					cmd->Type = DriveCommand_Type_Arc;
+					cmd->UsePen = pen;
+					cmd->Speed = speed;
+					cmd->Param1 = x;
+					cmd->Param2 = y;
+					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
+					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
+					ok = true;
 				}
-			}
-			if (p7 == NULL || p9 != NULL) {
-				error = true;
-			}
-			if (!error) {
-				p2[p2Len] = p3[p3Len] = p4[p4Len] = p5[p5Len] = p6[p6Len] = p7[p7Len] = '\0';
-				if (strcmp(p2, "x") != 0 || strcmp(p4, "y") != 0 || !cmatch("speed", p6, 1) != 0) {
-					error = true;
-				}
-			}
-			if (!error) {
-				float x = strtof(p3, NULL);
-				float y = strtof(p5, NULL);
-				float speed = strtof(p7, NULL);
-				DriveCommand_Struct cmd = {
-					.Type = DriveCommand_Type_Arc,
-					.UsePen = pen,
-					.Speed = speed,
-					.Param1 = x,
-					.Param2 = y
-				};
-				xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-				strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-				ok = true;
 			}
 		}
 	}
