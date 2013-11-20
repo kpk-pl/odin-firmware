@@ -24,12 +24,12 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
 		.forward = {
-			.K = 1.7164f,
-			.B = 0.9323f
+			.K = 0.08177f,
+			.B = 0.06878f
 		}
 		.backward = {
-			.K = 1.7164f,
-			.B = 0.9323f
+			.K = 0.07598f,
+			.B = 0.05143f
 		}
 		.pid2 = {
 			.forward = {
@@ -46,12 +46,12 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 	};
 	MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
 		.forward = {
-			.K = 1.7164f,
-			.B = 0.9323f
+			.K = 0.07629f,
+			.B = 0.05824f
 		}
 		.backward = {
-			.K = 1.7164f,
-			.B = 0.9323f
+			.K = 0.07882f,
+			.B = 0.05308f
 		}
 		.pid2 = {
 			.forward = {
