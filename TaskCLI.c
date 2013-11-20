@@ -85,6 +85,7 @@ void TaskCLI(void *p) {
 
 /////////////////////////////// COMMAND HANDLERS ///////////////////////////////////////
 
+static portBASE_TYPE wifiErrorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE lanternCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE delayCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
@@ -100,36 +101,37 @@ static portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, c
 static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 #endif
 
-static const CLI_Command_Definition_t systemComDef =
-{
+static const CLI_Command_Definition_t wifiErrorComDef = {
+	(int8_t*)"[ERROR]",
+	(int8_t*)"",
+	wifiErrorCommand,
+	0
+};
+static const CLI_Command_Definition_t systemComDef = {
     (int8_t*)"system",
     (int8_t*)"system <reset|battery|cpu|stack|memory|aua>\n",
     systemCommand,
     1
 };
-static const CLI_Command_Definition_t lanternComDef =
-{
+static const CLI_Command_Definition_t lanternComDef = {
     (int8_t*)"lantern",
     (int8_t*)"lantern <enable|disable>\n",
     lanternCommand,
     1
 };
-static const CLI_Command_Definition_t delayComDef =
-{
+static const CLI_Command_Definition_t delayComDef = {
     (int8_t*)"delay",
     (int8_t*)"delay #milliseconds\n",
     delayCommand,
     1
 };
-static const CLI_Command_Definition_t penComDef =
-{
+static const CLI_Command_Definition_t penComDef = {
     (int8_t*)"pen",
     (int8_t*)"pen <up|down|line [solid|dotted|dashed|ldashed|dotdashed]>\n",
     penCommand,
     -1
 };
-static const CLI_Command_Definition_t telemetryComDef =
-{
+static const CLI_Command_Definition_t telemetryComDef = {
     (int8_t*)"telemetry",
     (int8_t*)"telemetry [raw|<scaled [raw]>]\n"
     		 "\todometry correction [#param]\n"
@@ -137,8 +139,7 @@ static const CLI_Command_Definition_t telemetryComDef =
     telemetryCommand,
     -1
 };
-static const CLI_Command_Definition_t motorComDef =
-{
+static const CLI_Command_Definition_t motorComDef = {
     (int8_t*)"motor",
     (int8_t*)"motor ...\n"
     		 "\tspeed <<left #val>|<right #val>|<#valL #valR>>\n"
@@ -152,15 +153,13 @@ static const CLI_Command_Definition_t motorComDef =
     motorCommand,
     -1
 };
-static const CLI_Command_Definition_t wifiComDef =
-{
+static const CLI_Command_Definition_t wifiComDef = {
     (int8_t*)"wifi",
     (int8_t*)"wifi <reset|<set <command|data>>>\n",
     wifiCommand,
     -1
 };
-static const CLI_Command_Definition_t logComDef =
-{
+static const CLI_Command_Definition_t logComDef = {
     (int8_t*)"log",
     (int8_t*)"log\n"
     		 "\toff\n"
@@ -171,8 +170,7 @@ static const CLI_Command_Definition_t logComDef =
     -1
 };
 #ifdef FOLLOW_TRAJECTORY
-static const CLI_Command_Definition_t trajectoryComDef =
-{
+static const CLI_Command_Definition_t trajectoryComDef = {
     (int8_t*)"trajectory",
     (int8_t*)"trajectory ...\n"
     		 "\tcontroller params [iles paramsow]\n"
@@ -183,8 +181,7 @@ static const CLI_Command_Definition_t trajectoryComDef =
 };
 #endif
 #ifdef DRIVE_COMMANDS
-static const CLI_Command_Definition_t driveComDef =
-{
+static const CLI_Command_Definition_t driveComDef = {
     (int8_t*)"drive",
     (int8_t*)"drive ...\n"
     		 "\tscale [#value]\n"
@@ -877,6 +874,16 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 }
 #endif
 
+static portBASE_TYPE wifiErrorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	if (getWiFiStatus() == ON) {
+		enableWiFi(DISABLE);
+		enableUSB(ENABLE);
+		strncpy((char*)outBuffer, "WiFi error detected, check wireless connection\n", outBufferLen);
+		lightLED(1, ON);
+	}
+	return pdFALSE;
+}
+
 ///////////////////////////////////// END COMMAND HANDLERS ///////////////////////////////////////
 
 void registerAllCommands() {
@@ -894,6 +901,7 @@ void registerAllCommands() {
 #ifdef DRIVE_COMMANDS
 	FreeRTOS_CLIRegisterCommand(&driveComDef);
 #endif
+	FreeRTOS_CLIRegisterCommand(&wifiErrorComDef);
 }
 
 size_t cmatch(const char *command, const char *input, const size_t shortest) {
