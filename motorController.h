@@ -33,7 +33,7 @@ typedef struct {
 	MotorControllerPredictionParams forward;
 	MotorControllerPredictionParams backward;
 	PID2_Instance_Struct pid2;
-} MotorControllerState_Struct
+} MotorControllerState_Struct;
 
 // returns PWM for motor
 // overall controller structure:

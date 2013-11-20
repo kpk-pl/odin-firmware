@@ -11,13 +11,13 @@ float motorController(float speed, float error, MotorControllerState_Struct *sta
 		PWM = state->backward.K * speed - state->backward.B;
 		if (PWM<0) PWM = 0;
 		//calculate error term from PID
-		PWM = PWM  + pid2_eval(state->pid2, 1, error)
+		PWM = PWM  + pid2_eval(&state->pid2, 1, error);
 	} else {
 		//forward direction
 		PWM = state->forward.K * speed - state->forward.B;
 		if (PWM<0) PWM = 0;
 		//calculate error term from PID
-		PWM = PWM  + pid2_eval(state->pid2, 0, error)
+		PWM = PWM  + pid2_eval(&state->pid2, 0, error);
 	}
 	//secure against improper control values
 	if (PWM > 1.0f) PWM = 1.0f;
