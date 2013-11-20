@@ -31,10 +31,10 @@ typedef struct {
 // PWM = K * speed - B  +  Kp * error
 // 
 //
-float motorController(float speed, float error, MotorControllerState_Struct *state);
+float motorController(float speed, float error, volatile MotorControllerState_Struct *state);
 
-void pid2_init(PID2_Instance_Struct* instance);
+void pid2_init(volatile PID2_Instance_Struct* instance);
 //direction == 0 is FORWARD
-float pid2_eval(PID2_Instance_Struct* S, uint8_t direction, float in);
+float pid2_eval(volatile PID2_Instance_Struct* S, uint8_t direction, float in);
 
 #endif /* _MOTORCONTROLLER_H_ */

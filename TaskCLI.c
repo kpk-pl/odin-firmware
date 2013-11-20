@@ -145,6 +145,8 @@ static const CLI_Command_Definition_t motorComDef =
     		 "\tpwm <<left #val>|<right #val>|<#valL #valR)>>\n"
 #ifndef USE_CUSTOM_MOTOR_CONTROLLER
     		 "\tregulator [enable|disable|<params [#P #I #D]>]\n"
+#else
+    		 "\tregulator [enable|disable|<params left|right forward|backward [<#K #B #Kp #Ki #Kd>|<K|B|Kp|Ki|Kd #val>]>]\n"
 #endif
     		 "\tencoder [left|right]\n"
     		 "\tenable|disable\n"
@@ -409,10 +411,10 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 }
 
 portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *param[6];
+	char *param[10];
 	bool ok = false;
 
-	size_t nOfParams = sliceCommand((char*)command, param, 6);
+	size_t nOfParams = sliceCommand((char*)command, param, 10);
 
 	if (nOfParams > 0) {
 		if (cmatch("speed", param[0], 1)) { // s
@@ -489,6 +491,63 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 						taskEXIT_CRITICAL();
 						strncpy((char*)outBuffer, "New params set\n", outBufferLen);
 						ok = true;
+					}
+#else
+					if (nOfParams == 4 || nOfParams == 6 || nOfParams == 9) {
+						bool dirleft, dirfwd, error = false;
+						if (cmatch("left", param[2], 1))
+							dirleft = true;
+						else if (cmatch("right", param[2], 1))
+							dirleft = false;
+						else
+							error = true;
+
+						if (cmatch("forward", param[3], 1))
+							dirfwd = true;
+						else if (cmatch("backward", param[3], 1))
+							dirfwd = false;
+						else
+							error = true;
+
+						if (!error) {
+							volatile MotorControllerState_Struct *mcss = dirleft ? &globalLeftMotorParams : &globalRightMotorParams;
+							volatile MotorControllerPredictionParams *mcpp = dirfwd ? &mcss->forward : &mcss->backward;
+							volatile PID_Params *pidp = dirfwd ? &mcss->pid2.forward : &mcss->pid2.backward;
+							if (nOfParams == 4) {
+								snprintf((char*)outBuffer, outBufferLen,
+										"K: %.5f\nB: %.5f\nKp: %.3f\nKi: %.3f\nKd: %.3f\n",
+										mcpp->K, mcpp->B, pidp->Kp, pidp->Ki, pidp->Kd);
+								ok = true;
+							}
+							else if (nOfParams == 6) {
+								volatile float* par = NULL;
+								if (strcmp(param[4], "K") == 0)
+									par = &mcpp->K;
+								else if (strcmp(param[4], "B") == 0)
+									par = &mcpp->B;
+								else if (strcmp(param[4], "Kp") == 0)
+									par = &pidp->Kp;
+								else if (strcmp(param[4], "Ki") == 0)
+									par = &pidp->Ki;
+								else if (strcmp(param[4], "Kd") == 0)
+									par = &pidp->Kd;
+
+								if (par != NULL) {
+									*par = strtof(param[5], NULL);
+									strncpy((char*)outBuffer, "New params set\n", outBufferLen);
+									ok = true;
+								}
+							}
+							else if (nOfParams == 9) {
+								mcpp->K = strtof(param[4], NULL);
+								mcpp->B = strtof(param[5], NULL);
+								pidp->Kp = strtof(param[6], NULL);
+								pidp->Ki = strtof(param[7], NULL);
+								pidp->Kd = strtof(param[8], NULL);
+								strncpy((char*)outBuffer, "New params set\n", outBufferLen);
+								ok = true;
+							}
+						}
 					}
 #endif
 				}

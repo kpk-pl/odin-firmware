@@ -22,7 +22,7 @@ xSemaphoreHandle motorControllerMutex;	/*!< Mutex to allow many consecutive spee
 volatile uint32_t globalLogSpeedCounter = 0;				/*!< Counter to allow only a few logs from speed to be printed */
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting for regulator */
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
+	volatile MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
 		.forward = {
 			.K = 0.08177f,
 			.B = 0.06878f
@@ -44,7 +44,7 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 			}
 		}
 	};
-	MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
+	volatile MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
 		.forward = {
 			.K = 0.07629f,
 			.B = 0.05824f

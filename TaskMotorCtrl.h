@@ -13,13 +13,9 @@ extern volatile uint32_t globalLogSpeedCounter;			/*!< Export counter useful whe
 extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regulator setting flag */
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	extern volatile FunctionalState globalControllerVoltageCorrection;	/*!< Export setting if voltage correction is used in custom speed regulator */
-#endif
-
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #include "motorController.h"
-	extern MotorControllerState_Struct globalLeftMotorParams;		/*!< Export left wheel's custom regulator params */
-	extern MotorControllerState_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
+	extern volatile MotorControllerState_Struct globalLeftMotorParams;		/*!< Export left wheel's custom regulator params */
+	extern volatile MotorControllerState_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
 #else
 #include "arm_math.h"
 	extern volatile float globalMotorPidKp;				/*!< Export Kp for the PID controller */

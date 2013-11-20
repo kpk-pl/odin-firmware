@@ -3,7 +3,7 @@
 #include "motorController.h"
 #include "TaskPrintfConsumer.h"
 
-float motorController(float speed, float error, MotorControllerState_Struct *state) {
+float motorController(float speed, float error, volatile MotorControllerState_Struct *state) {
 	float PWM = 0.0f;
 	//calculate prediction
 	if (speed<0){
@@ -26,15 +26,15 @@ float motorController(float speed, float error, MotorControllerState_Struct *sta
 	return PWM;
 }
 
-void pid2_init(PID2_Instance_Struct* instance) {
+void pid2_init(volatile PID2_Instance_Struct* instance) {
 	instance->state[0] = 0.0f;
 	instance->state[1] = 0.0f;
 	instance->state[2] = 0.0f;
 }
 
-float pid2_eval(PID2_Instance_Struct* S, uint8_t direction, float in) {
+float pid2_eval(volatile PID2_Instance_Struct* S, uint8_t direction, float in) {
 	float out;
-	PID_Params* p = (direction == 0 ? &(S->forward) : &(S->backward));
+	volatile PID_Params* p = (direction == 0 ? &(S->forward) : &(S->backward));
 	/* y[n] = y[n-1] + A0 * x[n] + A1 * x[n-1] + A2 * x[n-2]  */
 	/* A0 = Kp + Ki + Kd */
 	/* A1 = -Kp - 2*Kd */
