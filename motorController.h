@@ -10,37 +10,41 @@ typedef struct {
 } PID_Params;
 
 typedef struct {
-	PID_Params p1, p2;
+	PID_Params forward, backward;
 	float state[3];
 } PID2_Instance_Struct;
 
+// typedef struct {
+// 	float threshold;
+// 	float A;
+// 	float B;
+// 	float C;
+// 	float A_t;
+// 	float B_t;
+// 	PID2_Instance_Struct pid2;
+// } MotorControllerState_Struct;
+
 typedef struct {
-	float threshold;
-	float A;
+	float K;
 	float B;
-	float C;
-	float A_t;
-	float B_t;
+} MotorControllerPredictionParams;
+
+typedef struct {
+	MotorControllerPredictionParams forward;
+	MotorControllerPredictionParams backward;
 	PID2_Instance_Struct pid2;
-} MotorControllerState_Struct;
+} MotorControllerState_Struct
 
 // returns PWM for motor
 // overall controller structure:
-// 			  speed
-// PWM = -----------------    - C  +  KP * error
-// 		  A * voltage + B
+// 
+// PWM = K * speed - B  +  Kp * error
+// 
 //
-// when 'abs(speed)' is < than 'threshold' we are using:
-//
-// 			  speed
-// PWM = -----------------    +  KP_t * error
-// 		  A_t * voltage + B_t
-// effect of this is when speed == 0, the PWM is also equal to 0
-// call Ferdek for more info about these parameters
-// all calculations were made by normalizing voltage to 8.0V, so that's why this is default when volt. corr. is OFF
-float motorController(float speed, float error, float voltage, MotorControllerState_Struct *state);
+float motorController(float speed, float error, MotorControllerState_Struct *state);
 
 void pid2_init(PID2_Instance_Struct* instance);
-float pid2_eval(PID2_Instance_Struct* S, uint8_t option, float in);
+//direction == 0 is FORWARD
+float pid2_eval(PID2_Instance_Struct* S, uint8_t direction, float in);
 
 #endif /* _MOTORCONTROLLER_H_ */
