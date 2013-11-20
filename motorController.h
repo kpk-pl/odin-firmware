@@ -14,16 +14,6 @@ typedef struct {
 	float state[3];
 } PID2_Instance_Struct;
 
-// typedef struct {
-// 	float threshold;
-// 	float A;
-// 	float B;
-// 	float C;
-// 	float A_t;
-// 	float B_t;
-// 	PID2_Instance_Struct pid2;
-// } MotorControllerState_Struct;
-
 typedef struct {
 	float K;
 	float B;

@@ -50,8 +50,8 @@ void COMHandle(const char * command) {
 	TelemetryData_Struct td;
 	float temp_float;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	MotorControllerState_Struct* ptrParams;
-	PID_Params *pidParams;
+//	MotorControllerState_Struct* ptrParams;
+//	PID_Params *pidParams;
 #endif
 
 	const char wrongComm[] = "Incorrect command\n";
@@ -278,53 +278,54 @@ void COMHandle(const char * command) {
 		}
 		break;
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	case SPEER_REGULATOR_VOLTAGE_CORRECTION:
-		if (commandCheck( strlen(command) >= 3 )) {
-			globalControllerVoltageCorrection = (command[2] != '0');
-			if (globalLogEvents) safePrint(29, "Voltage correction set to %d\n", globalControllerVoltageCorrection);
-		}
-		break;
-	case SPEED_REGULATOR_CUSTOM_PARAMS:
-		if (commandCheck (strlen(command) >= 13 && (command[2] == 'l' || command[2] == 'r') )) {
-			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
-			else ptrParams = &globalRightMotorParams;
-			taskENTER_CRITICAL();
-			{
-				ptrParams->threshold = strtof((char*)&command[4], &last);
-				ptrParams->A = strtof(last+1, &last);
-				ptrParams->B = strtof(last+1, &last);
-				ptrParams->C = strtof(last+1, &last);
-				ptrParams->A_t = strtof(last+1, &last);
-				ptrParams->B_t = strtof(last+1, NULL);
-			}
-			taskEXIT_CRITICAL();
-			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
-		}
-		break;
-	case SPEED_REGULATOR_PID_PARAMS:
-		if (commandCheck (strlen(command) >= 11 && (command[2] == 'l' || command[2] == 'r') )) {
-			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
-			else ptrParams = &globalRightMotorParams;
-			switch (strtol(&command[4], &last, 10)) {
-			case 0:
-				pidParams = &(ptrParams->pid2.p1);
-				break;
-			case 1:
-				pidParams = &(ptrParams->pid2.p2);
-				break;
-			default:
-				return; // not valid number
-			}
-			taskENTER_CRITICAL();
-			{
-				pidParams->Kp = strtof(last+1, &last);
-				pidParams->Ki = strtof(last+1, &last);
-				pidParams->Kd = strtof(last+1, NULL);
-			}
-			taskEXIT_CRITICAL();
-			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
-		}
-		break;
+//	case SPEER_REGULATOR_VOLTAGE_CORRECTION:
+//		if (commandCheck( strlen(command) >= 3 )) {
+//			globalControllerVoltageCorrection = (command[2] != '0');
+//			if (globalLogEvents) safePrint(29, "Voltage correction set to %d\n", globalControllerVoltageCorrection);
+//		}
+//		break;
+//	case SPEED_REGULATOR_CUSTOM_PARAMS:
+//		if (commandCheck (strlen(command) >= 13 && (command[2] == 'l' || command[2] == 'r') )) {
+//			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
+//			else ptrParams = &globalRightMotorParams;
+//			taskENTER_CRITICAL();
+//			{
+//				ptrParams->
+//				ptrParams->threshold = strtof((char*)&command[4], &last);
+//				ptrParams->A = strtof(last+1, &last);
+//				ptrParams->B = strtof(last+1, &last);
+//				ptrParams->C = strtof(last+1, &last);
+//				ptrParams->A_t = strtof(last+1, &last);
+//				ptrParams->B_t = strtof(last+1, NULL);
+//			}
+//			taskEXIT_CRITICAL();
+//			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
+//		}
+//		break;
+//	case SPEED_REGULATOR_PID_PARAMS:
+//		if (commandCheck (strlen(command) >= 11 && (command[2] == 'l' || command[2] == 'r') )) {
+//			if (command[2] == 'l') ptrParams = &globalLeftMotorParams;
+//			else ptrParams = &globalRightMotorParams;
+//			switch (strtol(&command[4], &last, 10)) {
+//			case 0:
+//				pidParams = &(ptrParams->pid2.p1);
+//				break;
+//			case 1:
+//				pidParams = &(ptrParams->pid2.p2);
+//				break;
+//			default:
+//				return; // not valid number
+//			}
+//			taskENTER_CRITICAL();
+//			{
+//				pidParams->Kp = strtof(last+1, &last);
+//				pidParams->Ki = strtof(last+1, &last);
+//				pidParams->Kd = strtof(last+1, NULL);
+//			}
+//			taskEXIT_CRITICAL();
+//			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
+//		}
+//		break;
 #else
 	case SPEED_REGULATOR_PID_PARAMS:
 		if(commandCheck (strlen(command) >= 7) ) {
