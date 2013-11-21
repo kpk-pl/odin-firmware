@@ -111,16 +111,16 @@ void issueDrive(uint8_t direction, float speed) {
 
 	switch(direction) {
 	case 1:
-		sendSpeeds(speed * 0.75f, speed, 0);
+		sendSpeeds(speed * 0.5f, speed, 0);
 		break;
 	case 2:
 		sendSpeeds(speed, speed, 0);
 		break;
 	case 3:
-		sendSpeeds(speed, speed * 0.75f, 0);
+		sendSpeeds(speed, speed * 0.5f, 0);
 		break;
 	case 4:
-		sendSpeeds(-speed * 0.75f, speed * 0.75f, 0);
+		sendSpeeds(-speed * 0.5f, speed * 0.75f, 0);
 		break;
 	case 5:
 		sendSpeeds(.0f, .0f, 0);
@@ -129,13 +129,13 @@ void issueDrive(uint8_t direction, float speed) {
 		sendSpeeds(speed * 0.75f, -speed * 0.75f, 0);
 		break;
 	case 7:
-		sendSpeeds(-speed * 0.75f, -speed, 0);
+		sendSpeeds(-speed * 0.5f, -speed, 0);
 		break;
 	case 8:
 		sendSpeeds(-speed, -speed, 0);
 		break;
 	case 9:
-		sendSpeeds(-speed, -speed * 0.75f, 0);
+		sendSpeeds(-speed, -speed * 0.5f, 0);
 		break;
 	default:
 		return;

@@ -8,14 +8,14 @@ float motorController(float speed, float error, volatile MotorControllerState_St
 	//calculate prediction
 	if (speed<0){
 		//backward direction
-		PWM = state->backward.K * speed - state->backward.B;
-		if (PWM<0) PWM = 0;
+		PWM = state->backward.K * speed + state->backward.B;
+		if (PWM > 0) PWM = 0;
 		//calculate error term from PID
 		PWM = PWM  + pid2_eval(&state->pid2, 1, error);
 	} else {
 		//forward direction
 		PWM = state->forward.K * speed - state->forward.B;
-		if (PWM<0) PWM = 0;
+		if (PWM < 0) PWM = 0;
 		//calculate error term from PID
 		PWM = PWM  + pid2_eval(&state->pid2, 0, error);
 	}
