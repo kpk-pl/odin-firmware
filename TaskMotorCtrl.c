@@ -22,46 +22,46 @@ xSemaphoreHandle motorControllerMutex;	/*!< Mutex to allow many consecutive spee
 volatile uint32_t globalLogSpeedCounter = 0;				/*!< Counter to allow only a few logs from speed to be printed */
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting for regulator */
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	volatile FunctionalState globalControllerVoltageCorrection = DISABLE;	/*!< Voltage correction for custom regulator */
-#endif
-
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
-		.threshold = 1.7164f,
-		.A  = 1.2885f,
-		.B  = 0.9323f,
-		.C  = 0.1427f,
-		.A_t  = 19.6755f,
-		.B_t  = 14.2360f,
+	volatile MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
+		.forward = {
+			.K = 0.08177f,
+			.B = 0.06878f
+		},
+		.backward = {
+			.K = 0.07598f,
+			.B = 0.05143f
+		},
 		.pid2 = {
-			.p1 = {
+			.forward = {
 				.Kp = 0.05f,
-				.Ki = 0.01f,
+				.Ki = 0.0f,
 				.Kd = 0.0f
 			},
-			.p2 = {
+			.backward = {
 				.Kp = 0.05f,
-				.Ki = 0.01f,
+				.Ki = 0.0f,
 				.Kd = 0.0f
 			}
 		}
 	};
-	MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
-		.threshold = 1.5510f,
-		.A  = 1.3758f,
-		.B  = 1.4037f,
-		.C  = 0.1150f,
-		.A_t  = 17.2120f,
-		.B_t  = 17.5611f,
+	volatile MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
+		.forward = {
+			.K = 0.07629f,
+			.B = 0.05824f
+		},
+		.backward = {
+			.K = 0.07882f,
+			.B = 0.05308f
+		},
 		.pid2 = {
-			.p1 = {
+			.forward = {
 				.Kp = 0.05f,
-				.Ki = 0.01f,
+				.Ki = 0.0f,
 				.Kd = 0.0f
 			},
-			.p2 = {
+			.backward = {
 				.Kp = 0.05f,
-				.Ki = 0.01f,
+				.Ki = 0.0f,
 				.Kd = 0.0f
 			}
 		}
@@ -193,10 +193,8 @@ void TaskMotorCtrl(void * p) {
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 				/* Use Ferdek's controllers */
-				float voltage = 8.0f; //calculations were made for voltage normalized to 8V
-				if(globalControllerVoltageCorrection) voltage = getAvgBatteryVoltage();
-				outLeft = motorController(motorSpeed.LeftSpeed, errorLeft, voltage, &globalLeftMotorParams);
-				outRight = motorController(motorSpeed.RightSpeed, errorRight, voltage, &globalRightMotorParams);
+				outLeft = motorController(motorSpeed.LeftSpeed, errorLeft, &globalLeftMotorParams);
+				outRight = motorController(motorSpeed.RightSpeed, errorRight, &globalRightMotorParams);
 #else
 				/* Invoke PID functions and compute output speed values, minus is necessary for PID */
 				outLeft = arm_pid_f32(&pidLeft, errorLeft);

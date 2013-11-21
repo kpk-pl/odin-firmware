@@ -115,20 +115,6 @@
 #define SPEER_REGULATOR_VOLTAGE_CORRECTION 'B'
 										/* One param: 1 - enable, 0 - disable | enables or disables voltage regulation for custom motor controller */
 
-#define SPEED_REGULATOR_CUSTOM_PARAMS 'g'
-										/*
-										 * 7 params:
-										 * 1) l / r - left or right motor parameters config
-										 * 2) threshold
-										 * 3) A
-										 * 4) B
-										 * 5) C
-										 * 6) A_t
-										 * 7) B_t
-										 * Sets new set of parameters for custom speed controller for specified motor.
-										 * Refer to motorController.h for more info
-										 */
-
 #define SPEED_REGULATOR_PID_PARAMS 'p'  /*
 										 *
 										 * 1) l / r - left or right motor parameters config
