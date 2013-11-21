@@ -103,7 +103,7 @@ static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const 
 
 static const CLI_Command_Definition_t wifiErrorComDef = {
 	(int8_t*)"[ERROR]",
-	(int8_t*)"",
+	(int8_t*)"\r",
 	wifiErrorCommand,
 	0
 };
@@ -147,7 +147,7 @@ static const CLI_Command_Definition_t motorComDef = {
 #ifndef USE_CUSTOM_MOTOR_CONTROLLER
     		 "\tregulator [enable|disable|<params [#P #I #D]>]\n"
 #else
-    		 "\tregulator [enable|disable|<params left|right forward|backward [<#K #B #Kp #Ki #Kd>|<K|B|Kp|Ki|Kd #val>]>]\n"
+    		 "\tregulator [enable|disable|<params all|[left|right forward|backward] [<#K #B #Kp #Ki #Kd>|<K|B|Kp|Ki|Kd #val>]>]\n"
 #endif
     		 "\tencoder [left|right]\n"
     		 "\tenable|disable\n"
@@ -490,59 +490,163 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 						ok = true;
 					}
 #else
-					if (nOfParams == 4 || nOfParams == 6 || nOfParams == 9) {
-						bool dirleft, dirfwd, error = false;
-						if (cmatch("left", param[2], 1))
-							dirleft = true;
-						else if (cmatch("right", param[2], 1))
-							dirleft = false;
-						else
-							error = true;
+					if (nOfParams >= 3) {
+						bool dirleft, dirfwd, error = false, all = false;
+						uint8_t curParr = 2;
 
-						if (cmatch("forward", param[3], 1))
-							dirfwd = true;
-						else if (cmatch("backward", param[3], 1))
-							dirfwd = false;
-						else
+						if (cmatch("left", param[2], 1)) {
+							dirleft = true;
+							curParr++;
+						}
+						else if (cmatch("right", param[2], 1)) {
+							dirleft = false;
+							curParr++;
+						}
+						else if (cmatch("all", param[2], 1)) {
+							all = true;
+							curParr++;
+						}
+						else {
 							error = true;
+						}
+
+						if (!all && !error) {
+							if (cmatch("forward", param[3], 1)) {
+								dirfwd = true;
+								curParr++;
+							}
+							else if (cmatch("backward", param[3], 1)) {
+								dirfwd = false;
+								curParr++;
+							}
+							else {
+								error = true;
+							}
+						}
 
 						if (!error) {
 							volatile MotorControllerState_Struct *mcss = dirleft ? &globalLeftMotorParams : &globalRightMotorParams;
 							volatile MotorControllerPredictionParams *mcpp = dirfwd ? &mcss->forward : &mcss->backward;
 							volatile PID_Params *pidp = dirfwd ? &mcss->pid2.forward : &mcss->pid2.backward;
-							if (nOfParams == 4) {
-								snprintf((char*)outBuffer, outBufferLen,
+
+							if (nOfParams == curParr) {
+								if (all) {
+									snprintf((char*)outBuffer, outBufferLen,
+										"Left forward:\n"
+										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n"
+										"Left backward:\n"
+										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n"
+										"Right forward:\n"
+										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n"
+										"Right backward:\n"
+										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n",
+										globalLeftMotorParams.forward.K,
+										globalLeftMotorParams.forward.B,
+										globalLeftMotorParams.pid2.forward.Kp,
+										globalLeftMotorParams.pid2.forward.Ki,
+										globalLeftMotorParams.pid2.forward.Kd,
+										globalLeftMotorParams.backward.K,
+										globalLeftMotorParams.backward.B,
+										globalLeftMotorParams.pid2.backward.Kp,
+										globalLeftMotorParams.pid2.backward.Ki,
+										globalLeftMotorParams.pid2.backward.Kd,
+										globalRightMotorParams.forward.K,
+										globalRightMotorParams.forward.B,
+										globalRightMotorParams.pid2.forward.Kp,
+										globalRightMotorParams.pid2.forward.Ki,
+										globalRightMotorParams.pid2.forward.Kd,
+										globalRightMotorParams.backward.K,
+										globalRightMotorParams.backward.B,
+										globalRightMotorParams.pid2.backward.Kp,
+										globalRightMotorParams.pid2.backward.Ki,
+										globalRightMotorParams.pid2.backward.Kd
+									);
+								}
+								else {
+									snprintf((char*)outBuffer, outBufferLen,
 										"K: %.5f\nB: %.5f\nKp: %.3f\nKi: %.3f\nKd: %.3f\n",
-										mcpp->K, mcpp->B, pidp->Kp, pidp->Ki, pidp->Kd);
+										mcpp->K, mcpp->B, pidp->Kp, pidp->Ki, pidp->Kd
+									);
+
+								}
 								ok = true;
 							}
-							else if (nOfParams == 6) {
-								volatile float* par = NULL;
-								if (strcmp(param[4], "K") == 0)
-									par = &mcpp->K;
-								else if (strcmp(param[4], "B") == 0)
-									par = &mcpp->B;
-								else if (strcmp(param[4], "Kp") == 0)
-									par = &pidp->Kp;
-								else if (strcmp(param[4], "Ki") == 0)
-									par = &pidp->Ki;
-								else if (strcmp(param[4], "Kd") == 0)
-									par = &pidp->Kd;
+							else if (nOfParams == curParr+2) {
+								if (all) {
+									float newVal = strtof(param[4], NULL);
+									if (strcmp(param[3], "K") == 0) {
+										globalLeftMotorParams.forward.K = newVal;
+										globalLeftMotorParams.backward.K = newVal;
+										globalRightMotorParams.forward.K = newVal;
+										globalRightMotorParams.backward.K = newVal;
+										ok = true;
+									}
+									else if (strcmp(param[3], "B") == 0) {
+										globalLeftMotorParams.forward.B = newVal;
+										globalLeftMotorParams.backward.B = newVal;
+										globalRightMotorParams.forward.B = newVal;
+										globalRightMotorParams.backward.B = newVal;
+										ok = true;
+									}
+									else if (strcmp(param[3], "Kp") == 0) {
+										globalLeftMotorParams.pid2.forward.Kp = newVal;
+										globalLeftMotorParams.pid2.backward.Kp = newVal;
+										globalRightMotorParams.pid2.forward.Kp = newVal;
+										globalRightMotorParams.pid2.backward.Kp = newVal;
+										ok = true;
+									}
+									else if (strcmp(param[3], "Ki") == 0) {
+										globalLeftMotorParams.pid2.forward.Ki = newVal;
+										globalLeftMotorParams.pid2.backward.Ki = newVal;
+										globalRightMotorParams.pid2.forward.Ki = newVal;
+										globalRightMotorParams.pid2.backward.Ki = newVal;
+										ok = true;
+									}
+									else if (strcmp(param[3], "Kd") == 0) {
+										globalLeftMotorParams.pid2.forward.Kd = newVal;
+										globalLeftMotorParams.pid2.backward.Kd = newVal;
+										globalRightMotorParams.pid2.forward.Kd = newVal;
+										globalRightMotorParams.pid2.backward.Kd = newVal;
+										ok = true;
+									}
 
-								if (par != NULL) {
-									*par = strtof(param[5], NULL);
+									if (ok)
+										strncpy((char*)outBuffer, "New params set\n", outBufferLen);
+								}
+								else {
+									volatile float* par = NULL;
+									if (strcmp(param[4], "K") == 0)
+										par = &mcpp->K;
+									else if (strcmp(param[4], "B") == 0)
+										par = &mcpp->B;
+									else if (strcmp(param[4], "Kp") == 0)
+										par = &pidp->Kp;
+									else if (strcmp(param[4], "Ki") == 0)
+										par = &pidp->Ki;
+									else if (strcmp(param[4], "Kd") == 0)
+										par = &pidp->Kd;
+
+									if (par != NULL) {
+										*par = strtof(param[5], NULL);
+										strncpy((char*)outBuffer, "New params set\n", outBufferLen);
+										ok = true;
+									}
+								}
+							}
+							else if (nOfParams == curParr+5) {
+								if (!all) {
+									mcpp->K = strtof(param[4], NULL);
+									mcpp->B = strtof(param[5], NULL);
+									pidp->Kp = strtof(param[6], NULL);
+									pidp->Ki = strtof(param[7], NULL);
+									pidp->Kd = strtof(param[8], NULL);
 									strncpy((char*)outBuffer, "New params set\n", outBufferLen);
 									ok = true;
 								}
-							}
-							else if (nOfParams == 9) {
-								mcpp->K = strtof(param[4], NULL);
-								mcpp->B = strtof(param[5], NULL);
-								pidp->Kp = strtof(param[6], NULL);
-								pidp->Ki = strtof(param[7], NULL);
-								pidp->Kd = strtof(param[8], NULL);
-								strncpy((char*)outBuffer, "New params set\n", outBufferLen);
-								ok = true;
+								else {
+									strncpy((char*)outBuffer, "Cannot change all params that way!\n", outBufferLen);
+									ok = true;
+								}
 							}
 						}
 					}

@@ -21,7 +21,7 @@
     
 
 /*----------Stack Configuration-----------------------------------------------*/
-#define STACK_SIZE       0x00000500      /*!< Stack size (in Words)           */
+#define STACK_SIZE       0x00000800      /*!< Stack size (in Words)           */
 __attribute__ ((section(".co_stack")))
 unsigned long pulStack[STACK_SIZE];
 
