@@ -89,6 +89,12 @@ void TaskRC5(void * p) {
 				case 52: /*<< purple button */
 					enableLantern(!getLanternState());
 					break;
+				case 55: /*<< red Pon button */
+					setWiFiReset(ENABLE);
+					vTaskDelay(200/portTICK_RATE_MS);
+					setWiFiReset(DISABLE);
+					safePrint(11, "WiFi reset\n");
+					break;
 				default:
 					break;
 				}

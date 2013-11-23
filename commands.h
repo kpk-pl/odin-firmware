@@ -24,7 +24,7 @@
  */
 
 /*
- * Free letters: aefijknovyzAFJKNQYZ
+ * Free letters: aefijknovyzABFJKNQYZ
  */
 
 #define LOW_LEVEL_AUA 			'!'		/* No params | toggles LED 1 */
@@ -111,19 +111,7 @@
 										 */
 #endif
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-#define SPEER_REGULATOR_VOLTAGE_CORRECTION 'B'
-										/* One param: 1 - enable, 0 - disable | enables or disables voltage regulation for custom motor controller */
-
-#define SPEED_REGULATOR_PID_PARAMS 'p'  /*
-										 *
-										 * 1) l / r - left or right motor parameters config
-										 * 2) number of PID regulator to be tuned (0, 1)
-										 * 3) Kp
-										 * 4) Ki
-										 * 5) Kd
-										 */
-#else
+#ifndef USE_CUSTOM_MOTOR_CONTROLLER
 #define SPEED_REGULATOR_PID_PARAMS 'p'	/*
 										 * 3 params:
 										 * 1) Kp

@@ -286,6 +286,21 @@ void COMHandle(const char * command) {
 			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
 		}
 		break;
+#else
+	case 'a': // no checks here
+		if (command[2] == 'l' && command[4] == 'f') {
+			globalLeftMotorParams.pid2.forward.Kp = strtof((char*)&command[6], NULL);
+		}
+		else if (command[2] == 'l' && command[4] == 'b') {
+			globalLeftMotorParams.pid2.backward.Kp = strtof((char*)&command[6], NULL);
+		}
+		else if (command[2] == 'r' && command[4] == 'f') {
+			globalRightMotorParams.pid2.forward.Kp = strtof((char*)&command[6], NULL);
+		}
+		else if (command[2] == 'r' && command[4] == 'b') {
+			globalRightMotorParams.pid2.backward.Kp = strtof((char*)&command[6], NULL);
+		}
+		break;
 #endif
 #ifdef FOLLOW_TRAJECTORY
 	case TRAJECTORY_REGULATOR_PARAMS:
