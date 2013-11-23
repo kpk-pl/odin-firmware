@@ -4,6 +4,7 @@
 #include "main.h"
 #include "hwinterface.h"
 #include "hwinit.h"
+#include "memory.h"
 
 #include "TaskTelemetry.h"
 #include "TaskRC5.h"

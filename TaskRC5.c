@@ -8,6 +8,7 @@
 #include "stackSpace.h"
 #include "compilation.h"
 #include "hwinterface.h"
+#include "memory.h"
 
 #include "TaskIMUMagScaling.h"
 #include "TaskMotorCtrl.h"
