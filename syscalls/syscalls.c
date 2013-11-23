@@ -62,20 +62,24 @@ int _read(int file, char *ptr, int len)
 
 int _write(int file, char *ptr, int len)
 {
-	int counter = len;
-	for (; counter > 0; counter--) {
-		if (*ptr == 0) break;
-		if (getUSBStatus() == ON) {
-			USART_SendData(COM_USART, *ptr);
-			while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
+	if (getWiFi2USBBridgeStatus() != ON) {
+		int counter = len;
+		for (; counter > 0; counter--) {
+			if (*ptr == 0) break;
+			if (getUSBStatus() == ON) {
+				USART_SendData(COM_USART, *ptr);
+				while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
+			}
+			if (getWiFiStatus() == ON) {
+				USART_SendData(WIFI_USART, *ptr);
+				while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
+			}
+			ptr++;
 		}
-		if (getWiFiStatus() == ON) {
-			USART_SendData(WIFI_USART, *ptr);
-			while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
-		}
-		ptr++;
+		return len;
 	}
-	return len;
+	else
+		return 0;
 }
 
 void abort(void)
