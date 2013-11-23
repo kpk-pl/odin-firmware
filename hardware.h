@@ -31,6 +31,12 @@
  * Important remarks
  * 	- SWITCHES are default configured in Initialize()
  *
+ * Flash Memory
+ * Flash memory is available on addresses 				0x08000000 - 0x080FFFFF
+ * RAM & ROM takes first 256kB, on addresses 			0x08000000 - 0x0803FFFF
+ * For user it leaves sectors 6..11 on addresses		0x08040000 - 0x080FFFFF
+ * These sectors are 128kb long
+ *
  *
  * Switches:
  * 	1: USB enable
