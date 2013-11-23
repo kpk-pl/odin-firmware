@@ -96,6 +96,12 @@ void TaskRC5(void * p) {
 					setWiFiReset(DISABLE);
 					safePrint(11, "WiFi reset\n");
 					break;
+				case 59:
+					saveToNVMemory();
+					break;
+				case 60:
+					restoreFromNVMemory();
+					break;
 				default:
 					break;
 				}
