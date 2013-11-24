@@ -72,6 +72,16 @@ void TaskCLI(void *p) {
 		if (strlen(msg) == 0)
 			continue;
 
+		if (strncmp(msg, "[ERROR: INVALID INPUT]", 21) == 0) {
+			if (getWiFiStatus() == ON) {
+				enableWiFi(DISABLE);
+				enableUSB(ENABLE);
+				safePrint(48, "WiFi error detected, check wireless connection\n");
+				lightLED(1, ON);
+			}
+			continue;
+		}
+
 		/* Process command and print as many lines as necessary */
 		do {
 			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msg, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
@@ -85,7 +95,6 @@ void TaskCLI(void *p) {
 
 /////////////////////////////// COMMAND HANDLERS ///////////////////////////////////////
 
-static portBASE_TYPE wifiErrorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE lanternCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE delayCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
@@ -101,12 +110,6 @@ static portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, c
 static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 #endif
 
-static const CLI_Command_Definition_t wifiErrorComDef = {
-	(int8_t*)"[ERROR]",
-	(int8_t*)"\r",
-	wifiErrorCommand,
-	0
-};
 static const CLI_Command_Definition_t systemComDef = {
     (int8_t*)"system",
     (int8_t*)"system <reset|battery|cpu|stack|memory|aua>\n",
@@ -1037,16 +1040,6 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 }
 #endif
 
-static portBASE_TYPE wifiErrorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	if (getWiFiStatus() == ON) {
-		enableWiFi(DISABLE);
-		enableUSB(ENABLE);
-		strncpy((char*)outBuffer, "WiFi error detected, check wireless connection\n", outBufferLen);
-		lightLED(1, ON);
-	}
-	return pdFALSE;
-}
-
 ///////////////////////////////////// END COMMAND HANDLERS ///////////////////////////////////////
 
 void registerAllCommands() {
@@ -1064,7 +1057,6 @@ void registerAllCommands() {
 #ifdef DRIVE_COMMANDS
 	FreeRTOS_CLIRegisterCommand(&driveComDef);
 #endif
-	FreeRTOS_CLIRegisterCommand(&wifiErrorComDef);
 }
 
 size_t cmatch(const char *command, const char *input, const size_t shortest) {
