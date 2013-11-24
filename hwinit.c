@@ -490,13 +490,13 @@ void Initialize() {
 
 	/* Configure independent watchdog */
 	IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-	IWDG_SetPrescaler(IWDG_Prescaler_4);
+	IWDG_SetPrescaler(IWDG_Prescaler_16);
 	IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-	/* It should give 200ms */
-	IWDG_SetReload(1600);
+	/* It should give 2s */
+	IWDG_SetReload(4005);
 	/* Set halt mode in debug */
 	DBGMCU_APB1PeriphConfig(DBGMCU_IWDG_STOP, ENABLE);
-	/* Not started here */
+	/* Not started here, but in TaskLED */
 
 
 	/* Configure two timers to time OS busy percent */
