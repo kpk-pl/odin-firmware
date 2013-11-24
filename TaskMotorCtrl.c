@@ -33,13 +33,13 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 		},
 		.pid2 = {
 			.forward = {
-				.Kp = 0.08f,
-				.Ki = 0.005f,
+				.Kp = 0.09f,
+				.Ki = 0.001f,
 				.Kd = 0.0f
 			},
 			.backward = {
-				.Kp = 0.08f,
-				.Ki = 0.005f,
+				.Kp = 0.09f,
+				.Ki = 0.001f,
 				.Kd = 0.0f
 			}
 		}
@@ -55,13 +55,13 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 		},
 		.pid2 = {
 			.forward = {
-				.Kp = 0.08f,
-				.Ki = 0.005f,
+				.Kp = 0.09f,
+				.Ki = 0.001f,
 				.Kd = 0.0f
 			},
 			.backward = {
-				.Kp = 0.08f,
-				.Ki = 0.005f,
+				.Kp = 0.09f,
+				.Ki = 0.001f,
 				.Kd = 0.0f
 			}
 		}
