@@ -4,6 +4,9 @@
 
 #include "TaskMotorCtrl.h"
 
+#define EXFLASH __attribute__ ((section(".exflash")))
+#define CCM __attribute__ ((section(".ccm")))
+
 #define MEM_FLASH_START_ADDR 0x080E0000 // sector 11 - 128kB length
 #define MEM_FLASH_LENGTH	 0x00020000 // 128kB
 
