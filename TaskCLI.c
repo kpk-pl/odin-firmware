@@ -12,6 +12,7 @@
 #include "hwinterface.h"
 #include "main.h"
 #include "pointsBuffer.h"
+#include "memory.h"
 
 #include "TaskCLI.h"
 #include "TaskPrintfConsumer.h"
@@ -112,7 +113,7 @@ static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const 
 
 static const CLI_Command_Definition_t systemComDef = {
     (int8_t*)"system",
-    (int8_t*)"system <reset|battery|cpu|stack|memory|aua>\n",
+    (int8_t*)"system <reset|battery|cpu|stack|memory|aua|save|restore>\n",
     systemCommand,
     1
 };
@@ -213,7 +214,7 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 	else if (cmatch("memory", param, 1)) { // m
 		snprintf((char*)outBuffer, outBufferLen, "Available memory: %dkB\n", xPortGetFreeHeapSize());
 	}
-	else if (cmatch("reset", param, 1)) { // r
+	else if (cmatch("reset", param, 4)) { // rese
 		IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
 		IWDG_SetReload(1);
 		while(1);
@@ -224,9 +225,17 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 	else if (cmatch("cpu", param, 1)) { // c
 		snprintf((char*)outBuffer, outBufferLen, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
 	}
-	else if (cmatch("stack", param, 1)) { // s
+	else if (cmatch("stack", param, 2)) { // st
 		reportStackUsage();
 		strncpy((char*)outBuffer, "\n", outBufferLen);
+	}
+	else if (cmatch("save", param, 2)) { // sa
+		saveToNVMemory();
+		strncpy((char*)outBuffer, "System state saved\n", outBufferLen);
+	}
+	else if (cmatch("restore", param, 4)) { // rest
+		restoreFromNVMemory();
+		strncpy((char*)outBuffer, "System state restored\n", outBufferLen);
 	}
 	else {
 		strncpy((char*)outBuffer, incorrectMessage, outBufferLen);
