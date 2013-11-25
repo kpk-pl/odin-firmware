@@ -3,6 +3,9 @@
 #include "compilation.h"
 
 #include "TaskMotorCtrl.h"
+#include "TaskTrajectory.h"
+#include "TaskTelemetry.h"
+#include "TaskIMU.h"
 
 #define EXFLASH __attribute__ ((section(".exflash")))
 #define CCM __attribute__ ((section(".ccm")))
@@ -39,6 +42,20 @@
 #define MEM_MOTOR_CTRL_PID_KI					(MEM_MOTOR_CTRL_BASE_ADDR + 0x00000084) // float
 #define MEM_MOTOR_CTRL_PID_KD					(MEM_MOTOR_CTRL_BASE_ADDR + 0x00000088) // float
 
+#define MEM_TRAJECTORY_BASE_ADDR		(MEM_FLASH_START_ADDR + 0x00000100)
+
+#define MEM_TRAJECTORY_CONTROL_GAIN_KX			(MEM_TRAJECTORY_BASE_ADDR + 0x00000000) // float
+#define MEM_TRAJECTORY_CONTROL_GAIN_K			(MEM_TRAJECTORY_BASE_ADDR + 0x00000004) // float
+#define MEM_TRAJECTORY_CONTROL_GAIN_KS			(MEM_TRAJECTORY_BASE_ADDR + 0x00000008) // float
+
+#define MEM_TELEMETRY_BASE_ADDR			(MEM_FLASH_START_ADDR + 0x00000200)
+
+#define MEM_TELEMETRY_CORRECTION_GAIN			(MEM_TELEMETRY_BASE_ADDR + 0x00000000) 	// float
+
+#define MEM_IMU_BASE_ADDR				(MEM_FLASH_START_ADDR + 0x00000300)
+
+#define MEM_IMU_IMPROV_DATA						(MEM_IMU_BASE_ADDR + 0x00000000)		// 73xfloat
+
 uint8_t saveToNVMemory() {
 	FLASH_Unlock();
 
@@ -73,6 +90,20 @@ uint8_t saveToNVMemory() {
 	if (FLASH_ProgramWord(MEM_MOTOR_CTRL_PID_KD, TO_SAVE_FORMAT(globalMotorPidKd)) != FLASH_COMPLETE) return 2;
 #endif
 
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	if (FLASH_ProgramWord(MEM_TRAJECTORY_CONTROL_GAIN_KX, TO_SAVE_FORMAT(globalTrajectoryControlGains.k_x)) != FLASH_COMPLETE) return 3;
+	if (FLASH_ProgramWord(MEM_TRAJECTORY_CONTROL_GAIN_K, TO_SAVE_FORMAT(globalTrajectoryControlGains.k)) != FLASH_COMPLETE) return 3;
+	if (FLASH_ProgramWord(MEM_TRAJECTORY_CONTROL_GAIN_KS, TO_SAVE_FORMAT(globalTrajectoryControlGains.k_s)) != FLASH_COMPLETE) return 3;
+#endif
+
+	if (FLASH_ProgramWord(MEM_TELEMETRY_CORRECTION_GAIN, TO_SAVE_FORMAT(globalOdometryCorrectionGain)) != FLASH_COMPLETE) return 4;
+
+#ifdef USE_IMU_TELEMETRY
+	for (uint8_t i = 0; i<73; ++i) {
+		if (FLASH_ProgramWord(MEM_IMU_IMPROV_DATA + 4*i, TO_SAVE_FORMAT(globalMagnetometerImprovData[i])) != FLASH_COMPLETE) return 4;
+	}
+#endif
+
 	FLASH_Lock();
 
 	return 0;
@@ -104,5 +135,19 @@ void restoreFromNVMemory() {
 	globalMotorPidKp = *(__IO float*)MEM_MOTOR_CTRL_PID_KP;
 	globalMotorPidKi = *(__IO float*)MEM_MOTOR_CTRL_PID_KI;
 	globalMotorPidKd = *(__IO float*)MEM_MOTOR_CTRL_PID_KD;
+#endif
+
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	globalTrajectoryControlGains.k_x = *(__IO float*)MEM_TRAJECTORY_CONTROL_GAIN_KX;
+	globalTrajectoryControlGains.k = *(__IO float*)MEM_TRAJECTORY_CONTROL_GAIN_K;
+	globalTrajectoryControlGains.k_s = *(__IO float*)MEM_TRAJECTORY_CONTROL_GAIN_KS;
+#endif
+
+	globalOdometryCorrectionGain = *(__IO float*)MEM_TELEMETRY_CORRECTION_GAIN;
+
+#ifdef USE_IMU_TELEMETRY
+	for (uint8_t i = 0; i<73; ++i) {
+		globalMagnetometerImprovData[i] = *(__IO float*)(MEM_IMU_IMPROV_DATA + 4*i);
+	}
 #endif
 }
