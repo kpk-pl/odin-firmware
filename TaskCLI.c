@@ -385,7 +385,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
 				getTelemetryRaw(&tl);
-				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
+				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 				ok = true;
 			}
 		}
@@ -393,14 +393,14 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
 				getTelemetryScaled(&tl);
-				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
+				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 				ok = true;
 			}
 			else if (nOfParams == 2) {
 				if (cmatch("raw", param[1], 1)) { // r
 					TelemetryData_Struct tl;
 					getTelemetryRawScaled(&tl);
-					snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
+					snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 					ok = true;
 				}
 			}
