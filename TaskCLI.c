@@ -1029,7 +1029,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					float y = strtof(param[4], NULL);
 					float speed = strtof(param[6], NULL);
 					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
-					cmd->Type = DriveCommand_Type_Arc;
+					cmd->Type = DriveCommand_Type_Point;
 					cmd->UsePen = pen;
 					cmd->Speed = speed;
 					cmd->Param1 = x;
