@@ -112,40 +112,40 @@ static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const 
 #endif
 
 static const CLI_Command_Definition_t systemComDef = {
-    (int8_t*)"system",
-    (int8_t*)"system <reset|battery|cpu|stack|memory|aua|save|restore>\n",
+    (const int8_t*)"system",
+    (const int8_t*)"system <reset|battery|cpu|stack|memory|aua|save|restore>\n",
     systemCommand,
     1
 };
 static const CLI_Command_Definition_t lanternComDef = {
-    (int8_t*)"lantern",
-    (int8_t*)"lantern <enable|disable>\n",
+    (const int8_t*)"lantern",
+    (const int8_t*)"lantern <enable|disable>\n",
     lanternCommand,
     1
 };
 static const CLI_Command_Definition_t delayComDef = {
-    (int8_t*)"delay",
-    (int8_t*)"delay #milliseconds\n",
+    (const int8_t*)"delay",
+    (const int8_t*)"delay #milliseconds\n",
     delayCommand,
     1
 };
 static const CLI_Command_Definition_t penComDef = {
-    (int8_t*)"pen",
-    (int8_t*)"pen <up|down|line [solid|dotted|dashed|ldashed|dotdashed]>\n",
+    (const int8_t*)"pen",
+    (const int8_t*)"pen <up|down|line [solid|dotted|dashed|ldashed|dotdashed]>\n",
     penCommand,
     -1
 };
 static const CLI_Command_Definition_t telemetryComDef = {
-    (int8_t*)"telemetry",
-    (int8_t*)"telemetry [raw|<scaled [raw]>]\n"
+    (const int8_t*)"telemetry",
+    (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
     		 "\todometry correction [#param]\n"
     		 "\timu <enable|disable>\n",
     telemetryCommand,
     -1
 };
 static const CLI_Command_Definition_t motorComDef = {
-    (int8_t*)"motor",
-    (int8_t*)"motor ...\n"
+    (const int8_t*)"motor",
+    (const int8_t*)"motor ...\n"
     		 "\tspeed <<left #val>|<right #val>|<#valL #valR>>\n"
     		 "\tpwm <<left #val>|<right #val>|<#valL #valR)>>\n"
 #ifndef USE_CUSTOM_MOTOR_CONTROLLER
@@ -160,14 +160,14 @@ static const CLI_Command_Definition_t motorComDef = {
     -1
 };
 static const CLI_Command_Definition_t wifiComDef = {
-    (int8_t*)"wifi",
-    (int8_t*)"wifi <reset|<set <command|data>>>\n",
+    (const int8_t*)"wifi",
+    (const int8_t*)"wifi <reset|<set <command|data>>>\n",
     wifiCommand,
     -1
 };
 static const CLI_Command_Definition_t logComDef = {
-    (int8_t*)"log",
-    (int8_t*)"log\n"
+    (const int8_t*)"log",
+    (const int8_t*)"log\n"
     		 "\toff\n"
     		 "\tall\n"
     		 "\t <events|telemetry|speed|imu> [off]\n"
@@ -177,8 +177,8 @@ static const CLI_Command_Definition_t logComDef = {
 };
 #ifdef FOLLOW_TRAJECTORY
 static const CLI_Command_Definition_t trajectoryComDef = {
-    (int8_t*)"trajectory",
-    (int8_t*)"trajectory ...\n"
+    (const int8_t*)"trajectory",
+    (const int8_t*)"trajectory ...\n"
     		 "\tcontroller params [iles paramsow]\n"
     		 "\tregulator params [iles paramsow]\n"
     		 "\timport <(Npoints)>\n",
@@ -188,8 +188,8 @@ static const CLI_Command_Definition_t trajectoryComDef = {
 #endif
 #ifdef DRIVE_COMMANDS
 static const CLI_Command_Definition_t driveComDef = {
-    (int8_t*)"drive",
-    (int8_t*)"drive ...\n"
+    (const int8_t*)"drive",
+    (const int8_t*)"drive ...\n"
     		 "\tscale [#value]\n"
     		 "\twait finish\n"
     		 "\tline dist #mm speed #speed [pen]\n"
