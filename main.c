@@ -46,9 +46,6 @@ int main(void)
 	SystemCoreClockUpdate();
 	//RCC_HSEConfig(RCC_HSE_ON);
 
-	// read globals from Flash memory
-	restoreFromNVMemory();
-
 	Initialize();
 
 	if (globalLogEvents) {
