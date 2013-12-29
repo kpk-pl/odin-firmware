@@ -22,6 +22,9 @@
  * DMA1
  * 		- CH4ST4	UART-to-USB transfer using safePrint
  * 		- CH4ST2	UART-to-USB transfer, reading huge blocks of data
+ * DMA2
+ * 		- CH4ST7	UART-to-WiFi transfer using safePrint
+ *		- CH4ST5	UART-to-WiFi transfer, reading huge blocks of data
  * EXTI
  * 		- Line0		IMU gyroscope data ready
  * 		- Line8-13	switches
