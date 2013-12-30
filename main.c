@@ -7,6 +7,7 @@
 #include "memory.h"
 #include "priorities.h"
 #include "stackSpace.h"
+#include "ff.h"
 
 #include "TaskTelemetry.h"
 #include "TaskRC5.h"
@@ -35,11 +36,14 @@ volatile FunctionalState globalLogEvents = ENABLE;
 volatile FunctionalState globalLogIMU = DISABLE;
 volatile float globalCPUUsage = 0.0f;
 volatile bool globalUsingCLI = false;
+volatile bool globalSDMounted = false;
+xSemaphoreHandle sdDMATCSemaphore = NULL;
 
 #ifdef USE_SHORT_ASSERT
 static volatile uint16_t globalAssertionFailed = 0;
 #endif
 
+static FATFS FatFS;
 static void TaskBoot(void *p);
 
 int main(void)
@@ -102,9 +106,56 @@ void TaskBoot(void *p) {
 		if (globalLogEvents)
 			printf("Booting...\n");
 
+		// create semaphore for SD SPI DMA transfer
+		vSemaphoreCreateBinary(sdDMATCSemaphore);
+		xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
+
 		// Filesystem mount
+		printf("Mounting SD card...\n");
+		FRESULT res = f_mount(&FatFS, "", 1);
+		if (res == FR_OK) {
+			printf(" done\n");
+			globalSDMounted = true;
+		}
+		else {
+			printf(" error: ");
+			switch (res) {
+			case FR_DISK_ERR:
+				printf("DISK ERROR\n");
+				break;
+			case FR_NOT_READY:
+				printf("NOT READY\n");
+				break;
+			case FR_NO_FILESYSTEM:
+				printf("No FILESYSTEM\n");
+				break;
+			default:
+				printf("ERRNO: %d\n", res);
+				break;
+			}
+		}
 
 		// read init files
+		if (globalSDMounted) {
+			printf("Reading init files...\n");
+			if (!readInit(InitTarget_Telemetry))
+				printf("Errors while reading %s\n", INIT_TELEMETRY_PATH);
+#ifdef USE_IMU_TELEMETRY
+			if (!readInit(InitTarget_IMU))
+				printf("Errors while reading %s\n", INIT_IMU_PATH);
+#endif
+#ifdef FOLLOW_TRAJECTORY
+			if (!readInit(InitTarget_Trajectory))
+				printf("Errors while reading %s\n", INIT_TRAJECTORY_PATH);
+#endif
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+			if (!readInit(InitTarget_Custom_Motor_Controler))
+				printf("Errors while reading %s\n", INIT_MOTOR_CTRL_CUSTOM_PATH);
+#else
+			if (!readInit(InitTarget_PID_Motor_Controler))
+				printf("Errors while reading %s\n", INIT_MOTOR_CTRL_PID_PATH);
+#endif
+		}
 
 		// Start tasks
 		if (globalUsingCLI) {

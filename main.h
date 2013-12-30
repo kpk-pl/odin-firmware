@@ -54,6 +54,7 @@ extern volatile FunctionalState globalLogSpeed;
 extern volatile FunctionalState globalLogIMU;
 extern volatile float globalCPUUsage;
 extern volatile bool globalUsingCLI;
+extern volatile bool globalSDMounted;
 
 /*
  * Global functions

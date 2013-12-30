@@ -1,0 +1,38 @@
+#ifndef SD_HARDWARE_H_
+#define SD_HARDWARE_H_
+
+#define SD_SPI_GPIO 					GPIOA
+#define SD_SPI_GPIO_CLOCK 				RCC_AHB1Periph_GPIOA
+#define SD_SPI_GPIO_CLOCK_FUN			RCC_AHB1PeriphClockCmd
+#define SD_SPI_GPIO_PIN_SCK				GPIO_Pin_5
+#define SD_SPI_GPIO_PIN_MOSI			GPIO_Pin_7
+#define SD_SPI_GPIO_PIN_MISO			GPIO_Pin_6
+#define SD_SPI_GPIO_PINSOURCE_SCK 		GPIO_PinSource5
+#define SD_SPI_GPIO_PINSOURCE_MOSI 		GPIO_PinSource7
+#define SD_SPI_GPIO_PINSOURCE_MISO 		GPIO_PinSource6
+#define SD_SPI_GPIO_AF					GPIO_AF_SPI1
+#define SD_SPI							SPI1
+#define SD_SPI_CLOCK					RCC_APB2Periph_SPI1
+#define SD_SPI_CLOCK_FUN				RCC_APB2PeriphClockCmd
+#define SD_CS_GPIO						GPIOA
+#define SD_CS_GPIO_CLOCK				RCC_AHB1Periph_GPIOA
+#define SD_CS_GPIO_CLOCK_FUN			RCC_AHB1PeriphClockCmd
+#define SD_CS_GPIO_PIN					GPIO_Pin_4
+#define SD_POWER_GPIO					GPIOA
+#define SD_POWER_GPIO_CLOCK				RCC_AHB1Periph_GPIOA
+#define SD_POWER_GPIO_CLOCK_FUN			RCC_AHB1PeriphClockCmd
+#define SD_POWER_GPIO_PIN				GPIO_Pin_3
+#define SD_SPI_DMA						DMA2
+#define SD_SPI_DMA_CLOCK				RCC_AHB1Periph_DMA2
+#define SD_SPI_DMA_CHANNEL_TX			DMA_Channel_3
+#define SD_SPI_DMA_STREAM_TX			DMA2_Stream3
+#define SD_SPI_DMA_FLAG_TCIF_TX			DMA_FLAG_TCIF3
+#define SD_SPI_DMA_NVIC_IRQn_TX			DMA2_Stream3_IRQn
+#define SD_SPI_DMA_IRQHANDLER_TX		DMA2_Stream3_IRQHandler
+#define SD_SPI_DMA_CHANNEL_RX			DMA_Channel_3
+#define SD_SPI_DMA_STREAM_RX			DMA2_Stream2
+#define SD_SPI_DMA_FLAG_TCIF_RX			DMA_FLAG_TCIF2
+#define SD_SPI_DMA_NVIC_IRQn_RX			DMA2_Stream2_IRQn
+#define SD_SPI_DMA_IRQHANDLER_RX		DMA2_Stream2_IRQHandler
+
+#endif /* HARDWARE_H_ */
