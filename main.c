@@ -93,9 +93,9 @@ int main(void)
 		printf("\tDrive commands DISABLED\n");
 #endif
 		if (globalUsingCLI)
-			printf("Using CLI\n");
+			printf("\tUsing CLI\n");
 		else
-			printf("Using command handler\n");
+			printf("\tUsing command handler\n");
 	}
 
 	xTaskCreate(TaskBoot, NULL, TASKBOOT_STACKSPACE, NULL, PRIORITY_TASK_BOOT, NULL);
@@ -141,24 +141,37 @@ void TaskBoot(void *p) {
 
 		// read init files
 		if (globalSDMounted) {
-			printf("Reading init files...\n");
-			if (!readInit(InitTarget_Telemetry))
-				printf("Errors while reading %s\n", INIT_TELEMETRY_PATH);
+			bool allOK = true;
+			printf("Reading init files...");
+			if (!readInit(InitTarget_Telemetry)) {
+				printf("\nErrors while reading %s", INIT_TELEMETRY_PATH);
+				allOK = false;
+			}
 #ifdef USE_IMU_TELEMETRY
-			if (!readInit(InitTarget_IMU))
-				printf("Errors while reading %s\n", INIT_IMU_PATH);
+			if (!readInit(InitTarget_IMU)) {
+				printf("\nErrors while reading %s", INIT_IMU_PATH);
+				allOK = false;
+			}
 #endif
 #ifdef FOLLOW_TRAJECTORY
-			if (!readInit(InitTarget_Trajectory))
-				printf("Errors while reading %s\n", INIT_TRAJECTORY_PATH);
+			if (!readInit(InitTarget_Trajectory)) {
+				printf("\nErrors while reading %s", INIT_TRAJECTORY_PATH);
+				allOK = false;
+			}
 #endif
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-			if (!readInit(InitTarget_Custom_Motor_Controler))
-				printf("Errors while reading %s\n", INIT_MOTOR_CTRL_CUSTOM_PATH);
+			if (!readInit(InitTarget_Custom_Motor_Controler)) {
+				printf("\nErrors while reading %s", INIT_MOTOR_CTRL_CUSTOM_PATH);
+				allOK = false;
+			}
 #else
-			if (!readInit(InitTarget_PID_Motor_Controler))
-				printf("Errors while reading %s\n", INIT_MOTOR_CTRL_PID_PATH);
+			if (!readInit(InitTarget_PID_Motor_Controler)) {
+				printf("\nErrors while reading %s", INIT_MOTOR_CTRL_PID_PATH);
+				allOK = false;
+			}
 #endif
+			if (allOK) printf(" done OK\n");
+			else printf("\nSD card: there were errors\n");
 		}
 
 		// Start tasks

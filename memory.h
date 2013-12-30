@@ -29,5 +29,6 @@ typedef enum {
 } InitTarget_Type;
 
 bool readInit(const InitTarget_Type target);
+bool saveConfig(const InitTarget_Type target);
 
 #endif /* _MEMORY_H_ */
