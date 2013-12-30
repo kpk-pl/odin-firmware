@@ -79,10 +79,6 @@ void TaskRC5(void * p) {
 					tempboolean = true;
 					xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
 					break;
-				case 41:
-					restoreFromNVMemory();
-					safePrint(17, "System restored\n");
-					break;
 #ifdef USE_IMU_TELEMETRY
 				case 42: /*<< clock button */
 					xSemaphoreGive(imuMagScalingReq);

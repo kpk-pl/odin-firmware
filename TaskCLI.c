@@ -230,11 +230,11 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 		strncpy((char*)outBuffer, "\n", outBufferLen);
 	}
 	else if (cmatch("save", param, 2)) { // sa
-		saveToNVMemory();
+		// TODO
 		strncpy((char*)outBuffer, "System state saved\n", outBufferLen);
 	}
 	else if (cmatch("restore", param, 4)) { // rest
-		restoreFromNVMemory();
+		// TODO
 		strncpy((char*)outBuffer, "System state restored\n", outBufferLen);
 	}
 	else {
