@@ -5,6 +5,8 @@
 #include "hwinterface.h"
 #include "hwinit.h"
 #include "memory.h"
+#include "priorities.h"
+#include "stackSpace.h"
 
 #include "TaskTelemetry.h"
 #include "TaskRC5.h"
@@ -37,6 +39,8 @@ volatile bool globalUsingCLI = false;
 #ifdef USE_SHORT_ASSERT
 static volatile uint16_t globalAssertionFailed = 0;
 #endif
+
+static void TaskBoot(void *p);
 
 int main(void)
 {
@@ -84,44 +88,61 @@ int main(void)
 #else
 		printf("\tDrive commands DISABLED\n");
 #endif
-		printf("Booting...\n");
 	}
 
-	if (globalUsingCLI) {
-		TaskCLIConstructor();
-		printf("Using CLI\n");
-	}
-	else {
-		TaskCommandHandlerConstructor();
-		printf("Using command handler\n");
-	}
-	TaskInputBufferConstructor();
-	TaskLEDConstructor();
-	TaskMotorCtrlConstructor();
-	TaskPrintfConsumerConstructor();
-	TaskRC5Constructor();
-	TaskTelemetryConstructor();
-	TaskUSB2WiFiBridgeConstructor();
-	TaskPenCtrlConstructor();
+	xTaskCreate(TaskBoot, NULL, TASKBOOT_STACKSPACE, NULL, PRIORITY_TASK_BOOT, NULL);
+	vTaskStartScheduler();
+    while(1);
+}
+
+void TaskBoot(void *p) {
+	// assure this task is not interrupted
+	taskENTER_CRITICAL();
+	{
+		if (globalLogEvents)
+			printf("Booting...\n");
+
+		// Filesystem mount
+
+		// read init files
+
+		// Start tasks
+		if (globalUsingCLI) {
+			TaskCLIConstructor();
+			printf("Using CLI\n");
+		}
+		else {
+			TaskCommandHandlerConstructor();
+			printf("Using command handler\n");
+		}
+		TaskInputBufferConstructor();
+		TaskLEDConstructor();
+		TaskMotorCtrlConstructor();
+		TaskPrintfConsumerConstructor();
+		TaskRC5Constructor();
+		TaskTelemetryConstructor();
+		TaskUSB2WiFiBridgeConstructor();
+		TaskPenCtrlConstructor();
 #ifdef FOLLOW_TRAJECTORY
-	TaskTrajectoryConstructor();
+		TaskTrajectoryConstructor();
 #endif
 #ifdef DRIVE_COMMANDS
-	TaskDriveConstructor();
+		TaskDriveConstructor();
 #endif
 #ifdef USE_IMU_TELEMETRY
-	TaskIMUConstructor();
-	TaskIMUMagScalingConstructor();	// this should be called at last
+		TaskIMUConstructor();
+		TaskIMUMagScalingConstructor();	// this should be called at last
 #endif
 
 #ifdef USE_SHORT_ASSERT
-	if (globalAssertionFailed != 0)
-		printf("Detected %d assertion errors\n", globalAssertionFailed);
+		if (globalAssertionFailed != 0)
+			printf("Detected %d assertion errors\n", globalAssertionFailed);
 #endif
-	printf("Booting completed\nStarting scheduler now\n");
 
-	vTaskStartScheduler();
-    while(1);
+		printf("Booting completed\n");
+	}
+	taskEXIT_CRITICAL();
+	vTaskDelete(NULL);
 }
 
 void reportStackUsage() {
