@@ -118,7 +118,7 @@ void TaskBoot(void *p) {
 		printf("Mounting SD card...");
 		FRESULT res = f_mount(&FatFS, "", 1);
 		if (res == FR_OK) {
-			printf(" done\n");
+			printf(" done OK\n");
 			globalSDMounted = true;
 		}
 		else {

@@ -230,12 +230,12 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 		strncpy((char*)outBuffer, "\n", outBufferLen);
 	}
 	else if (cmatch("save", param, 2)) { // sa
-		// TODO
-		strncpy((char*)outBuffer, "System state saved\n", outBufferLen);
+		bool ok = saveConfig(InitTarget_All);
+		snprintf((char*)outBuffer, outBufferLen, "System state saved %s\n", ok ? "successfully" : " but errors present");
 	}
 	else if (cmatch("restore", param, 4)) { // rest
-		// TODO
-		strncpy((char*)outBuffer, "System state restored\n", outBufferLen);
+		bool ok = readInit(InitTarget_All);
+		snprintf((char*)outBuffer, outBufferLen, "System state restored %s\n", ok ? "successfully" : " but errors present");
 	}
 	else {
 		strncpy((char*)outBuffer, incorrectMessage, outBufferLen);
