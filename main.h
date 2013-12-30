@@ -69,9 +69,6 @@ void reportStackUsage();
 
 void COMAction();
 void COMDMANotify();
-#ifdef FOLLOW_TRAJECTORY
-void RawStreamDMAIncoming();
-#endif
 void WIFIAction();
 void WiFiDMANotify();
 #ifdef USE_IMU_TELEMETRY

@@ -124,9 +124,4 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 	outputSpeeds->RightSpeed = v * 1000.0f / RAD_TO_MM_TRAVELED + w;
 }
 
-/* ISR for WiFi DMA Rx */
-void RawStreamDMAIncoming(void) {
-	TBDMATransferCompletedSlot();
-}
-
 #endif /* FOLLOW_TRAJECTORY */
