@@ -92,6 +92,10 @@ int main(void)
 #else
 		printf("\tDrive commands DISABLED\n");
 #endif
+		if (globalUsingCLI)
+			printf("Using CLI\n");
+		else
+			printf("Using command handler\n");
 	}
 
 	xTaskCreate(TaskBoot, NULL, TASKBOOT_STACKSPACE, NULL, PRIORITY_TASK_BOOT, NULL);
@@ -111,7 +115,7 @@ void TaskBoot(void *p) {
 		xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
 
 		// Filesystem mount
-		printf("Mounting SD card...\n");
+		printf("Mounting SD card...");
 		FRESULT res = f_mount(&FatFS, "", 1);
 		if (res == FR_OK) {
 			printf(" done\n");
@@ -158,14 +162,10 @@ void TaskBoot(void *p) {
 		}
 
 		// Start tasks
-		if (globalUsingCLI) {
+		if (globalUsingCLI)
 			TaskCLIConstructor();
-			printf("Using CLI\n");
-		}
-		else {
+		else
 			TaskCommandHandlerConstructor();
-			printf("Using command handler\n");
-		}
 		TaskInputBufferConstructor();
 		TaskLEDConstructor();
 		TaskMotorCtrlConstructor();

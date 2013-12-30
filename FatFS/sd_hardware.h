@@ -18,10 +18,10 @@
 #define SD_CS_GPIO_CLOCK				RCC_AHB1Periph_GPIOA
 #define SD_CS_GPIO_CLOCK_FUN			RCC_AHB1PeriphClockCmd
 #define SD_CS_GPIO_PIN					GPIO_Pin_4
-#define SD_POWER_GPIO					GPIOA
-#define SD_POWER_GPIO_CLOCK				RCC_AHB1Periph_GPIOA
+#define SD_POWER_GPIO					GPIOC
+#define SD_POWER_GPIO_CLOCK				RCC_AHB1Periph_GPIOC
 #define SD_POWER_GPIO_CLOCK_FUN			RCC_AHB1PeriphClockCmd
-#define SD_POWER_GPIO_PIN				GPIO_Pin_3
+#define SD_POWER_GPIO_PIN				GPIO_Pin_12
 #define SD_SPI_DMA						DMA2
 #define SD_SPI_DMA_CLOCK				RCC_AHB1Periph_DMA2
 #define SD_SPI_DMA_CHANNEL_TX			DMA_Channel_3

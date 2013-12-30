@@ -9,30 +9,23 @@
 #include "TaskTelemetry.h"
 #include "TaskIMU.h"
 
-typedef struct {
-	char* name;
-	char* value;
-	uint8_t name_len;
-} init_entry;
-
-static uint8_t parse_init_line(char* line, init_entry* entry);
-static bool interpretEntryTelemetry(const init_entry* entry);
+static bool interpretEntryTelemetry(FIL* file);
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-static bool interpretEntryCustomMotorController(const init_entry* entry);
+static bool interpretEntryCustomMotorController(FIL* file);
 #else
-static bool interpretEntryPIDMotorController(const init_entry* entry);
+static bool interpretEntryPIDMotorController(FIL* file);
 #endif
 #ifdef USE_IMU_TELEMETRY
-static bool interpretEntryIMU(const init_entry* entry);
+static bool interpretEntryIMU(FIL* file);
 #endif
 #ifdef FOLLOW_TRAJECTORY
-static bool interpretEntryTrajectory(const init_entry* entry);
+static bool interpretEntryTrajectory(FIL* file);
 #endif
 static bool readInitAll();
 
 bool readInit(const InitTarget_Type target) {
 	FIL file;
-	bool (*interpretFun)(const init_entry* entry);
+	bool (*interpretFun)(FIL *);
 	FRESULT fileResult;
 
 	switch(target) {
@@ -73,20 +66,7 @@ bool readInit(const InitTarget_Type target) {
 	if (FR_OK != fileResult)
 		return false;
 
-	char buffer[100];
-	init_entry entry;
-	bool ret = true;
-
-	while(!f_eof(&file)) {
-		f_gets(buffer, 100, &file);
-		if (parse_init_line(buffer, &entry) == 0) {
-			if (!interpretFun(&entry))
-				ret = false;
-		}
-		else {
-			ret = false;
-		}
-	}
+	bool ret = interpretFun(&file);
 
 	f_close(&file);
 	return ret;
@@ -117,45 +97,103 @@ bool readInitAll() {
 	return ret;
 }
 
-bool interpretEntryTelemetry(const init_entry* entry) {
-	if (entry == NULL) return false;
+bool interpretEntryTelemetry(FIL* file) {
+	if (file == NULL) return false;
 
-	if (strncmp(entry->name, "correction_gain", entry->name_len) == 0) {
-		globalOdometryCorrectionGain = strtof(entry->value, NULL);
-		return true;
+	char buffer[50];
+	uint8_t line;
+
+	for (line = 0; line < 1 && !f_eof(file); ++line) {
+		f_gets(buffer, 50, file);
+		switch(line) {
+		case 0: globalOdometryCorrectionGain = strtof(buffer, NULL); break;
+		default: return false;
+		}
 	}
 
-	return false;
+	return (line == 1);
 }
 
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-bool interpretEntryCustomMotorController(const init_entry* entry) {
-	return true;
+bool interpretEntryCustomMotorController(FIL* file) {
+	if (file == NULL) return false;
+
+	char buffer[50];
+	uint8_t line;
+
+	for (line = 0; line < 20 && !f_eof(file); ++line) {
+		f_gets(buffer, 50, file);
+		switch(line) {
+		case 0: globalLeftMotorParams.forward.K = strtof(buffer, NULL); break;
+		case 1: globalLeftMotorParams.forward.B = strtof(buffer, NULL); break;
+		case 2: globalLeftMotorParams.pid2.forward.Kp = strtof(buffer, NULL); break;
+		case 3: globalLeftMotorParams.pid2.forward.Ki = strtof(buffer, NULL); break;
+		case 4: globalLeftMotorParams.pid2.forward.Kd = strtof(buffer, NULL); break;
+		case 5: globalLeftMotorParams.backward.K = strtof(buffer, NULL); break;
+		case 6: globalLeftMotorParams.backward.B = strtof(buffer, NULL); break;
+		case 7: globalLeftMotorParams.pid2.backward.Kp = strtof(buffer, NULL); break;
+		case 8: globalLeftMotorParams.pid2.backward.Ki = strtof(buffer, NULL); break;
+		case 9: globalLeftMotorParams.pid2.backward.Kd = strtof(buffer, NULL); break;
+		case 10: globalRightMotorParams.forward.K = strtof(buffer, NULL); break;
+		case 11: globalRightMotorParams.forward.B = strtof(buffer, NULL); break;
+		case 12: globalRightMotorParams.pid2.forward.Kp = strtof(buffer, NULL); break;
+		case 13: globalRightMotorParams.pid2.forward.Ki = strtof(buffer, NULL); break;
+		case 14: globalRightMotorParams.pid2.forward.Kd = strtof(buffer, NULL); break;
+		case 15: globalRightMotorParams.backward.K = strtof(buffer, NULL); break;
+		case 16: globalRightMotorParams.backward.B = strtof(buffer, NULL); break;
+		case 17: globalRightMotorParams.pid2.backward.Kp = strtof(buffer, NULL); break;
+		case 18: globalRightMotorParams.pid2.backward.Ki = strtof(buffer, NULL); break;
+		case 19: globalRightMotorParams.pid2.backward.Kd = strtof(buffer, NULL); break;
+		default: return false;
+		}
+	}
+
+	return (line == 20);
 }
 #else
-bool interpretEntryPIDMotorController(const init_entry* entry) {
-	return true;
+bool interpretEntryPIDMotorController(FIL* file) {
+	if (file == NULL) return false;
+
+	char buffer[50];
+	uint8_t line;
+
+	for (line = 0; line < 3 && !f_eof(file); ++line) {
+		f_gets(buffer, 50, file);
+		switch(line) {
+		case 0: globalMotorPidKp = strtof(buffer, NULL); break;
+		case 1: globalMotorPidKi = strtof(buffer, NULL); break;
+		case 2: globalMotorPidKd = strtof(buffer, NULL); break;
+		default: return false;
+		}
+	}
+
+	return (line == 3);
 }
 #endif
 
 #ifdef USE_IMU_TELEMETRY
-bool interpretEntryIMU(const init_entry* entry) {
+bool interpretEntryIMU(FIL* file) {
 	return true;
 }
 #endif
 
 #ifdef FOLLOW_TRAJECTORY
-bool interpretEntryTrajectory(const init_entry* entry) {
-	return true;
+bool interpretEntryTrajectory(FIL* file) {
+	if (file == NULL) return false;
+
+	char buffer[50];
+	uint8_t line;
+
+	for (line = 0; line < 3 && !f_eof(file); ++line) {
+		f_gets(buffer, 50, file);
+		switch(line) {
+		case 0: globalTrajectoryControlGains.k_x = strtof(buffer, NULL); break;
+		case 1: globalTrajectoryControlGains.k = strtof(buffer, NULL); break;
+		case 2: globalTrajectoryControlGains.k_s = strtof(buffer, NULL); break;
+		default: return false;
+		}
+	}
+
+	return (line == 3);
 }
 #endif
-
-uint8_t parse_init_line(char* line, init_entry* entry) {
-	if (line == NULL || entry == NULL) return 1;
-	char* eq_sign = strchr(line, '=');
-	if (eq_sign == NULL) return 2;
-	entry->name = line;
-	entry->value = eq_sign+1;
-	entry->name_len = eq_sign-line;
-	return 0;
-}
