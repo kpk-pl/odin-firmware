@@ -201,56 +201,6 @@ void Initialize() {
 	USART_Cmd(WIFI_USART, ENABLE);
 
 
-	/* Configuring lantern timer to generate pattern */
-	/* Enable clocks */
-	LANTERN_TIM_CLOCK_FUN(LANTERN_TIM_CLOCK, ENABLE);
-	RCC_AHB1PeriphClockCmd(LANTERN_GPIO_CLOCK, ENABLE);
-	/* Configuring pins as alternate function */
-	GPIO_InitStructure.GPIO_Pin = LANTERN_GPIO_PIN1 | LANTERN_GPIO_PIN2 | LANTERN_GPIO_PIN3 | LANTERN_GPIO_PIN4;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_Init(LANTERN_GPIO, &GPIO_InitStructure);
-	/* Connect TIM Channels to GPIOs */
-	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE1, LANTERN_GPIO_AF);
-	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE2, LANTERN_GPIO_AF);
-	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE3, LANTERN_GPIO_AF);
-	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE4, LANTERN_GPIO_AF);
-	/* Time base configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = LANTERN_TIM_PRESCALER;
-	TIM_TimeBaseStructure.TIM_Period = LANTERN_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-	TIM_TimeBaseInit(LANTERN_TIM, &TIM_TimeBaseStructure);
-	/* Output Compare Toggle Mode configuration - all powered down; this simplifies turning it off initially and is shorter */
-	TIM_OCStructInit(&TIM_OCInitStructure);
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM2;
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = LANTERN_TIM_PERIOD;
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
-	TIM_OC1Init(LANTERN_TIM, &TIM_OCInitStructure);
-	TIM_OC2Init(LANTERN_TIM, &TIM_OCInitStructure);
-	TIM_OC3Init(LANTERN_TIM, &TIM_OCInitStructure);
-	TIM_OC4Init(LANTERN_TIM, &TIM_OCInitStructure);
-	/* Configure registers to allow immediate writing without shadow register */
-	TIM_OC1PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
-	TIM_OC2PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
-	TIM_OC3PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
-	TIM_OC4PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
-	/* Enable outputs */
-	TIM_CtrlPWMOutputs(LANTERN_TIM, ENABLE);
-	/* Configuring interrupt on TIM Update */
-	NVIC_InitStructure.NVIC_IRQChannel = LANTERN_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_LANTERN;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure);
-	TIM_ITConfig(LANTERN_TIM, TIM_IT_Update, ENABLE);
-	/* TIM enable counter */
-	TIM_Cmd(LANTERN_TIM, ENABLE);
-
-
 	/* Configuring GPIOs for motors */
 	/* Clocks */
 	RCC_AHB1PeriphClockCmd(MOTORL_GPIO_CLOCK, ENABLE);
@@ -482,6 +432,9 @@ void Initialize() {
 	TIM_OCInitStructure.TIM_Pulse = 0;
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
 	TIM_OC2Init(SERVO_TIM, &TIM_OCInitStructure);
+	/* Set correct initial value for the servo */
+	setPenUp();
+	// TODO: read ADC value from potentiometer and adjust initial height
 	/* Enable preload */
 	TIM_OC2PreloadConfig(SERVO_TIM, TIM_OCPreload_Enable);
 	/* Enable timer */
@@ -560,7 +513,7 @@ void Initialize() {
 	/* Switch 6 */
 	EXTI_InitStructure.EXTI_Line = SWITCHES_EXTI_6_LINE;
 	EXTI_Init(&EXTI_InitStructure);
-	if (getSwitchStatus(6) == OFF) enableLantern(DISABLE);
+	// current lantern state is checked and set during lantern initialization
 	/* NVIC config */
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -585,5 +538,50 @@ void Initialize() {
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_SWITCHES_TIM;
 	NVIC_Init(&NVIC_InitStructure);
-	/* DO NOT START HERE */
+	/* DO NOT START TIMER HERE */
+
+
+	/* Configuring lantern timer to generate pattern */
+	/* Enable clocks */
+	LANTERN_TIM_CLOCK_FUN(LANTERN_TIM_CLOCK, ENABLE);
+	RCC_AHB1PeriphClockCmd(LANTERN_GPIO_CLOCK, ENABLE);
+	/* Do not configure GPIO pins, will be done by enableLantern call */
+	/* Connect TIM Channels to GPIOs */
+	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE1, LANTERN_GPIO_AF);
+	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE2, LANTERN_GPIO_AF);
+	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE3, LANTERN_GPIO_AF);
+	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE4, LANTERN_GPIO_AF);
+	/* Time base configuration */
+	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
+	TIM_TimeBaseStructure.TIM_Prescaler = LANTERN_TIM_PRESCALER;
+	TIM_TimeBaseStructure.TIM_Period = LANTERN_TIM_PERIOD;
+	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(LANTERN_TIM, &TIM_TimeBaseStructure);
+	/* Output Compare Toggle Mode configuration - all powered down; this simplifies turning it off initially and is shorter */
+	TIM_OCStructInit(&TIM_OCInitStructure);
+	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM2;
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = LANTERN_TIM_PERIOD;
+	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
+	TIM_OC1Init(LANTERN_TIM, &TIM_OCInitStructure);
+	TIM_OC2Init(LANTERN_TIM, &TIM_OCInitStructure);
+	TIM_OC3Init(LANTERN_TIM, &TIM_OCInitStructure);
+	TIM_OC4Init(LANTERN_TIM, &TIM_OCInitStructure);
+	/* Configure registers to allow immediate writing without shadow register */
+	TIM_OC1PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
+	TIM_OC2PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
+	TIM_OC3PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
+	TIM_OC4PreloadConfig(LANTERN_TIM, TIM_OCPreload_Disable);
+	/* Enable outputs */
+	TIM_CtrlPWMOutputs(LANTERN_TIM, ENABLE);
+	/* Configuring interrupt on TIM Update */
+	NVIC_InitStructure.NVIC_IRQChannel = LANTERN_NVIC_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_LANTERN;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+	TIM_ITConfig(LANTERN_TIM, TIM_IT_Update, ENABLE);
+	/* Do not enable timer - will be done in enableLantern call */
+	/* Init lantern properly to be on or off at startup */
+	enableLantern(getSwitchStatus(6) == OFF ? DISABLE : ENABLE);
 }

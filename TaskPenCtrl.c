@@ -4,6 +4,7 @@
 #include "stackSpace.h"
 #include "priorities.h"
 #include "hwinterface.h"
+#include "hardware.h"
 
 #include "TaskPenCtrl.h"
 #include "TaskTelemetry.h"
