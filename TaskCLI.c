@@ -6,6 +6,8 @@
 #include "task.h"
 #include "FreeRTOS_CLI.h"
 
+#include "ff.h"
+
 #include "priorities.h"
 #include "stackSpace.h"
 #include "compilation.h"
@@ -13,6 +15,7 @@
 #include "main.h"
 #include "pointsBuffer.h"
 #include "memory.h"
+#include "streaming.h"
 
 #include "TaskCLI.h"
 #include "TaskPrintfConsumer.h"
@@ -26,6 +29,12 @@
 #ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
 #endif
+
+typedef struct {
+	FIL *file;
+	char *buffer;
+	uint32_t bufferLen;
+} FileTransfer_Struct;
 
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
@@ -110,6 +119,9 @@ static portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, c
 #ifdef DRIVE_COMMANDS
 static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 #endif
+static portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 
 static const CLI_Command_Definition_t systemComDef = {
     (const int8_t*)"system",
@@ -200,6 +212,24 @@ static const CLI_Command_Definition_t driveComDef = {
     -1
 };
 #endif
+static const CLI_Command_Definition_t loadComDef = {
+	(const int8_t*)"load",
+	(const int8_t*)"load filename bytes [append]\n",
+	loadCommand,
+	-1
+};
+static const CLI_Command_Definition_t catComDef = {
+	(const int8_t*)"cat",
+	(const int8_t*)"cat filename\n",
+	catCommand,
+	1
+};
+static const CLI_Command_Definition_t lsComDef = {
+	(const int8_t*)"ls",
+	(const int8_t*)"ls filename\n",
+	lsCommand,
+	1
+};
 
 portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
 	char *param;
@@ -1049,6 +1079,100 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 }
 #endif
 
+void fileTransferHandle(void *p) {
+	FileTransfer_Struct *fileTransfer = (FileTransfer_Struct*)p;
+
+	streamFinishTransmission();
+	streamRelease();
+
+	f_write(fileTransfer->file, fileTransfer->buffer, fileTransfer->bufferLen, NULL);
+
+	f_close(fileTransfer->file);
+	vPortFree(fileTransfer->file);
+	vPortFree(fileTransfer->buffer);
+	vPortFree(fileTransfer);
+}
+
+portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	char *param[4];
+	const uint32_t maxPayload = 2000;
+
+	size_t nOfParams = sliceCommand((char*)command, param, 4);
+	if (nOfParams != 2 && !(nOfParams == 3 && cmatch("append", param[2], 1))) {
+		strncpy((char*)outBuffer, incorrectMessage, outBufferLen);
+		return pdFALSE;
+	}
+
+	int len = atoi(param[1]);
+	if (len < 0) {
+		strncpy((char*)outBuffer, "Error - negative number of bytes specified\n", outBufferLen);
+		return pdFALSE;
+	}
+	if (len > maxPayload) {
+		snprintf((char*)outBuffer, outBufferLen, "Error - payload too big - max is %ld\n", maxPayload);
+		return pdFALSE;
+	}
+
+	if (getWiFiStatus() == OFF) {
+		strncpy((char*)outBuffer, "Error - WiFi is needed for this\n", outBufferLen);
+		return pdFALSE;
+	}
+
+	BYTE mode = FA_WRITE;
+	if (nOfParams == 3) {
+		mode |= FA_OPEN_ALWAYS;
+	}
+	else {
+		mode |= FA_CREATE_ALWAYS;
+	}
+
+	FIL *file = pvPortMalloc(sizeof(FIL));
+
+	FRESULT res = f_open(file, param[0], mode);
+	if (res == FR_DENIED) {
+		strncpy((char*)outBuffer, "Access to file denied\n", outBufferLen);
+	}
+	else if (res == FR_INVALID_NAME) {
+		strncpy((char*)outBuffer, "Invalid filename specified\n", outBufferLen);
+	}
+	else if (res != FR_OK) {
+		strncpy((char*)outBuffer, "Error opening file\n", outBufferLen);
+	}
+
+	if (res != FR_OK) {
+		vPortFree(file);
+		return pdFALSE;
+	}
+
+	if (nOfParams == 3) {
+		if (f_lseek(file, f_size(file)) != FR_OK) {
+			strncpy((char*)outBuffer, "Error appending to file\n", outBufferLen);
+			f_close(file);
+			vPortFree(file);
+			return pdFALSE;
+		}
+	}
+
+	FileTransfer_Struct *fileTransfer = pvPortMalloc(sizeof(FileTransfer_Struct));
+	fileTransfer->file = file;
+	fileTransfer->bufferLen = len;
+	fileTransfer->buffer = pvPortMalloc(len*sizeof(char));
+
+	streamAcquire(portMAX_DELAY);
+	streamStartTransmission(fileTransfer->buffer, len, fileTransferHandle, fileTransfer);
+
+	strncpy((char*)outBuffer, "Send data now...\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+
+}
+
+portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+
+}
+
 ///////////////////////////////////// END COMMAND HANDLERS ///////////////////////////////////////
 
 void registerAllCommands() {
@@ -1066,6 +1190,9 @@ void registerAllCommands() {
 #ifdef DRIVE_COMMANDS
 	FreeRTOS_CLIRegisterCommand(&driveComDef);
 #endif
+	FreeRTOS_CLIRegisterCommand(&loadComDef);
+	FreeRTOS_CLIRegisterCommand(&catComDef);
+	FreeRTOS_CLIRegisterCommand(&lsComDef);
 }
 
 size_t cmatch(const char *command, const char *input, const size_t shortest) {

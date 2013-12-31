@@ -48,6 +48,7 @@ uint16_t TBloadNewPoints(uint16_t num) {
 		circularBuffer.continueLoading = 0;
 	}
 
+	streamAcquire(portMAX_DELAY);
 	startDMA(num - circularBuffer.continueLoading);						  // start receiving first part or all
 
 	return num;
@@ -93,6 +94,7 @@ void TBDMATransferCompletedSlot() {
 
 	if (circularBuffer.continueLoading == 0) { 			// finish up, enable normal USART behavior
 		streamFinishTransmission();
+		streamRelease();
 	}
 	else {												// read second half
 		startDMA(circularBuffer.continueLoading);

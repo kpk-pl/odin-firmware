@@ -99,6 +99,7 @@ int main(void)
 	}
 
 	xTaskCreate(TaskBoot, NULL, TASKBOOT_STACKSPACE, NULL, PRIORITY_TASK_BOOT, NULL);
+	TaskInputBufferConstructor(); // must be started here because of random bytes being received on startup (especially from WiFi module)
 	vTaskStartScheduler();
     while(1);
 }
@@ -179,7 +180,6 @@ void TaskBoot(void *p) {
 			TaskCLIConstructor();
 		else
 			TaskCommandHandlerConstructor();
-		TaskInputBufferConstructor();
 		TaskLEDConstructor();
 		TaskMotorCtrlConstructor();
 		TaskPrintfConsumerConstructor();

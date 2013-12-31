@@ -21,6 +21,9 @@ void TaskInputBuffer(void * p) {
 	uint8_t RXBUFPOS[2] = {0, 0};
 	uint8_t i;
 
+	vTaskDelay(500/portTICK_RATE_MS);
+	while (xQueueReceive(commInputBufferQueue, &newInput, 0) == pdTRUE);
+
 	while(1) {
 		/* Block until new command is available */
 		xQueueReceive(commInputBufferQueue, &newInput, portMAX_DELAY);
