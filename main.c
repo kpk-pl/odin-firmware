@@ -98,114 +98,112 @@ int main(void)
 			printf("\tUsing command handler\n");
 	}
 
+	// start normal tasks - these should not really fire up because boot task is a DOMINATOR
+	TaskInputBufferConstructor();
+	if (globalUsingCLI)
+		TaskCLIConstructor();
+	else
+		TaskCommandHandlerConstructor();
+	TaskLEDConstructor();
+	TaskMotorCtrlConstructor();
+	TaskPrintfConsumerConstructor();
+	TaskRC5Constructor();
+	TaskTelemetryConstructor();
+	TaskUSB2WiFiBridgeConstructor();
+	TaskPenCtrlConstructor();
+#ifdef FOLLOW_TRAJECTORY
+	TaskTrajectoryConstructor();
+#endif
+#ifdef DRIVE_COMMANDS
+	TaskDriveConstructor();
+#endif
+#ifdef USE_IMU_TELEMETRY
+	TaskIMUConstructor();
+	TaskIMUMagScalingConstructor();	// this should be called at last
+#endif
+
+	// boot task with DOMINATOR priority
 	xTaskCreate(TaskBoot, NULL, TASKBOOT_STACKSPACE, NULL, PRIORITY_TASK_BOOT, NULL);
-	TaskInputBufferConstructor(); // must be started here because of random bytes being received on startup (especially from WiFi module)
+
 	vTaskStartScheduler();
     while(1);
 }
 
 void TaskBoot(void *p) {
-	// assure this task is not interrupted
-	taskENTER_CRITICAL();
-	{
-		if (globalLogEvents)
-			printf("Booting...\n");
+	if (globalLogEvents)
+		printf("Booting...\n");
 
-		// create semaphore for SD SPI DMA transfer
-		vSemaphoreCreateBinary(sdDMATCSemaphore);
-		xSemaphoreTake(sdDMATCSemaphore, 0);
+	// create semaphore for SD SPI DMA transfer
+	vSemaphoreCreateBinary(sdDMATCSemaphore);
+	xSemaphoreTake(sdDMATCSemaphore, 0);
 
-		// Filesystem mount
-		printf("Mounting SD card...");
-		FRESULT res = f_mount(&FatFS, "", 1);
-		if (res == FR_OK) {
-			printf(" done OK\n");
-			globalSDMounted = true;
+	// Filesystem mount
+	printf("Mounting SD card...");
+	FRESULT res = f_mount(&FatFS, "", 1);
+	if (res == FR_OK) {
+		printf(" done OK\n");
+		globalSDMounted = true;
+	}
+	else {
+		printf(" error: ");
+		switch (res) {
+		case FR_DISK_ERR:
+			printf("DISK ERROR\n");
+			break;
+		case FR_NOT_READY:
+			printf("NOT READY\n");
+			break;
+		case FR_NO_FILESYSTEM:
+			printf("No FILESYSTEM\n");
+			break;
+		default:
+			printf("ERRNO: %d\n", res);
+			break;
 		}
-		else {
-			printf(" error: ");
-			switch (res) {
-			case FR_DISK_ERR:
-				printf("DISK ERROR\n");
-				break;
-			case FR_NOT_READY:
-				printf("NOT READY\n");
-				break;
-			case FR_NO_FILESYSTEM:
-				printf("No FILESYSTEM\n");
-				break;
-			default:
-				printf("ERRNO: %d\n", res);
-				break;
-			}
-		}
+	}
 
-		// read init files
-		if (globalSDMounted) {
-			bool allOK = true;
-			printf("Reading init files...");
-			if (!readInit(InitTarget_Telemetry)) {
-				printf("\nErrors while reading %s", INIT_TELEMETRY_PATH);
-				allOK = false;
-			}
+	// read init files
+	if (globalSDMounted) {
+		bool allOK = true;
+		printf("Reading init files...");
+		if (!readInit(InitTarget_Telemetry)) {
+			printf("\nErrors while reading %s", INIT_TELEMETRY_PATH);
+			allOK = false;
+		}
 #ifdef USE_IMU_TELEMETRY
-			if (!readInit(InitTarget_IMU)) {
-				printf("\nErrors while reading %s", INIT_IMU_PATH);
-				allOK = false;
-			}
+		if (!readInit(InitTarget_IMU)) {
+			printf("\nErrors while reading %s", INIT_IMU_PATH);
+			allOK = false;
+		}
 #endif
 #ifdef FOLLOW_TRAJECTORY
-			if (!readInit(InitTarget_Trajectory)) {
-				printf("\nErrors while reading %s", INIT_TRAJECTORY_PATH);
-				allOK = false;
-			}
+		if (!readInit(InitTarget_Trajectory)) {
+			printf("\nErrors while reading %s", INIT_TRAJECTORY_PATH);
+			allOK = false;
+		}
 #endif
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-			if (!readInit(InitTarget_Custom_Motor_Controler)) {
-				printf("\nErrors while reading %s", INIT_MOTOR_CTRL_CUSTOM_PATH);
-				allOK = false;
-			}
-#else
-			if (!readInit(InitTarget_PID_Motor_Controler)) {
-				printf("\nErrors while reading %s", INIT_MOTOR_CTRL_PID_PATH);
-				allOK = false;
-			}
-#endif
-			if (allOK) printf(" done OK\n");
-			else printf("\nSD card: there were errors\n");
+		if (!readInit(InitTarget_Custom_Motor_Controler)) {
+			printf("\nErrors while reading %s", INIT_MOTOR_CTRL_CUSTOM_PATH);
+			allOK = false;
 		}
-
-		// Start tasks
-		if (globalUsingCLI)
-			TaskCLIConstructor();
-		else
-			TaskCommandHandlerConstructor();
-		TaskLEDConstructor();
-		TaskMotorCtrlConstructor();
-		TaskPrintfConsumerConstructor();
-		TaskRC5Constructor();
-		TaskTelemetryConstructor();
-		TaskUSB2WiFiBridgeConstructor();
-		TaskPenCtrlConstructor();
-#ifdef FOLLOW_TRAJECTORY
-		TaskTrajectoryConstructor();
+#else
+		if (!readInit(InitTarget_PID_Motor_Controler)) {
+			printf("\nErrors while reading %s", INIT_MOTOR_CTRL_PID_PATH);
+			allOK = false;
+		}
 #endif
-#ifdef DRIVE_COMMANDS
-		TaskDriveConstructor();
-#endif
-#ifdef USE_IMU_TELEMETRY
-		TaskIMUConstructor();
-		TaskIMUMagScalingConstructor();	// this should be called at last
-#endif
+		if (allOK) printf(" done OK\n");
+		else printf("\nSD card: there were errors\n");
+	}
 
 #ifdef USE_SHORT_ASSERT
-		if (globalAssertionFailed != 0)
-			printf("Detected %d assertion errors\n", globalAssertionFailed);
+	if (globalAssertionFailed != 0)
+		printf("Detected %d assertion errors\n", globalAssertionFailed);
 #endif
 
-		printf("Booting completed\n");
-	}
-	taskEXIT_CRITICAL();
+	printf("Booting completed\n");
+
 	vTaskDelete(NULL);
 }
 
