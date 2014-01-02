@@ -1238,7 +1238,7 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 		if (fno.fattrib & AM_DIR)
 			printf("[  DIR  ]");
 		else
-			printf("[%6ldB]", fno.fsize);
+			printf("[%5ldB ]", fno.fsize);
 
 		printf(" %s\n", *fno.lfname ? fno.lfname : fno.fname);
 	}
