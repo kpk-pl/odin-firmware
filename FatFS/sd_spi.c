@@ -52,10 +52,10 @@ void SPI_init(uint32_t prescaler)
 
 	/* Set interrupt after finished transmissions */
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 15; // TODO later
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 6; // TODO later
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannel = SD_SPI_DMA_NVIC_IRQn_RX;
-//	NVIC_Init(&NVIC_InitStructure);
+	NVIC_Init(&NVIC_InitStructure);
 
 	/* Enable SPI */
 	SPI_Cmd(SD_SPI, ENABLE);
@@ -101,14 +101,12 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 	   DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
 
 	   if ( receive ) {
-	      /* DMA1 channel4 configuration SPI2 RX ---------------------------------------------*/
 	      DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)buff;
 	      DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
 	      DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
 		  DMA_InitStructure.DMA_Channel = SD_SPI_DMA_CHANNEL_RX;
 	      DMA_Init(SD_SPI_DMA_STREAM_RX, &DMA_InitStructure);
 
-	      /* DMA1 channel5 configuration SPI2 TX ---------------------------------------------*/
 	      DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)&dummy;
 	      DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
 	      DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Disable;
@@ -116,28 +114,27 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 	      DMA_Init(SD_SPI_DMA_STREAM_TX, &DMA_InitStructure);
 	   }
 	   else {
-	      /* DMA1 channel2 configuration SPI2 RX ---------------------------------------------*/
 	      DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)&dummy;
 	      DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
 	      DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Disable;
 	      DMA_InitStructure.DMA_Channel = SD_SPI_DMA_CHANNEL_RX;
 	      DMA_Init(SD_SPI_DMA_STREAM_RX, &DMA_InitStructure);
 
-	      /* DMA1 channel3 configuration SPI2 TX ---------------------------------------------*/
 	      DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)buff;
 	      DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
 	      DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
 	      DMA_InitStructure.DMA_Channel = SD_SPI_DMA_CHANNEL_TX;
 	      DMA_Init(SD_SPI_DMA_STREAM_TX, &DMA_InitStructure);
 	   }
-//	   xSemaphoreTake(sdDMATCSemaphore, 0);
+
+//	   DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, ENABLE);
+
 	   DMA_Cmd(SD_SPI_DMA_STREAM_RX, ENABLE);
 	   DMA_Cmd(SD_SPI_DMA_STREAM_TX, ENABLE);
 
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != ENABLE);
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != ENABLE);
 
-//	   DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, ENABLE);
 	   SPI_I2S_DMACmd(SD_SPI, SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx, ENABLE);
 
 	   if (btr == 512) vTaskDelay(1);
@@ -154,7 +151,7 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 }
 
 void SPI_send(uint8_t* data, uint32_t length) {
-	if (sdDMATCSemaphore && length > 00) { // do not waste time sending rubbish
+	if (sdDMATCSemaphore) {
 		stm32_dma_transfer(false, data, length);
 	}
 	else {
@@ -166,7 +163,7 @@ void SPI_send(uint8_t* data, uint32_t length) {
 }
 
 void SPI_receive(uint8_t* data, uint32_t length) {
-	if (sdDMATCSemaphore && length > 00) { // TODO: why this does not work as should???
+	if (sdDMATCSemaphore) {
 		stm32_dma_transfer(true, data, length);
 	}
 	else {
