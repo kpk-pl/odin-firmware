@@ -127,7 +127,7 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 	      DMA_Init(SD_SPI_DMA_STREAM_TX, &DMA_InitStructure);
 	   }
 
-//	   DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, ENABLE);
+	   DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, ENABLE);
 
 	   DMA_Cmd(SD_SPI_DMA_STREAM_RX, ENABLE);
 	   DMA_Cmd(SD_SPI_DMA_STREAM_TX, ENABLE);
@@ -137,9 +137,9 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 
 	   SPI_I2S_DMACmd(SD_SPI, SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx, ENABLE);
 
-	   if (btr == 512) vTaskDelay(1);
-	   while (DMA_GetFlagStatus(SD_SPI_DMA_STREAM_RX, SD_SPI_DMA_FLAG_TCIF_RX) == RESET);
-//	   xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
+//	   if (btr == 512) vTaskDelay(1);
+//	   while (DMA_GetFlagStatus(SD_SPI_DMA_STREAM_RX, SD_SPI_DMA_FLAG_TCIF_RX) == RESET);
+	   xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
 
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != DISABLE);
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != DISABLE);
