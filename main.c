@@ -38,6 +38,7 @@ volatile float globalCPUUsage = 0.0f;
 volatile bool globalUsingCLI = false;
 volatile bool globalSDMounted = false;
 xSemaphoreHandle sdDMATCSemaphore = NULL;
+xTaskHandle taskBootIdleHandle;
 
 #ifdef USE_SHORT_ASSERT
 static volatile uint16_t globalAssertionFailed = 0;
@@ -45,6 +46,7 @@ static volatile uint16_t globalAssertionFailed = 0;
 
 static FATFS FatFS;
 static void TaskBoot(void *p);
+static void TaskBootIdle(void *p);
 
 int main(void)
 {
@@ -124,9 +126,24 @@ int main(void)
 
 	// boot task with DOMINATOR priority
 	xTaskCreate(TaskBoot, NULL, TASKBOOT_STACKSPACE, NULL, PRIORITY_TASK_BOOT, NULL);
+	// idle task with very high priority to disallow other tasks execution when boot task waits
+	xTaskCreate(TaskBootIdle, NULL, configMINIMAL_STACK_SIZE, NULL, PRIORITY_TASK_BOOT, &taskBootIdleHandle);
 
 	vTaskStartScheduler();
     while(1);
+}
+
+void TaskBootIdle(void *p) {
+	while(1) {
+		/*
+		 * This will force context switch to TaskBoot if it is in Ready State,
+		 * and will do nothing if it is in Blocked State. In the effect this task will
+		 * try to change context switch as soon as it gets it, and the only one task
+		 * the context will be switched to is TaskBoot. This will BLOCK all the other tasks
+		 * allowing TaskBoot to be the only one in charge of the whole system.
+		 */
+		taskYIELD();
+	}
 }
 
 void TaskBoot(void *p) {
@@ -204,6 +221,8 @@ void TaskBoot(void *p) {
 
 	printf("Booting completed\n");
 
+	// delete TaskBootIdle and itself
+	vTaskDelete(taskBootIdleHandle);
 	vTaskDelete(NULL);
 }
 
