@@ -4,6 +4,7 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "task.h"
 
 extern xSemaphoreHandle sdDMATCSemaphore;
 
@@ -11,7 +12,6 @@ void SPI_init(uint32_t prescaler)
 {
 	GPIO_InitTypeDef GPIO_InitStruct;
 	SPI_InitTypeDef SPI_InitStruct;
-	DMA_InitTypeDef DMA_InitStruture;
 	NVIC_InitTypeDef NVIC_InitStructure;
 
 	// enable clocks
@@ -50,47 +50,12 @@ void SPI_init(uint32_t prescaler)
 	/* Enable clock for DMA */
 	RCC_AHB1PeriphClockCmd(SD_SPI_DMA_CLOCK, ENABLE);
 
-//	/* Deinitialize DMA streams */
-//	DMA_DeInit(SD_SPI_DMA_STREAM_RX);
-//	DMA_DeInit(SD_SPI_DMA_STREAM_TX);
-//
-//	/* Configure DMA stream for transmission */
-////DMA_InitStruture.DMA_FIFOMode = DMA_FIFOMode_Enable;
-//	DMA_InitStruture.DMA_FIFOMode = DMA_FIFOMode_Disable;
-//	DMA_InitStruture.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-//	DMA_InitStruture.DMA_MemoryBurst = DMA_MemoryBurst_INC16;
-//	DMA_InitStruture.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-//	DMA_InitStruture.DMA_MemoryInc = DMA_MemoryInc_Enable;
-//	DMA_InitStruture.DMA_Mode = DMA_Mode_Normal;
-//	DMA_InitStruture.DMA_PeripheralBaseAddr = (uint32_t)(&(SD_SPI->DR));
-//	DMA_InitStruture.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-//	DMA_InitStruture.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-//	DMA_InitStruture.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-//	DMA_InitStruture.DMA_Priority = DMA_Priority_High;
-//	DMA_InitStruture.DMA_Channel = SD_SPI_DMA_CHANNEL_TX;
-//	DMA_InitStruture.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-//	DMA_InitStruture.DMA_BufferSize = 1; // Number if bytes, temporary to pass assert, will be given later before wach transmission
-//	DMA_Init(SD_SPI_DMA_STREAM_TX, &DMA_InitStruture);
-//	/* Use the settings from above for reception */
-//	DMA_InitStruture.DMA_Channel = SD_SPI_DMA_CHANNEL_RX;
-//	DMA_InitStruture.DMA_DIR = DMA_DIR_PeripheralToMemory;
-//	DMA_Init(SD_SPI_DMA_STREAM_RX, &DMA_InitStruture);
-//	DMA_FlowControllerConfig(SD_SPI_DMA_STREAM_RX, DMA_FlowCtrl_Memory);
-//
-//	/* Disable double buffer mode */
-//	DMA_DoubleBufferModeCmd(SD_SPI_DMA_STREAM_TX, DISABLE);
-//	DMA_DoubleBufferModeCmd(SD_SPI_DMA_STREAM_RX, DISABLE);
-//
 	/* Set interrupt after finished transmissions */
-//	NVIC_InitStructure.NVIC_IRQChannel = SD_SPI_DMA_NVIC_IRQn_TX;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 15; // TODO later
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 15;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannel = SD_SPI_DMA_NVIC_IRQn_RX;
 //	NVIC_Init(&NVIC_InitStructure);
-//	NVIC_InitStructure.NVIC_IRQChannel = SD_SPI_DMA_NVIC_IRQn_RX;
-//	NVIC_Init(&NVIC_InitStructure);
-//	DMA_ITConfig(SD_SPI_DMA_STREAM_TX, DMA_IT_TC, ENABLE);
-//	DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, ENABLE);
 
 	/* Enable SPI */
 	SPI_Cmd(SD_SPI, ENABLE);
@@ -109,9 +74,18 @@ uint8_t SPI_receive_single() {
 	return SPI_send_single(0xFF);
 }
 
+void SD_SPI_DMA_IRQHANDLER_RX(void) {
+	portBASE_TYPE contextSwitch = pdFALSE;
+	if (DMA_GetITStatus(SD_SPI_DMA_STREAM_RX, DMA_IT_TCIF2) == SET) {
+		xSemaphoreGiveFromISR(sdDMATCSemaphore, &contextSwitch);
+		DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, DISABLE);
+	}
+	portEND_SWITCHING_ISR(contextSwitch);
+}
+
 void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 	   DMA_InitTypeDef DMA_InitStructure;
-	   uint8_t dummy = 0xFF;
+	   uint32_t dummy = 0xFFFFFFFF;
 
 	   /* shared DMA configuration values */
 	   DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&(SD_SPI->DR));
@@ -156,17 +130,19 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 	      DMA_InitStructure.DMA_Channel = SD_SPI_DMA_CHANNEL_TX;
 	      DMA_Init(SD_SPI_DMA_STREAM_TX, &DMA_InitStructure);
 	   }
-	   //xSemaphoreTake(sdDMATCSemaphore, 0);
+//	   xSemaphoreTake(sdDMATCSemaphore, 0);
 	   DMA_Cmd(SD_SPI_DMA_STREAM_RX, ENABLE);
 	   DMA_Cmd(SD_SPI_DMA_STREAM_TX, ENABLE);
 
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != ENABLE);
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != ENABLE);
 
+//	   DMA_ITConfig(SD_SPI_DMA_STREAM_RX, DMA_IT_TC, ENABLE);
 	   SPI_I2S_DMACmd(SD_SPI, SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx, ENABLE);
 
+	   if (btr == 512) vTaskDelay(1);
 	   while (DMA_GetFlagStatus(SD_SPI_DMA_STREAM_RX, SD_SPI_DMA_FLAG_TCIF_RX) == RESET);
-	   //xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
+//	   xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
 
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != DISABLE);
 	   while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != DISABLE);
@@ -178,19 +154,8 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t btr) {
 }
 
 void SPI_send(uint8_t* data, uint32_t length) {
-	if (sdDMATCSemaphore && length > 000) { // do not waste time sending rubbish
+	if (sdDMATCSemaphore && length > 00) { // do not waste time sending rubbish
 		stm32_dma_transfer(false, data, length);
-//		SD_SPI_DMA_STREAM_TX->M0AR = (uint32_t)data; 	// base addr
-//		SD_SPI_DMA_STREAM_TX->NDTR = length;   			// size in bytes
-//		DMA_Cmd(SD_SPI_DMA_STREAM_TX, ENABLE);
-//		while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != ENABLE);
-//		SPI_I2S_DMACmd(SD_SPI, SPI_I2S_DMAReq_Tx, ENABLE);
-//
-//		// wait for finish
-//		xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
-//
-//		//DMA_Cmd(SD_SPI_DMA_STREAM_TX, DISABLE);
-//		while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != DISABLE);
 	}
 	else {
 		while (length--) {
@@ -203,40 +168,6 @@ void SPI_send(uint8_t* data, uint32_t length) {
 void SPI_receive(uint8_t* data, uint32_t length) {
 	if (sdDMATCSemaphore && length > 00) { // TODO: why this does not work as should???
 		stm32_dma_transfer(true, data, length);
-//		SD_SPI_DMA_STREAM_RX->M0AR = (uint32_t)data; 	// base addr
-//		SD_SPI_DMA_STREAM_RX->NDTR = length;   			// size in bytes
-//		DMA_Cmd(SD_SPI_DMA_STREAM_RX, ENABLE);
-//
-//		// change DMA TX stream settings to send <length> random bytes
-//		SD_SPI_DMA_STREAM_TX->CR &= ~(DMA_SxCR_MINC); // disable memory address increment
-//		DMA_ITConfig(SD_SPI_DMA_STREAM_TX, DMA_IT_TC, DISABLE); // disable interrupt
-//		uint8_t dummy = 0xFF;
-//		SD_SPI_DMA_STREAM_TX->M0AR = (uint32_t)&dummy;
-//		SD_SPI_DMA_STREAM_TX->NDTR = length;
-//		DMA_Cmd(SD_SPI_DMA_STREAM_TX, ENABLE);
-//
-//		// wait for DMA to be effectively enabled
-//		while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != ENABLE);
-//		while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != ENABLE);
-//
-//		// start transmission
-//		SPI_I2S_DMACmd(SD_SPI, SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx, ENABLE);
-//
-//		// wait for finish
-//		//xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
-//
-//		//DMA_Cmd(SD_SPI_DMA_STREAM_RX, DISABLE);
-//		//DMA_Cmd(SD_SPI_DMA_STREAM_TX, DISABLE);
-//
-//		// wait for full disable
-//		while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != DISABLE);
-//		while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != DISABLE);
-//
-//		// restore crucial DMA TX settings
-//		SD_SPI_DMA_STREAM_TX->CR |= DMA_SxCR_MINC;
-//		DMA_ClearITPendingBit(SD_SPI_DMA_STREAM_TX, DMA_IT_TCIF3);
-//		DMA_ClearFlag(SD_SPI_DMA_STREAM_TX, SD_SPI_DMA_FLAG_TCIF_TX);
-//		DMA_ITConfig(SD_SPI_DMA_STREAM_TX, DMA_IT_TC, ENABLE);
 	}
 	else {
 		while (length--) {

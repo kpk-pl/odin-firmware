@@ -130,7 +130,7 @@ DSTATUS disk_initialize (
 
 	sdc_deassert();
 
-	SPI_init(SPI_BaudRatePrescaler_64);
+	SPI_init(SPI_BaudRatePrescaler_8);
 
 	return 0;
 }

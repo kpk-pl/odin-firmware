@@ -1166,11 +1166,87 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 }
 
 portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	char *param[1];
+	sliceCommand((char*)command, param, 1);
+	// nOfParams is checked by OS - must be 1
 
+	/* open file for reading */
+	FIL file;
+	FRESULT res = f_open(&file, param[0], FA_READ | FA_OPEN_EXISTING);
+	if (res == FR_DENIED) {
+		strncpy((char*)outBuffer, "Access to file denied\n", outBufferLen);
+	}
+	else if (res == FR_INVALID_NAME) {
+		strncpy((char*)outBuffer, "Invalid filename specified\n", outBufferLen);
+	}
+	else if (res == FR_NO_FILE || res == FR_NO_PATH) {
+		strncpy((char*)outBuffer, "File does not exist\n", outBufferLen);
+	}
+	else if (res != FR_OK) {
+		strncpy((char*)outBuffer, "Error opening file\n", outBufferLen);
+	}
+
+	if (res != FR_OK) {
+		return pdFALSE;
+	}
+
+	/* Allocate buffer for reading */
+	char *buffer = pvPortMalloc(500*sizeof(char));
+	UINT bytesRead;
+
+	/* Acquire resources for printing */
+	xSemaphoreTake(printfMutex, portMAX_DELAY);
+
+	extern int _write(int file, char *ptr, int len);
+	/* Read the whole file and print its content */
+	do {
+		f_read(&file, buffer, 500, &bytesRead);
+		_write(0, buffer, bytesRead);
+	} while (bytesRead == 500);
+
+	/* Release resources, free space, close file */
+	xSemaphoreGive(printfMutex);
+	vPortFree(buffer);
+	f_close(&file);
+
+	strncpy((char*)outBuffer, "\n", outBufferLen);
+	return pdFALSE;
 }
 
 portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	char *param[1];
+	sliceCommand((char*)command, param, 1);
+	// nOfParams is checked by OS - must be 1
 
+	DIR dir;
+	FRESULT res = f_opendir(&dir, param[0]);
+
+	if (res != FR_OK) {
+		strncpy((char*)outBuffer, "Error opening directory\n", outBufferLen);
+		return pdFALSE;
+	}
+
+	TCHAR *lfn = pvPortMalloc((1+_MAX_LFN)*sizeof(TCHAR));
+	FILINFO fno;
+	fno.lfname = lfn;
+	fno.lfsize = _MAX_LFN + 1;
+
+	while((res = f_readdir(&dir, &fno)) == FR_OK) {
+		if (fno.fname[0] == '\0')
+			break;
+
+		if (fno.fattrib & AM_DIR)
+			printf("[  DIR  ]");
+		else
+			printf("[%6ldB]", fno.fsize);
+
+		printf(" %s\n", *fno.lfname ? fno.lfname : fno.fname);
+	}
+	f_closedir(&dir);
+
+	vPortFree(lfn);
+	strncpy((char*)outBuffer, "\n", outBufferLen);
+	return pdFALSE;
 }
 
 ///////////////////////////////////// END COMMAND HANDLERS ///////////////////////////////////////

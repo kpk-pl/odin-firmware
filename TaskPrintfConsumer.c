@@ -13,6 +13,7 @@ xSemaphoreHandle comUSARTTCSemaphore;	/*!< Transmission complete from USB-UART c
 xSemaphoreHandle comDMATCSemaphore;		/*!< DMA transfer complete from USB-UART converter UART */
 xSemaphoreHandle wifiUSARTTCSemaphore;	/*!< Transmission complete from WiFi module UART */
 xSemaphoreHandle wifiDMATCSemaphore;	/*!< DMA transfer complete from WiFi module UART */
+xSemaphoreHandle printfMutex;			/*!< Mutex that needs to be acquired to control printing on all interfaces */
 
 void TaskPrintfConsumer(void * p) {
 	char *msg;
@@ -31,6 +32,9 @@ void TaskPrintfConsumer(void * p) {
 
 		/* Wait for new message and take it, process any incomming message as quickly as possible */
 		xQueueReceive(printfQueue, &msg, portMAX_DELAY);
+
+		/* Acquire resource */
+		xSemaphoreTake(printfMutex, portMAX_DELAY);
 
 		/* Discard any messages coming when bridge is on */
 		if (getWiFi2USBBridgeStatus() == ON) {
@@ -82,6 +86,9 @@ void TaskPrintfConsumer(void * p) {
 
 		/* Free memory allocated for message */
 		vPortFree(msg);
+
+		/* Five resources back */
+		xSemaphoreGive(printfMutex);
 	}
 }
 
@@ -92,6 +99,7 @@ void TaskPrintfConsumerConstructor() {
 	vSemaphoreCreateBinary(comDMATCSemaphore);
 	vSemaphoreCreateBinary(wifiUSARTTCSemaphore);
 	vSemaphoreCreateBinary(wifiDMATCSemaphore);
+	printfMutex = xSemaphoreCreateMutex();
 }
 
 int safePrint(const size_t length, const char *format, ...) {

@@ -10,6 +10,7 @@
 extern xTaskHandle printfConsumerTask;			/*!< Export this task handle */
 extern xSemaphoreHandle comUSARTTCSemaphore;	/*!< Export transmission complete semaphore (USB-UART), will be given in ISR from other task */
 extern xSemaphoreHandle wifiUSARTTCSemaphore;	/*!< Export transmission complete semaphore (WiFi module), will be given in ISR from other task */
+extern xSemaphoreHandle printfMutex;			/*!< Export printf mutex - needs to be acquired to use ordinary printf */
 
 /**
  * \brief Handles safePrint invocations and printing everything on active interfaces

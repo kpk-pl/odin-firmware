@@ -113,7 +113,7 @@ void TaskBoot(void *p) {
 
 		// create semaphore for SD SPI DMA transfer
 		vSemaphoreCreateBinary(sdDMATCSemaphore);
-		xSemaphoreTake(sdDMATCSemaphore, portMAX_DELAY);
+		xSemaphoreTake(sdDMATCSemaphore, 0);
 
 		// Filesystem mount
 		printf("Mounting SD card...");
