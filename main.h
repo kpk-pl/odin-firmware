@@ -79,6 +79,7 @@ void IMUI2CEVHandler();
 #endif /* USE_IMU_TELEMETRY */
 void BatteryTooLow();
 void OSBusyTimerHandler();
+void SDTransferDoneHandler();
 
 void Switch1Changed();
 void Switch2Changed();

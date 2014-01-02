@@ -29,6 +29,7 @@
 #include "stm32f4xx_it.h"
 #include "main.h"
 #include "hardware.h"
+#include "sd_hardware.h"
 #include "hwinterface.h"
 #include "rc5_tim_exti.h"
 #include "compilation.h"
@@ -277,6 +278,11 @@ void SWITCHES_TIM_IRQ_HANDLER(void) {
 	SWITCH_LAST_CHANGE = 0;
 	TIM_Cmd(SWITCHES_TIM, DISABLE);
 	TIM_ClearFlag(SWITCHES_TIM, TIM_FLAG_Update);
+}
+
+void SD_SPI_DMA_IRQHANDLER_RX(void) {
+	extern void SDTransferDoneHandler(void);
+	SDTransferDoneHandler();
 }
 
 void CPUUSAGE_BASE_TIM_IRQHANDLER(void) {
