@@ -1094,6 +1094,11 @@ void fileTransferHandle(void *p) {
 }
 
 portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	if (!globalSDMounted) {
+		strncpy((char*)outBuffer, "Error - SD card not present\n", outBufferLen);
+		return pdFALSE;
+	}
+
 	char *param[4];
 	const uint32_t maxPayload = 2000;
 
@@ -1166,6 +1171,11 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 }
 
 portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	if (!globalSDMounted) {
+		strncpy((char*)outBuffer, "Error - SD card not present\n", outBufferLen);
+		return pdFALSE;
+	}
+
 	char *param[1];
 	sliceCommand((char*)command, param, 1);
 	// nOfParams is checked by OS - must be 1
@@ -1214,6 +1224,11 @@ portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 }
 
 portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	if (!globalSDMounted) {
+		strncpy((char*)outBuffer, "Error - SD card not present\n", outBufferLen);
+		return pdFALSE;
+	}
+
 	char *param[1];
 	sliceCommand((char*)command, param, 1);
 	// nOfParams is checked by OS - must be 1
