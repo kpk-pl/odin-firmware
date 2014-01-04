@@ -191,9 +191,9 @@ static const CLI_Command_Definition_t logComDef = {
 static const CLI_Command_Definition_t trajectoryComDef = {
     (const int8_t*)"trajectory",
     (const int8_t*)"trajectory ...\n"
-    		 "\tcontroller params [iles paramsow]\n"
     		 "\tregulator params [iles paramsow]\n"
-    		 "\timport <(Npoints)>\n",
+    		 "\timport <(Npoints)>\n"
+    		 "\tfollow <streaming|<file #filename>|stop|reset>\n",
     trajectoryCommand,
     -1
 };
@@ -873,10 +873,15 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 #ifdef FOLLOW_TRAJECTORY
 portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *param[3];
+	char *param[4];
 	bool ok = false;
-
-	size_t nOfParams = sliceCommand((char*)command, param, 3);
+/* TODO:
+ *     (const int8_t*)"trajectory ...\n"
+    		 "\tregulator params [iles paramsow]\n"
+    		 "\timport <(Npoints)>\n"
+    		 "\tfollow <streaming|<file #filename>|stop|reset>\n",
+ */
+	size_t nOfParams = sliceCommand((char*)command, param, 4);
 
 	if (nOfParams > 0) {
 		if (cmatch("import", param[0], 1)) { // i
@@ -889,14 +894,6 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 			if (nOfParams == 2) {
 				if (cmatch("params", param[1], 1)) { // p
 					strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
-					ok = true;
-				}
-			}
-		}
-		else if (cmatch("controller", param[0], 1)) { // c
-			if (nOfParams == 2) {
-				if (cmatch("params", param[1], 1)) { // p
-					strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);\
 					ok = true;
 				}
 			}

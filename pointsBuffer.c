@@ -54,13 +54,12 @@ uint16_t TBloadNewPoints(uint16_t num) {
 	return num;
 }
 
-TrajectoryPoint_Ptr TBgetNextPoint() {
-	TrajectoryPoint_Struct* it;
-	if (circularBuffer.readIt == circularBuffer.lockItBegin) return (void*)(0);
+bool TBgetNextPoint(TrajectoryPoint_Struct* point) {
+	if (circularBuffer.readIt == circularBuffer.lockItBegin) return false;
 
-	it = &circularBuffer.buffer[circularBuffer.readIt];
+	*point = circularBuffer.buffer[circularBuffer.readIt];
 	iteratorInc(&circularBuffer.readIt);
-	return it;
+	return true;
 }
 
 uint16_t TBgetAvailablePoints() {

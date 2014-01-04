@@ -19,10 +19,11 @@
  * @return none
  */
 static void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
-								 TrajectoryPoint_Ptr trajectoryPoint,
+								 TrajectoryPoint_Struct* trajectoryPoint,
 								 MotorSpeed_Struct * outputSpeeds);
 
 xTaskHandle trajectoryTask;		/*!< This task's handle */
+xQueueHandle trajectoryRequestQueue; /*!< Queue to which requests to follow trajectory are sent */
 
 TrajectoryControlerGains_Struct globalTrajectoryControlGains = {	/*!< Controller data */
 	.k_x = 10.0f,
@@ -34,53 +35,100 @@ void TaskTrajectory(void *p) {
 	TelemetryData_Struct telemetry;
 	MotorSpeed_Struct motorSpeed;
 	portTickType wakeTime = xTaskGetTickCount();
-	bool send1 = true, send2 = false;
+	TrajectoryPoint_Struct nextPoint;
+
 	bool taken = false;
 
-	while(1) {
-		/* Wait for next sampling period */
-		vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+	if (!globalUsingCLI) {
+		bool send1 = true, send2 = false;
 
-		if (TBgetUsedSpace() < 0.45f) {
-			if (!send1) {
-				safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2);
-				send1 = true;
+		while(1) {
+			/* Wait for next sampling period */
+			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+
+			if (TBgetUsedSpace() < 0.45f) {
+				if (!send1) {
+					safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2);
+					send1 = true;
+				}
+			}
+			else {send1 = false;}
+
+			if (TBgetNextPoint(&nextPoint)) {
+				if (!taken) {
+					xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
+					taken = true;
+				}
+				getTelemetryScaled(&telemetry);
+				calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
+				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+				send2 = false;
+			}
+			else {
+				if (taken) {
+					xSemaphoreGive(motorControllerMutex);
+					taken = false;
+				}
+				if (!send2) {
+					safePrint(25, "Trajectory buffer empty\n");
+					sendSpeeds(.0f, .0f, portMAX_DELAY);
+					send2 = true;
+				}
 			}
 		}
-		else {send1 = false;}
+	}
+	else {
+// TODO: Needs finish and testing
+		TrajectoryRequest_Struct request;
+		while(1) {
+			/* Wait for any request */
+			xQueueReceive(trajectoryRequestQueue, &request, portMAX_DELAY);
 
-		TrajectoryPoint_Ptr point = TBgetNextPoint();
-		if (point != NULL) {
-			if (!taken) {
-				xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
-				taken = true;
-			}
-			getTelemetryScaled(&telemetry);
-			calculateTrajectoryControll(&telemetry, point, &motorSpeed);
-			xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
-			send2 = false;
-		}
-		else {
-			if (taken) {
-				xSemaphoreGive(motorControllerMutex);
-				taken = false;
-			}
-			if (!send2) {
-				safePrint(25, "Trajectory buffer empty\n");
-				sendSpeeds(.0f, .0f, portMAX_DELAY);
-				send2 = true;
-			}
-		}
+			/* Execute request */
+			while(1) {
+				/* Get next point */
+				bool ok;
+				if (request.source == TrajectorySource_Streaming) {
+					ok = TBgetNextPoint(&nextPoint);
+				}
+				else if (request.source == TrajectorySource_File) {
+					// read next point from file
+				}
+				else
+					break;
 
+				if (ok) {
+					if (!taken) {
+						xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
+						taken = true;
+					}
+					getTelemetryScaled(&telemetry);
+					calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
+					xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+				}
+				else {
+					if (taken) {
+						xSemaphoreGive(motorControllerMutex);
+						taken = false;
+					}
+				}
+			}
+
+			if (request.source == TrajectorySource_File) {
+				f_close(request.file_ptr);
+				vPortFree(request.file_ptr);
+			}
+		}
 	}
 }
 
 void TaskTrajectoryConstructor() {
 	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY, &trajectoryTask);
+	trajectoryRequestQueue = xQueueCreate(10, sizeof(TrajectoryRequest_Struct));
 }
 
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
-								 TrajectoryPoint_Ptr trajectoryPoint,
+								 TrajectoryPoint_Struct* trajectoryPoint,
 								 MotorSpeed_Struct * outputSpeeds)
 {
 	float s, c;//, s_r, c_r;

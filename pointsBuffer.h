@@ -2,6 +2,7 @@
 #define POINTSBUFFER_H
 
 #include <stm32f4xx.h>
+#include <stdbool.h>
 
 /*
  * @brief Struct to hold trajectory data at a single point in space
@@ -14,13 +15,12 @@ typedef volatile struct {
 	float W;	/*<< Rotational speed in rad/s */
 } TrajectoryPoint_Struct;
 
-typedef const TrajectoryPoint_Struct* const TrajectoryPoint_Ptr;
-
 /*
  * @brief Access next loaded point
- * @return Const pointer to a location where trajectory point data is stored. Returns NULL if there is no points left.
+ * @param point Structure to which new point data will be loaded
+ * @return False if no points in buffer and point is invalid, true otherwise
  */
-TrajectoryPoint_Ptr TBgetNextPoint();
+bool TBgetNextPoint(TrajectoryPoint_Struct* point);
 /*
  * @brief Initiates DMA transfer to load new trajectory points.
  * @param num Requested number of points to load
@@ -50,9 +50,5 @@ uint16_t TBgetSize();
  * @return Number of trajectory points that were discarded.
  */
 void TBresetBuffer();
-/*
- * @brief Function that must be called in response to DMA transfer being finished (ISR handler)
- */
-void TBDMATransferCompletedSlot();
 
 #endif /* POINTSBUFFER_H */

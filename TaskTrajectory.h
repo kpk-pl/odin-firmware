@@ -3,6 +3,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "ff.h"
 
 extern xTaskHandle trajectoryTask;		/*!< Export this task's handle */
 
@@ -14,6 +15,25 @@ typedef struct {
 	float k;
 	float k_s;
 } TrajectoryControlerGains_Struct;
+
+/**
+ * \brief Typedef for marking source of trajectory points
+ */
+typedef enum {
+	TrajectorySource_Streaming = 0,
+	TrajectorySource_File
+} TrajectorySource_Type;
+
+/**
+ * \brief Request to perform trajectory following
+ */
+typedef struct {
+	TrajectorySource_Type source;
+	union {
+		uint32_t stream_points;
+		FIL *file_ptr;
+	};
+} TrajectoryRequest_Struct;
 
 extern TrajectoryControlerGains_Struct globalTrajectoryControlGains;  /*!< Export trajectory controller settings */
 
