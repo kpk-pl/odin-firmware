@@ -191,7 +191,7 @@ static const CLI_Command_Definition_t logComDef = {
 static const CLI_Command_Definition_t trajectoryComDef = {
     (const int8_t*)"trajectory",
     (const int8_t*)"trajectory ...\n"
-    		 "\tregulator params [iles paramsow]\n"
+    		 "\tregulator params [#k_x #k #k_s]\n"
     		 "\timport <(Npoints)>\n"
     		 "\tfollow <streaming|<file #filename>|stop|reset>\n",
     trajectoryCommand,
@@ -873,7 +873,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 #ifdef FOLLOW_TRAJECTORY
 portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *param[4];
+	char *param[6];
 	bool ok = false;
 /* TODO:
  *     (const int8_t*)"trajectory ...\n"
@@ -881,20 +881,73 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
     		 "\timport <(Npoints)>\n"
     		 "\tfollow <streaming|<file #filename>|stop|reset>\n",
  */
-	size_t nOfParams = sliceCommand((char*)command, param, 4);
+	size_t nOfParams = sliceCommand((char*)command, param, 6);
 
 	if (nOfParams > 0) {
 		if (cmatch("import", param[0], 1)) { // i
 			if (nOfParams == 2) {
-				snprintf((char*)outBuffer, outBufferLen, "<#Please send only %d points#>\n", TBloadNewPoints(strtol(param[1], NULL, 10)));
+				snprintf((char*)outBuffer, outBufferLen, "Trajectory: send %d points\n", TBloadNewPoints(strtol(param[1], NULL, 10)));
 				ok = true;
 			}
 		}
 		else if (cmatch("regulator", param[0], 1)) { // r
-			if (nOfParams == 2) {
+			if (nOfParams > 1) {
 				if (cmatch("params", param[1], 1)) { // p
-					strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
+					if (nOfParams == 2) {
+						snprintf((char*)outBuffer, outBufferLen, "k_x: %.2g\nk: %.2g\nk_s: %.2g\n",
+								globalTrajectoryControlGains.k_x,
+								globalTrajectoryControlGains.k,
+								globalTrajectoryControlGains.k_s);
+						ok = true;
+					}
+					else if (nOfParams == 5) {
+						globalTrajectoryControlGains.k_x = strtof(param[2], NULL);
+						globalTrajectoryControlGains.k = strtof(param[3], NULL);
+						globalTrajectoryControlGains.k_s = strtof(param[4], NULL);
+						strncpy((char*)outBuffer, "Parameters changed\n", outBufferLen);
+						ok = true;
+					}
+				}
+			}
+		}
+		else if (cmatch("follow", param[0], 1)) { // f
+			if (nOfParams > 1) {
+				if (cmatch("streaming", param[1], 1)) { // str
+					TrajectoryRequest_Struct request;
+					request.source = TrajectorySource_Streaming;
+					xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY);
+					strncpy((char*)outBuffer, "Request sent\n", outBufferLen);
 					ok = true;
+				}
+				else if (cmatch("stop", param[1], 1)) { // sto
+					xSemaphoreGive(trajectoryStopSemaphore);
+					strncpy((char*)outBuffer, "Request sent\n", outBufferLen);
+					ok = true;
+				}
+				else if (cmatch("reset", param[1], 1)) { // r
+					xSemaphoreGive(trajectoryStopSemaphore);
+					TBresetBuffer();
+					strncpy((char*)outBuffer, "Reset OK\n", outBufferLen);
+					ok = true;
+				}
+				else if (cmatch("file", param[1], 1)) { // f
+					if (nOfParams == 3) {
+						TrajectoryRequest_Struct request;
+						request.source = TrajectorySource_File;
+						FIL *file = pvPortMalloc(sizeof(FIL));
+						FRESULT res = f_open(file, param[2], FA_READ | FA_OPEN_EXISTING);
+						if (res == FR_OK) {
+							request.file_ptr = file;
+							xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY);
+							strncpy((char*)outBuffer, "Request sent\n", outBufferLen);
+							ok = true;
+						}
+						else {
+							vPortFree(file);
+							strncpy((char*)outBuffer, "Could not open file or file does not exist\n", outBufferLen);
+							ok = true;
+						}
+					}
 				}
 			}
 		}

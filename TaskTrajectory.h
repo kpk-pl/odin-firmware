@@ -5,7 +5,9 @@
 #include "task.h"
 #include "ff.h"
 
-extern xTaskHandle trajectoryTask;		/*!< Export this task's handle */
+extern xTaskHandle trajectoryTask;				/*!< Export this task's handle */
+extern xQueueHandle trajectoryRequestQueue;		/*!< Export queue to which request are passed */
+extern xSemaphoreHandle trajectoryStopSemaphore; /*!< Semaphore used to issue immediate stop */
 
 /**
  *  \brief Typedef for gains used by trajectory controller
@@ -30,7 +32,6 @@ typedef enum {
 typedef struct {
 	TrajectorySource_Type source;
 	union {
-		uint32_t stream_points;
 		FIL *file_ptr;
 	};
 } TrajectoryRequest_Struct;

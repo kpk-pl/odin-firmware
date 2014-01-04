@@ -24,6 +24,7 @@ static void calculateTrajectoryControll(const TelemetryData_Struct * currentPosi
 
 xTaskHandle trajectoryTask;		/*!< This task's handle */
 xQueueHandle trajectoryRequestQueue; /*!< Queue to which requests to follow trajectory are sent */
+xSemaphoreHandle trajectoryStopSemaphore; /*!< Semaphore used to issue immediate stop */
 
 TrajectoryControlerGains_Struct globalTrajectoryControlGains = {	/*!< Controller data */
 	.k_x = 10.0f,
@@ -38,6 +39,8 @@ void TaskTrajectory(void *p) {
 	TrajectoryPoint_Struct nextPoint;
 
 	bool taken = false;
+
+	xSemaphoreTake(trajectoryStopSemaphore, 0); // initial take
 
 	if (!globalUsingCLI) {
 		bool send1 = true, send2 = false;
@@ -125,6 +128,7 @@ void TaskTrajectory(void *p) {
 void TaskTrajectoryConstructor() {
 	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY, &trajectoryTask);
 	trajectoryRequestQueue = xQueueCreate(10, sizeof(TrajectoryRequest_Struct));
+	vSemaphoreCreateBinary(trajectoryStopSemaphore);
 }
 
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
