@@ -71,7 +71,7 @@ of the list of registered commands. */
 static const CLI_Command_Definition_t xHelpCommand =
 {
 	( const int8_t * const ) "help",
-	( const int8_t * const ) "\nhelp:\r\n Lists all the registered commands\r\n\r\n",
+	( const int8_t * const ) "\nhelp:\n Lists all the registered commands\n\n",
 	prvHelpCommand,
 	0
 };
@@ -200,7 +200,7 @@ size_t xCommandStringLength;
 	{
 		/* The command was found, but the number of parameters with the command
 		was incorrect. */
-		strncpy( ( char * ) pcWriteBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\r\n", xWriteBufferLen );
+		strncpy( ( char * ) pcWriteBuffer, "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\n", xWriteBufferLen );
 		pxCommand = NULL;
 	}
 	else if( pxCommand != NULL )
@@ -219,7 +219,7 @@ size_t xCommandStringLength;
 	else
 	{
 		/* pxCommand was NULL, the command was not found. */
-		strncpy( ( char * ) pcWriteBuffer, ( const char * const ) "Command not recognised.  Enter \"help\" to view a list of available commands.\r\n", xWriteBufferLen );
+		strncpy( ( char * ) pcWriteBuffer, ( const char * const ) "Command not recognized.  Enter \"help\" to view a list of available commands.\n", xWriteBufferLen );
 		xReturn = pdFALSE;
 	}
 

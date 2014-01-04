@@ -39,7 +39,7 @@ typedef struct {
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
 
-static const char* const welcomeMessage = "FreeRTOS command server.\r\nType \"help\" to view a list of registered commands.\n";
+static const char* const welcomeMessage = "FreeRTOS command server.\nType \"help\" to view a list of registered commands.\n";
 static const char* const promptMessage = "\nodin>";
 static const char* const incorrectMessage = "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\n";
 
@@ -151,7 +151,8 @@ static const CLI_Command_Definition_t telemetryComDef = {
     (const int8_t*)"telemetry",
     (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
     		 "\todometry correction [#param]\n"
-    		 "\timu <enable|disable>\n",
+    		 "\timu <enable|disable>\n"
+    		 "\tscale [#value]\n",
     telemetryCommand,
     -1
 };
@@ -202,7 +203,6 @@ static const CLI_Command_Definition_t trajectoryComDef = {
 static const CLI_Command_Definition_t driveComDef = {
     (const int8_t*)"drive",
     (const int8_t*)"drive ...\n"
-    		 "\tscale [#value]\n"
     		 "\twait finish\n"
     		 "\tline dist #mm speed #speed [pen]\n"
     		 "\tturn <relative|absolute> angle #deg speed #speed [pen]\n"
@@ -239,7 +239,7 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 	param[paramLen] = '\0';
 
 	if (cmatch("aua", param, 1)) { // a
-		strncpy((char*)outBuffer, "I am alive!", outBufferLen);
+		strncpy((char*)outBuffer, "I am alive!\n", outBufferLen);
 	}
 	else if (cmatch("memory", param, 1)) { // m
 		snprintf((char*)outBuffer, outBufferLen, "Available memory: %dkB\n", xPortGetFreeHeapSize());
@@ -253,11 +253,11 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 		snprintf((char*)outBuffer, outBufferLen, "Battery voltage: %.2fV\n", getBatteryVoltage());
 	}
 	else if (cmatch("cpu", param, 1)) { // c
-		snprintf((char*)outBuffer, outBufferLen, "CPU Usage: %.1f%%\n", globalCPUUsage*100.0f);
+		snprintf((char*)outBuffer, outBufferLen, "CPU usage: %.1f%%\n", globalCPUUsage*100.0f);
 	}
 	else if (cmatch("stack", param, 2)) { // st
 		reportStackUsage();
-		strncpy((char*)outBuffer, "\n", outBufferLen);
+		strncpy((char*)outBuffer, "", outBufferLen);
 	}
 	else if (cmatch("save", param, 2)) { // sa
 		bool ok = saveConfig(InitTarget_All);
@@ -386,12 +386,12 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 			if (nOfParams > 1) {
 				if (cmatch("correction", param[1], 1)) { // c
 					if (nOfParams == 2) {
-						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6f\n", globalOdometryCorrectionGain);
+						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6g\n", globalOdometryCorrectionGain);
 						ok = true;
 					}
 					else if (nOfParams == 3) {
 						globalOdometryCorrectionGain = strtof(param[2], NULL);
-						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6f\n", globalOdometryCorrectionGain);
+						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6g\n", globalOdometryCorrectionGain);
 						ok = true;
 					}
 				}
@@ -411,6 +411,23 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 				}
 			}
 		}
+		if (cmatch("scale", param[0], 5)) { // scale
+			if (nOfParams == 2) {
+				float s = strtof(param[1], NULL);
+				if (s > 0.0f) {
+					globalPositionScale = s;
+					snprintf((char*)outBuffer, outBufferLen, "Scale set to %.4g\n", globalPositionScale);
+				}
+				else {
+					strncpy((char*)outBuffer, "Scale can be only positive!\n", outBufferLen);
+				}
+				ok = true;
+			}
+			else if (nOfParams == 1) {
+				snprintf((char*)outBuffer, outBufferLen, "Scale: %.4g\n", globalPositionScale);
+				ok = true;
+			}
+		}
 		else if (cmatch("raw", param[0], 1)) { // r
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
@@ -419,7 +436,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 				ok = true;
 			}
 		}
-		else if (cmatch("scaled", param[0], 1)) { // s
+		else if (cmatch("scaled", param[0], 6)) { // scaled
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
 				getTelemetryScaled(&tl);
@@ -469,7 +486,7 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					left = strtof(param[1], NULL);
 					right = strtof(param[2], NULL);
 				}
-				snprintf((char*)outBuffer, outBufferLen, "Speeds set to %.2f left and %.2f right\n", left, right);
+				snprintf((char*)outBuffer, outBufferLen, "Speeds set to %.3g left and %.3g right\n", left, right);
 				sendSpeeds(left, right, 0);
 				ok = true;
 			}
@@ -479,13 +496,13 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 				if (cmatch("left", param[1], 1)) { // l
 					float left = strtof(param[2], NULL);
 					setMotorLSpeed(left/100.0f);
-					snprintf((char*)outBuffer, outBufferLen, "Left PWM set to %.1f%%\n", left);
+					snprintf((char*)outBuffer, outBufferLen, "Left PWM set to %.1g%%\n", left);
 					ok = true;
 				}
 				else if (cmatch("right", param[1], 1)) { // r
 					float right = strtof(param[2], NULL);
 					setMotorRSpeed(right/100.0f);
-					snprintf((char*)outBuffer, outBufferLen, "Right PWM set to %.1f%%\n", right);
+					snprintf((char*)outBuffer, outBufferLen, "Right PWM set to %.1g%%\n", right);
 					ok = true;
 				}
 				else {
@@ -493,7 +510,7 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					float right = strtof(param[2], NULL);
 					setMotorLSpeed(left/100.0f);
 					setMotorRSpeed(right/100.0f);
-					snprintf((char*)outBuffer, outBufferLen, "Left PWM set to %.1f%%\nRight PWM set to %.1f%%\n", left, right);
+					snprintf((char*)outBuffer, outBufferLen, "Left PWM set to %.1g%%\nRight PWM set to %.1g%%\n", left, right);
 					ok = true;
 				}
 			}
@@ -575,13 +592,13 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 								if (all) {
 									snprintf((char*)outBuffer, outBufferLen,
 										"Left forward:\n"
-										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n"
+										"\tK: %.5g\n\tB: %.5g\n\tKp: %.3g\n\tKi: %.3g\n\tKd: %.3g\n"
 										"Left backward:\n"
-										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n"
+										"\tK: %.5g\n\tB: %.5g\n\tKp: %.3g\n\tKi: %.3g\n\tKd: %.3g\n"
 										"Right forward:\n"
-										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n"
+										"\tK: %.5g\n\tB: %.5g\n\tKp: %.3g\n\tKi: %.3g\n\tKd: %.3g\n"
 										"Right backward:\n"
-										"\tK: %.5f\n\tB: %.5f\n\tKp: %.3f\n\tKi: %.3f\n\tKd: %.3f\n",
+										"\tK: %.5g\n\tB: %.5g\n\tKp: %.3g\n\tKi: %.3g\n\tKd: %.3g\n",
 										globalLeftMotorParams.forward.K,
 										globalLeftMotorParams.forward.B,
 										globalLeftMotorParams.pid2.forward.Kp,
@@ -606,7 +623,7 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 								}
 								else {
 									snprintf((char*)outBuffer, outBufferLen,
-										"K: %.5f\nB: %.5f\nKp: %.3f\nKi: %.3f\nKd: %.3f\n",
+										"K: %.5g\nB: %.5g\nKp: %.3g\nKi: %.3g\nKd: %.3g\n",
 										mcpp->K, mcpp->B, pidp->Kp, pidp->Ki, pidp->Kd
 									);
 
@@ -762,7 +779,7 @@ portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 
 	if (nOfParams > 0) {
 		if (cmatch("set", param[0], 1)) { // s
-			if (false) {} else // set command is dangerous because there is loop in printing commands and responses
+			if (false) {} else // TODO: set command is dangerous because there is loop in printing commands and responses
 			if (nOfParams == 2) {
 				if (cmatch("command", param[1], 1)) { // c
 					setWiFiMode(WiFiMode_Command);
@@ -932,20 +949,26 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 				}
 				else if (cmatch("file", param[1], 1)) { // f
 					if (nOfParams == 3) {
-						TrajectoryRequest_Struct request;
-						request.source = TrajectorySource_File;
-						FIL *file = pvPortMalloc(sizeof(FIL));
-						FRESULT res = f_open(file, param[2], FA_READ | FA_OPEN_EXISTING);
-						if (res == FR_OK) {
-							request.file_ptr = file;
-							xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY);
-							strncpy((char*)outBuffer, "Request sent\n", outBufferLen);
+						if (!globalSDMounted) {
+							strncpy((char*)outBuffer, "SD card not mounted\n", outBufferLen);
 							ok = true;
 						}
 						else {
-							vPortFree(file);
-							strncpy((char*)outBuffer, "Could not open file or file does not exist\n", outBufferLen);
-							ok = true;
+							TrajectoryRequest_Struct request;
+							request.source = TrajectorySource_File;
+							FIL *file = pvPortMalloc(sizeof(FIL));
+							FRESULT res = f_open(file, param[2], FA_READ | FA_OPEN_EXISTING);
+							if (res == FR_OK) {
+								request.file_ptr = file;
+								xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY);
+								strncpy((char*)outBuffer, "Request sent\n", outBufferLen);
+								ok = true;
+							}
+							else {
+								vPortFree(file);
+								strncpy((char*)outBuffer, "Could not open file or file does not exist\n", outBufferLen);
+								ok = true;
+							}
 						}
 					}
 				}
@@ -968,24 +991,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 	size_t nOfParams = sliceCommand((char*)command, param, 9);
 
 	if (nOfParams > 0) {
-		if (cmatch("scale", param[0], 1)) { // s
-			if (nOfParams == 2) {
-				float s = strtof(param[1], NULL);
-				if (s > 0.0f) {
-					globalPositionScale = s;
-					snprintf((char*)outBuffer, outBufferLen, "Scale set to %.4f\n", globalPositionScale);
-				}
-				else {
-					strncpy((char*)outBuffer, "Scale can be only positive!\n", outBufferLen);
-				}
-				ok = true;
-			}
-			else if (nOfParams == 1) {
-				snprintf((char*)outBuffer, outBufferLen, "Scale: %.4f\n", globalPositionScale);
-				ok = true;
-			}
-		}
-		else if (cmatch("wait", param[0], 1)) { // w
+		if (cmatch("wait", param[0], 1)) { // w
 			if (nOfParams == 2) {
 				if (cmatch("finish", param[1], 1)) { // f
 					safePrint(30, "Waiting for driving to finish\n");
@@ -1169,7 +1175,7 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 	}
 
 	if (getWiFiStatus() == OFF) {
-		strncpy((char*)outBuffer, "Error - WiFi is needed for this\n", outBufferLen);
+		strncpy((char*)outBuffer, "Error - WiFi is needed for this transfer\n", outBufferLen);
 		return pdFALSE;
 	}
 
@@ -1189,6 +1195,9 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 	}
 	else if (res == FR_INVALID_NAME) {
 		strncpy((char*)outBuffer, "Invalid filename specified\n", outBufferLen);
+	}
+	else if (res == FR_NO_FILE || res == FR_NO_PATH) {
+		strncpy((char*)outBuffer, "File does not exist\n", outBufferLen);
 	}
 	else if (res != FR_OK) {
 		strncpy((char*)outBuffer, "Error opening file\n", outBufferLen);
