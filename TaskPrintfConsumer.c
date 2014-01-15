@@ -95,11 +95,12 @@ void TaskPrintfConsumerConstructor() {
 }
 
 int safePrint(const size_t length, const char *format, ...) {
+	if (length <= 0) return 0;
 	va_list arglist;
 	va_start(arglist, format);
 	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
 	int ret = vsnprintf(pbuf, length, format, arglist);
-	if (xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
+	if (ret <= 0 || xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
 		lightLED(5, ON);
 		vPortFree(pbuf);
 	}
