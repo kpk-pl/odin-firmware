@@ -38,6 +38,7 @@ typedef struct {
 
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
+xSemaphoreHandle CLILoadCompleteSemaphore;
 
 static FIL* CLISourceFile;
 
@@ -69,6 +70,7 @@ void TaskCLI(void *p) {
 	char *outputString = (char*)FreeRTOS_CLIGetOutputBuffer();
 	char msgBuffer[150];
 
+	xSemaphoreTake(CLILoadCompleteSemaphore, 0); 						/* initial take */
 	registerAllCommands();
 
 	vTaskDelay(500/portTICK_RATE_MS);
@@ -1185,19 +1187,11 @@ static FIL* createFileHandle(const TCHAR* filename, BYTE mode, char* outBuffer, 
 	return file;
 }
 
+/* Called from ISR */
 void fileTransferHandle(void *p) {
-	FileTransfer_Struct *fileTransfer = (FileTransfer_Struct*)p;
-
-	streamFinishTransmission();
-	streamRelease();
-
-	UINT written;
-	f_write(fileTransfer->file, fileTransfer->buffer, fileTransfer->bufferLen, &written);
-
-	f_close(fileTransfer->file);
-	vPortFree(fileTransfer->file);
-	vPortFree(fileTransfer->buffer);
-	vPortFree(fileTransfer);
+	signed portBASE_TYPE contextSwitch = pdFALSE;
+	xSemaphoreGiveFromISR(CLILoadCompleteSemaphore, &contextSwitch);
+	portEND_SWITCHING_ISR(contextSwitch);
 }
 
 portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
@@ -1247,15 +1241,28 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 		}
 	}
 
-	FileTransfer_Struct *fileTransfer = pvPortMalloc(sizeof(FileTransfer_Struct));
-	fileTransfer->file = file;
-	fileTransfer->bufferLen = len;
-	fileTransfer->buffer = pvPortMalloc(len*sizeof(char));
+	/* Indicate ongoing transmission */
+	safePrint(18, "Send data now...\n");
 
+	char* writeBuffer = pvPortMalloc(len*sizeof(char));
 	streamAcquire(portMAX_DELAY);
-	streamStartTransmission(fileTransfer->buffer, len, fileTransferHandle, fileTransfer);
+	streamStartTransmission(writeBuffer, len, fileTransferHandle, NULL);
 
-	strncpy((char*)outBuffer, "Send data now...\n", outBufferLen);
+	/* Wait for transmission to finish */
+	xSemaphoreTake(CLILoadCompleteSemaphore, portMAX_DELAY);
+
+	/* Clean up */
+	streamFinishTransmission();
+	streamRelease();
+
+	UINT written;
+	f_write(file, writeBuffer, len, &written);
+
+	f_close(file);
+	vPortFree(file);
+	vPortFree(writeBuffer);
+
+	strncpy((char*)outBuffer, "Transfer complete\n", outBufferLen);
 	return pdFALSE;
 }
 
@@ -1428,4 +1435,5 @@ static size_t sliceCommand(char *command, char **params, const size_t n) {
 void TaskCLIConstructor() {
 	xTaskCreate(TaskCLI, NULL, TASKCLI_STACKSPACE, NULL, PRIORITY_TASK_CLI, &CLITask);
 	CLIInputQueue = xQueueCreate(configCOMMAND_INT_MAX_OUTPUT_SIZE, sizeof(char*));
+	vSemaphoreCreateBinary(CLILoadCompleteSemaphore);
 }
