@@ -11,7 +11,7 @@
 
 
 #ifndef _FFCONF
-#define _FFCONF 80960	/* Revision ID */
+#define _FFCONF 29000	/* Revision ID */
 
 
 /*---------------------------------------------------------------------------/
@@ -19,9 +19,10 @@
 /----------------------------------------------------------------------------*/
 
 #define	_FS_TINY		0	/* 0:Normal or 1:Tiny */
-/* When _FS_TINY is set to 1, FatFs uses the sector buffer in the file system
-/  object instead of the sector buffer in the individual file object for file
-/  data transfer. This reduces memory consumption 512 bytes each file object. */
+/* When _FS_TINY is set to 1, it reduces memory consumption _MAX_SS bytes each
+/  file object. For file data transfer, FatFs uses the common sector buffer in
+/  the file system object (FATFS) instead of private sector buffer eliminated
+/  from the file object (FIL). */
 
 
 #define _FS_READONLY	0	/* 0:Read/Write or 1:Read only */
@@ -144,18 +145,27 @@
 /* Number of volumes (logical drives) to be used. */
 
 
+#define _STR_VOLUME_ID	0	/* 0:Use only 0-9 for drive ID, 1:Use strings for drive ID */
+#define _VOLUME_STRS	"SD"
+/* When _STR_VOLUME_ID is set to 1, also pre-defined string can be used as drive number
+/  in the path name. _VOLUME_STRS defines the drive ID strings for each logical drives.
+/  Number of items must be equal to _VOLUMES. Valid characters for the drive ID strings
+/  are: 0-9 and A-Z. */
+
+
 #define	_MULTI_PARTITION	0	/* 0:Single partition, 1:Enable multiple partition */
 /* When set to 0, each volume is bound to the same physical drive number and
 / it can mount only first primaly partition. When it is set to 1, each volume
 / is tied to the partitions listed in VolToPart[]. */
 
 
+#define	_MIN_SS		512
 #define	_MAX_SS		512		/* 512, 1024, 2048 or 4096 */
-/* Maximum sector size to be handled.
-/  Always set 512 for memory card and hard disk but a larger value may be
-/  required for on-board flash memory, floppy disk and optical disk.
-/  When _MAX_SS is larger than 512, it configures FatFs to variable sector size
-/  and GET_SECTOR_SIZE command must be implemented to the disk_ioctl() function. */
+/* These options configure the sector size to be supported. (512, 1024, 2048 or 4096)
+/  Always set both 512 for most systems, all memory card and hard disk. But a larger
+/  value may be required for on-board flash memory and some type of optical media.
+/  When _MIN_SS != _MAX_SS, FatFs is configured to multiple sector size and
+/  GET_SECTOR_SIZE command must be implemented to the disk_ioctl() function. */
 
 
 #define	_USE_ERASE	0	/* 0:Disable or 1:Enable */
@@ -163,13 +173,15 @@
 /  should be added to the disk_ioctl() function. */
 
 
-#define _FS_NOFSINFO	0	/* 0 or 1 */
-/* If you need to know the correct free space on the FAT32 volume, set this
-/  option to 1 and f_getfree() function at first time after volume mount will
-/  force a full FAT scan.
+#define _FS_NOFSINFO	0	/* 0 to 3 */
+/* If you need to know correct free space on the FAT32 volume, set bit 0 of this
+/  option and f_getfree() function at first time after volume mount will force
+/  a full FAT scan. Bit 1 controls the last allocated cluster number as bit 0.
 /
-/  0: Load all informations in the FSINFO if available.
-/  1: Do not trust free cluster count in the FSINFO.
+/  bit0=0: Use free cluster count in the FSINFO if available.
+/  bit0=1: Do not trust free cluster count in the FSINFO.
+/  bit1=0: Use last allocated cluster number in the FSINFO if available.
+/  bit1=1: Do not trust last allocated cluster number in the FSINFO.
 */
 
 
@@ -193,6 +205,12 @@
 */
 
 
+#define	_FS_LOCK	2	/* 0:Disable or >=1:Enable */
+/* To enable file lock control feature, set _FS_LOCK to 1 or greater.
+/  The value defines how many files/sub-directories can be opened simultaneously.
+/  This feature consumes _FS_LOCK * 12 bytes of bss area. */
+
+
 /* A header file that defines sync object types on the O/S, such as
 /  windows.h, ucos_ii.h and semphr.h, must be included prior to ff.h. */
 
@@ -206,11 +224,6 @@
 /   1: Enable re-entrancy. Also user provided synchronization handlers,
 /      ff_req_grant(), ff_rel_grant(), ff_del_syncobj() and ff_cre_syncobj()
 /      function must be added to the project. */
-
-
-#define	_FS_LOCK	0	/* 0:Disable or >=1:Enable */
-/* To enable file lock control feature, set _FS_LOCK to 1 or greater.
-   The value defines how many files can be opened simultaneously. */
 
 
 #endif /* _FFCONFIG */
