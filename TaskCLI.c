@@ -113,7 +113,7 @@ void TaskCLI(void *p) {
 		/* Process command and print as many lines as necessary */
 		do {
 			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msgBuffer, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
-			safePrint(strlen(outputString)+1, "%s", outputString);
+			safePrint(strlen(outputString), outputString);
 		} while(moreDataComing != pdFALSE);
      }
 }
@@ -279,7 +279,7 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 	}
 	else if (cmatch("stack", param, 2)) { // st
 		reportStackUsage();
-		strncpy((char*)outBuffer, "", outBufferLen);
+		outBuffer[0] = '\0';
 	}
 	else if (cmatch("save", param, 2)) { // sa
 		bool ok = saveConfig(InitTarget_All);
