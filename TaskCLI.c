@@ -39,6 +39,8 @@ typedef struct {
 xTaskHandle CLITask;
 xQueueHandle CLIInputQueue;
 
+static FIL* CLISourceFile;
+
 static const char* const welcomeMessage = "FreeRTOS command server.\nType \"help\" to view a list of registered commands.\n";
 static const char* const promptMessage = "\nodin>";
 static const char* const incorrectMessage = "Incorrect command parameter(s).  Enter \"help\" to view a list of available commands.\n";
@@ -63,8 +65,9 @@ static void registerAllCommands();
 
 void TaskCLI(void *p) {
 	portBASE_TYPE moreDataComing;
-	char * msg;
-	char * outputString = (char*)FreeRTOS_CLIGetOutputBuffer();
+	char *msg;
+	char *outputString = (char*)FreeRTOS_CLIGetOutputBuffer();
+	char msgBuffer[150];
 
 	registerAllCommands();
 
@@ -74,15 +77,28 @@ void TaskCLI(void *p) {
 	safePrint(strlen(welcomeMessage)+1, "%s", welcomeMessage);
 
     while(1) {
-    	safePrint(strlen(promptMessage)+1, "%s", promptMessage);
+    	if (CLISourceFile == NULL) { 									/* no file stream is open, wait for user input */
+    		safePrint(strlen(promptMessage)+1, "%s", promptMessage);
+    		xQueueReceive(CLIInputQueue, &msg, portMAX_DELAY); 			/* block till message is available */
+    		strcpy(msgBuffer, msg);
+    		vPortFree(msg);												/* free allocated resources */
+    	}
+    	else { 															/* stream instructions from file */
+    		if (f_gets(msgBuffer, 150, CLISourceFile) != msgBuffer) { 	/* error while reading or EOF */
+    			f_close(CLISourceFile);
+    			vPortFree(CLISourceFile);								/* free allocated file */
+    			CLISourceFile = NULL;
+    			continue; 												/* start from the top */
+    		}
+    		size_t end = strlen(msgBuffer);
+    		if (msgBuffer[end-1] == '\n')
+    			msgBuffer[end-1] = '\0';
+    	}
 
-		/* Block till message is available */
-		xQueueReceive(CLIInputQueue, &msg, portMAX_DELAY);
-
-		if (strlen(msg) == 0)
+		if (strlen(msgBuffer) == 0)
 			continue;
 
-		if (strncmp(msg, "[ERROR: INVALID INPUT]", 21) == 0) {
+		if (strncmp(msgBuffer, "[ERROR: INVALID INPUT]", 21) == 0) {
 			if (getWiFiStatus() == ON) {
 				enableWiFi(DISABLE);
 				enableUSB(ENABLE);
@@ -94,12 +110,9 @@ void TaskCLI(void *p) {
 
 		/* Process command and print as many lines as necessary */
 		do {
-			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msg, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
+			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msgBuffer, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
 			safePrint(strlen(outputString)+1, "%s", outputString);
 		} while(moreDataComing != pdFALSE);
-
-		/* Free allocated resources */
-		vPortFree(msg);
      }
 }
 
@@ -122,6 +135,7 @@ static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const 
 static portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE execCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 
 static const CLI_Command_Definition_t systemComDef = {
     (const int8_t*)"system",
@@ -228,6 +242,12 @@ static const CLI_Command_Definition_t lsComDef = {
 	(const int8_t*)"ls",
 	(const int8_t*)"ls filename\n",
 	lsCommand,
+	1
+};
+static const CLI_Command_Definition_t execComDef = {
+	(const int8_t*)"exec",
+	(const int8_t*)"exec filename\n",
+	execCommand,
 	1
 };
 
@@ -1135,13 +1155,44 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 }
 #endif
 
+static FIL* createFileHandle(const TCHAR* filename, BYTE mode, char* outBuffer, size_t outBufferLen) {
+	if (!globalSDMounted) {
+		strncpy((char*)outBuffer, "Error - SD card not present\n", outBufferLen);
+		return NULL;
+	}
+
+	FIL* file = pvPortMalloc(sizeof(FIL));
+	FRESULT res = f_open(file, filename, mode);
+
+	if (res == FR_DENIED) {
+		strncpy((char*)outBuffer, "Access to file denied\n", outBufferLen);
+	}
+	else if (res == FR_INVALID_NAME) {
+		strncpy((char*)outBuffer, "Invalid filename specified\n", outBufferLen);
+	}
+	else if (res == FR_NO_FILE || res == FR_NO_PATH) {
+		strncpy((char*)outBuffer, "File does not exist\n", outBufferLen);
+	}
+	else if (res != FR_OK) {
+		strncpy((char*)outBuffer, "Error opening file\n", outBufferLen);
+	}
+
+	if (res != FR_OK) {
+		vPortFree(file);
+		return NULL;
+	}
+
+	return file;
+}
+
 void fileTransferHandle(void *p) {
 	FileTransfer_Struct *fileTransfer = (FileTransfer_Struct*)p;
 
 	streamFinishTransmission();
 	streamRelease();
 
-	f_write(fileTransfer->file, fileTransfer->buffer, fileTransfer->bufferLen, NULL);
+	UINT written;
+	f_write(fileTransfer->file, fileTransfer->buffer, fileTransfer->bufferLen, &written);
 
 	f_close(fileTransfer->file);
 	vPortFree(fileTransfer->file);
@@ -1150,11 +1201,6 @@ void fileTransferHandle(void *p) {
 }
 
 portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	if (!globalSDMounted) {
-		strncpy((char*)outBuffer, "Error - SD card not present\n", outBufferLen);
-		return pdFALSE;
-	}
-
 	char *param[4];
 	const uint32_t maxPayload = 2000;
 
@@ -1165,8 +1211,8 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 	}
 
 	int len = atoi(param[1]);
-	if (len < 0) {
-		strncpy((char*)outBuffer, "Error - negative number of bytes specified\n", outBufferLen);
+	if (len <= 0) {
+		strncpy((char*)outBuffer, "Error - incorrect number of bytes specified\n", outBufferLen);
 		return pdFALSE;
 	}
 	if (len > maxPayload) {
@@ -1187,24 +1233,8 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 		mode |= FA_CREATE_ALWAYS;
 	}
 
-	FIL *file = pvPortMalloc(sizeof(FIL));
-
-	FRESULT res = f_open(file, param[0], mode);
-	if (res == FR_DENIED) {
-		strncpy((char*)outBuffer, "Access to file denied\n", outBufferLen);
-	}
-	else if (res == FR_INVALID_NAME) {
-		strncpy((char*)outBuffer, "Invalid filename specified\n", outBufferLen);
-	}
-	else if (res == FR_NO_FILE || res == FR_NO_PATH) {
-		strncpy((char*)outBuffer, "File does not exist\n", outBufferLen);
-	}
-	else if (res != FR_OK) {
-		strncpy((char*)outBuffer, "Error opening file\n", outBufferLen);
-	}
-
-	if (res != FR_OK) {
-		vPortFree(file);
+	FIL *file = createFileHandle(param[0], mode, (char*)outBuffer, outBufferLen);
+	if (file == NULL) {
 		return pdFALSE;
 	}
 
@@ -1230,33 +1260,13 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 }
 
 portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	if (!globalSDMounted) {
-		strncpy((char*)outBuffer, "Error - SD card not present\n", outBufferLen);
-		return pdFALSE;
-	}
-
 	char *param[1];
 	sliceCommand((char*)command, param, 1);
 	// nOfParams is checked by OS - must be 1
 
-	/* open file for reading */
-	FIL file;
-	FRESULT res = f_open(&file, param[0], FA_READ | FA_OPEN_EXISTING);
-	if (res == FR_DENIED) {
-		strncpy((char*)outBuffer, "Access to file denied\n", outBufferLen);
-	}
-	else if (res == FR_INVALID_NAME) {
-		strncpy((char*)outBuffer, "Invalid filename specified\n", outBufferLen);
-	}
-	else if (res == FR_NO_FILE || res == FR_NO_PATH) {
-		strncpy((char*)outBuffer, "File does not exist\n", outBufferLen);
-	}
-	else if (res != FR_OK) {
-		strncpy((char*)outBuffer, "Error opening file\n", outBufferLen);
-	}
-
-	if (res != FR_OK) {
-		return pdFALSE;
+	FIL* file = createFileHandle(param[0], FA_READ | FA_OPEN_EXISTING, (char*)outBuffer, outBufferLen);
+	if (file == NULL) {
+		return pdFALSE;   /* Error output is already present in outBuffer */
 	}
 
 	/* Allocate buffer for reading */
@@ -1269,16 +1279,36 @@ portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 	extern int _write(int file, char *ptr, int len);
 	/* Read the whole file and print its content */
 	do {
-		f_read(&file, buffer, 500, &bytesRead);
+		f_read(file, buffer, 500, &bytesRead);
 		_write(0, buffer, bytesRead);
 	} while (bytesRead == 500);
 
 	/* Release resources, free space, close file */
 	xSemaphoreGive(printfMutex);
 	vPortFree(buffer);
-	f_close(&file);
+	f_close(file);
+	vPortFree(file);
 
 	strncpy((char*)outBuffer, "\n", outBufferLen);
+	return pdFALSE;
+}
+
+portBASE_TYPE execCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	if (CLISourceFile != NULL) {
+		strncpy((char*)outBuffer, "Error - another file is currently being executed\n", outBufferLen);
+		return pdFALSE;
+	}
+
+	char *param[1]; // nOfParams is checked by OS - must be 1
+	sliceCommand((char*)command, param, 1);
+
+	/* open file for reading */
+	CLISourceFile = createFileHandle(param[0], FA_READ | FA_OPEN_EXISTING, (char*)outBuffer, outBufferLen);
+
+	if (CLISourceFile != NULL) {
+		strncpy((char*)outBuffer, "File execution started\n", outBufferLen);
+	}
+
 	return pdFALSE;
 }
 
@@ -1310,11 +1340,11 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 			break;
 
 		if (fno.fattrib & AM_DIR)
-			printf("[  DIR  ]");
+			printf("\n[  DIR  ]");
 		else
 			printf("[%5ldB ]", fno.fsize);
 
-		printf(" %s\n", *fno.lfname ? fno.lfname : fno.fname);
+		printf(" %s", *fno.lfname ? fno.lfname : fno.fname);
 	}
 	f_closedir(&dir);
 
@@ -1343,6 +1373,7 @@ void registerAllCommands() {
 	FreeRTOS_CLIRegisterCommand(&loadComDef);
 	FreeRTOS_CLIRegisterCommand(&catComDef);
 	FreeRTOS_CLIRegisterCommand(&lsComDef);
+	FreeRTOS_CLIRegisterCommand(&execComDef);
 }
 
 size_t cmatch(const char *command, const char *input, const size_t shortest) {
