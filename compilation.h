@@ -52,10 +52,9 @@
  * 	Use base C library
  *
  * 	Libraries:
- * 	g  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
- * 	c  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
+ * 	g_s  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
+ * 	c_s  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
  * 	m  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
- * 	gcc   gnu tools arm embedded\4.7 2013q1\lib\gcc\arm-none-eabi\4.7.3\armv7e-m\fpu\
  * 	arm_cortexm4lf_math  \DSP
- * 	-mcpu=cortex-m4; -mthumb; -g; -nostartfiles; -Map=FreeRTOSOdinFW.map; -O0; --gc-sections; -lgcc; -lc; -lm; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lg; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lc; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lm; -Lc:\gnu tools arm embedded\4.7 2013q1\lib\gcc\arm-none-eabi\4.7.3\armv7e-m\fpu\; -lgcc; -Ldsp\; -larm_cortexm4lf_math; -L${linkdir}; -T${linkdir}/arm-gcc-link.ld;
+ *  -mcpu=cortex-m4; -mfpu=fpv4-sp-d16; -mfloat-abi=hard; -mthumb; -Wall; -g; -nostartfiles; -Map=FreeRTOSOdinFW.map; -O0; --gc-sections; -Ldsp\; -larm_cortexm4lf_math; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lm; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lc_s; -Lc:\gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\; -lg_s; -LD:/CooCox/CoIDE/workspace/FreeRTOSOdinFW; -TD:/CooCox/CoIDE/workspace/FreeRTOSOdinFW/arm-gcc-link.ld;
  */
