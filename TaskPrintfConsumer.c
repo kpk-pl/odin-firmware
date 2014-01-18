@@ -100,8 +100,13 @@ int safePrint(const size_t length, const char *format, ...) {
 	va_start(arglist, format);
 	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
 	int ret = vsnprintf(pbuf, length, format, arglist);
-	if (ret <= 0 || xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
-		lightLED(5, ON);
+	if (ret > 0) {
+		if (xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
+			vPortFree(pbuf);
+			lightLED(5, ON);
+		}
+	}
+	else {
 		vPortFree(pbuf);
 	}
 	va_end(arglist);
