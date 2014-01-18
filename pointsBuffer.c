@@ -36,6 +36,7 @@ static Iterator iteratorAdd(Iterator it, uint16_t inc);
 static void startDMA(uint16_t num);
 
 uint16_t TBloadNewPoints(uint16_t num) {
+	if (num == 0) return 0;
 	if (circularBuffer.lockItBegin != circularBuffer.lockItEnd) return 0; // another transmission currently in place
 
 	uint16_t availableSpace = POINTSBUFFER_SIZE - TBgetAvailablePoints() - 1;
