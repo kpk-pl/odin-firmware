@@ -1016,7 +1016,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 		if (cmatch("wait", param[0], 1)) { // w
 			if (nOfParams == 2) {
 				if (cmatch("finish", param[1], 1)) { // f
-					safePrint(30, "Waiting for driving to finish\n");
+					safePrint(31, "Waiting for driving to finish\n");
 					while (isCurrentlyDriving()) {
 						vTaskDelay(10/portTICK_RATE_MS);
 					}
@@ -1347,11 +1347,11 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 			break;
 
 		if (fno.fattrib & AM_DIR)
-			printf("\n[  DIR  ]");
+			safePrint(12, "\n[  DIR  ]");
 		else
-			printf("[%5ldB ]", fno.fsize);
+			safePrint(12, "[%5ldB ]", fno.fsize);
 
-		printf(" %s", *fno.lfname ? fno.lfname : fno.fname);
+		safePrint(50, " %s", *fno.lfname ? fno.lfname : fno.fname);
 	}
 	f_closedir(&dir);
 
@@ -1434,6 +1434,6 @@ static size_t sliceCommand(char *command, char **params, const size_t n) {
 
 void TaskCLIConstructor() {
 	xTaskCreate(TaskCLI, NULL, TASKCLI_STACKSPACE, NULL, PRIORITY_TASK_CLI, &CLITask);
-	CLIInputQueue = xQueueCreate(configCOMMAND_INT_MAX_OUTPUT_SIZE, sizeof(char*));
+	CLIInputQueue = xQueueCreate(100, sizeof(char*));
 	vSemaphoreCreateBinary(CLILoadCompleteSemaphore);
 }

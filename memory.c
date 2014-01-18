@@ -18,7 +18,7 @@ static bool readInitCustomMotorController(FIL* file);
 static bool saveInitCustomMotorController(FIL* file);
 #else
 static bool readInitPIDMotorController(FIL* file);
-static bool saveInitPICMotorController(FIL* file);
+static bool saveInitPIDMotorController(FIL* file);
 #endif
 #ifdef USE_IMU_TELEMETRY
 static bool readInitIMU(FIL* file);
