@@ -113,7 +113,7 @@ void TaskCLI(void *p) {
 		/* Process command and print as many lines as necessary */
 		do {
 			moreDataComing = FreeRTOS_CLIProcessCommand((int8_t*)msgBuffer, (int8_t*)outputString, configCOMMAND_INT_MAX_OUTPUT_SIZE);
-			safePrint(strlen(outputString), outputString);
+			safePrint(strlen(outputString)+1, outputString);
 		} while(moreDataComing != pdFALSE);
      }
 }
