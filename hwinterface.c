@@ -220,11 +220,12 @@ float getAvgBatteryVoltage(void) {
 
 void enableLantern(FunctionalState state) {
 	assert_param(IS_FUNCTIONAL_STATE(state));
-	GPIO_InitTypeDef GPIO_InitStructure;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-	GPIO_InitStructure.GPIO_Pin = LANTERN_GPIO_PIN1 | LANTERN_GPIO_PIN2 | LANTERN_GPIO_PIN3 | LANTERN_GPIO_PIN4;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitTypeDef GPIO_InitStructure = {
+			.GPIO_OType = GPIO_OType_OD,
+			.GPIO_Pin = LANTERN_GPIO_PIN1 | LANTERN_GPIO_PIN2 | LANTERN_GPIO_PIN3 | LANTERN_GPIO_PIN4,
+			.GPIO_PuPd = GPIO_PuPd_NOPULL,
+			.GPIO_Speed = GPIO_Speed_2MHz
+	};
 
 	/* To ensure that GPIOs settings matches TIM state there is critical section */
 	taskENTER_CRITICAL();

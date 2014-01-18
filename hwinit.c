@@ -31,27 +31,33 @@ void Initialize() {
 	GPIO_PinAFConfig(COM_GPIO, COM_GPIO_PINSOURCE_TX, COM_GPIO_AF);
 	GPIO_PinAFConfig(COM_GPIO, COM_GPIO_PINSOURCE_RX, COM_GPIO_AF);
 	/* Configuring GPIO pins */
-	GPIO_InitStructure.GPIO_Pin = COM_GPIO_PIN_TX | COM_GPIO_PIN_RX;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Pin = COM_GPIO_PIN_TX | COM_GPIO_PIN_RX,
+		.GPIO_Mode = GPIO_Mode_AF,
+		.GPIO_OType = GPIO_OType_PP,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_100MHz
+	};
 	GPIO_Init(COM_GPIO, &GPIO_InitStructure);
 	/* Oversampling by 8 enable for higher speeds */
 	USART_OverSampling8Cmd(COM_USART, ENABLE);
 	/* Configuring UART 230400bits/s, no parity, 1 stop bit */
-	USART_InitStructure.USART_BaudRate = COM_USART_SPEED;
-	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-	USART_InitStructure.USART_Parity = USART_Parity_No;
-	USART_InitStructure.USART_StopBits = USART_StopBits_1;
-	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+	USART_InitStructure = (USART_InitTypeDef){
+		.USART_BaudRate = COM_USART_SPEED,
+		.USART_HardwareFlowControl = USART_HardwareFlowControl_None,
+		.USART_Mode = USART_Mode_Rx | USART_Mode_Tx,
+		.USART_Parity = USART_Parity_No,
+		.USART_StopBits = USART_StopBits_1,
+		.USART_WordLength = USART_WordLength_8b
+	};
 	USART_Init(COM_USART, &USART_InitStructure);
 	/* Configuring interrupt for USART */
-	NVIC_InitStructure.NVIC_IRQChannel = COM_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMUSART;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = COM_NVIC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMUSART,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	/* Configuring active interrupt flags for USART - Receive Ready */
 	USART_ITConfig(COM_USART, USART_IT_RXNE, ENABLE);
@@ -62,27 +68,33 @@ void Initialize() {
 	 * This stream should upload data from memory buffer to Tx peripheral
 	 * Memory burst and FIFO are enabled to minimize DMA events
 	 */
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC16;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t) (&COM_USART -> DR);
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
-	DMA_InitStructure.DMA_Channel = COM_TX_DMA_CHANNEL;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-	DMA_InitStructure.DMA_BufferSize = 1;											// Number of data items to transfer
+	DMA_InitStructure = (DMA_InitTypeDef){
+		.DMA_FIFOMode = DMA_FIFOMode_Enable,
+		.DMA_FIFOThreshold = DMA_FIFOThreshold_Full,
+		.DMA_MemoryBurst = DMA_MemoryBurst_INC16,
+		.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte,
+		.DMA_MemoryInc = DMA_MemoryInc_Enable,
+		.DMA_Memory0BaseAddr = 0, // temporarily
+		.DMA_Mode = DMA_Mode_Normal,
+		.DMA_PeripheralBaseAddr = (uint32_t) (&COM_USART -> DR),
+		.DMA_PeripheralBurst = DMA_PeripheralBurst_Single,
+		.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte,
+		.DMA_PeripheralInc = DMA_PeripheralInc_Disable,
+		.DMA_Priority = DMA_Priority_Low,
+		.DMA_Channel = COM_TX_DMA_CHANNEL,
+		.DMA_DIR = DMA_DIR_MemoryToPeripheral,
+		.DMA_BufferSize = 1,	// Number of data items to transfer
+	};
 	DMA_Init(COM_TX_DMA_STREAM, &DMA_InitStructure);
 	/* Disabling double buffer mode */
 	DMA_DoubleBufferModeCmd(COM_TX_DMA_STREAM, DISABLE);
 	/* Enabling interrupt after finished transmission */
-	NVIC_InitStructure.NVIC_IRQChannel = COM_TX_DMA_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMATX;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = COM_TX_DMA_NVIC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_COMDMATX,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(COM_TX_DMA_STREAM, DMA_IT_TC, ENABLE);
 	/* Enabling UART */
@@ -100,35 +112,43 @@ void Initialize() {
 	GPIO_PinAFConfig(WIFI_GPIO_USART, WIFI_GPIO_USART_RX_PINSOURCE, WIFI_GPIO_USART_AF);
 	GPIO_PinAFConfig(WIFI_GPIO_USART, WIFI_GPIO_USART_TX_PINSOURCE, WIFI_GPIO_USART_AF);
 	/* Configuring GPIO pins */
-	GPIO_InitStructure.GPIO_Pin = WIFI_GPIO_USART_TX_PIN | WIFI_GPIO_USART_RX_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Pin = WIFI_GPIO_USART_TX_PIN | WIFI_GPIO_USART_RX_PIN,
+		.GPIO_Mode = GPIO_Mode_AF,
+		.GPIO_OType = GPIO_OType_PP,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_100MHz
+	};
 	GPIO_Init(WIFI_GPIO_USART, &GPIO_InitStructure);
 	/* And logic pins for reset etc */
-	GPIO_InitStructure.GPIO_Pin = WIFI_GPIO_SIG_RESET_PIN | WIFI_GPIO_SIG_LMTFRES_PIN | WIFI_GPIO_SIG_CMDDATA_PIN | WIFI_GPIO_SIG_ALARM_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Pin = WIFI_GPIO_SIG_RESET_PIN | WIFI_GPIO_SIG_LMTFRES_PIN | WIFI_GPIO_SIG_CMDDATA_PIN | WIFI_GPIO_SIG_ALARM_PIN,
+		.GPIO_Mode = GPIO_Mode_OUT,
+		.GPIO_OType = GPIO_OType_OD,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_2MHz
+	};
 	/* Remember to set it default high */
 	GPIO_SetBits(WIFI_GPIO_SIG, WIFI_GPIO_SIG_RESET_PIN | WIFI_GPIO_SIG_LMTFRES_PIN | WIFI_GPIO_SIG_ALARM_PIN);
 	GPIO_ResetBits(WIFI_GPIO_SIG, WIFI_GPIO_SIG_CMDDATA_PIN);
 	GPIO_Init(WIFI_GPIO_SIG, &GPIO_InitStructure);
 	/* Configuring UART, no parity, 1 stop bit */
-	USART_InitStructure.USART_BaudRate = WIFI_USART_SPEED;
-	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-	USART_InitStructure.USART_Parity = USART_Parity_No;
-	USART_InitStructure.USART_StopBits = USART_StopBits_1;
-	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+	USART_InitStructure = (USART_InitTypeDef){
+		.USART_BaudRate = WIFI_USART_SPEED,
+		.USART_HardwareFlowControl = USART_HardwareFlowControl_None,
+		.USART_Mode = USART_Mode_Rx | USART_Mode_Tx,
+		.USART_Parity = USART_Parity_No,
+		.USART_StopBits = USART_StopBits_1,
+		.USART_WordLength = USART_WordLength_8b
+	};
 	USART_Init(WIFI_USART, &USART_InitStructure);
 	/* Configuring interrupt for USART */
-	NVIC_InitStructure.NVIC_IRQChannel = WIFI_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIUSART;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = WIFI_NVIC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIUSART,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	/* Configuring active interrupt flags for USART - Receive Ready */
 	USART_ITConfig(WIFI_USART, USART_IT_RXNE, ENABLE);
@@ -139,30 +159,35 @@ void Initialize() {
 	 * This stream should upload data from memory buffer to Tx peripheral
 	 * Memory burst and FIFO are enabled to minimize DMA events
 	 */
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC16;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t) (&WIFI_USART -> DR);
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
-	DMA_InitStructure.DMA_Channel = WIFI_TX_DMA_CHANNEL;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-	DMA_InitStructure.DMA_BufferSize = 1;
+	DMA_InitStructure = (DMA_InitTypeDef){
+		.DMA_FIFOMode = DMA_FIFOMode_Enable,
+		.DMA_FIFOThreshold = DMA_FIFOThreshold_Full,
+		.DMA_MemoryBurst = DMA_MemoryBurst_INC16,
+		.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte,
+		.DMA_MemoryInc = DMA_MemoryInc_Enable,
+		.DMA_Memory0BaseAddr = 0, // temporary
+		.DMA_Mode = DMA_Mode_Normal,
+		.DMA_PeripheralBaseAddr = (uint32_t) (&WIFI_USART -> DR),
+		.DMA_PeripheralBurst = DMA_PeripheralBurst_Single,
+		.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte,
+		.DMA_PeripheralInc = DMA_PeripheralInc_Disable,
+		.DMA_Priority = DMA_Priority_Low,
+		.DMA_Channel = WIFI_TX_DMA_CHANNEL,
+		.DMA_DIR = DMA_DIR_MemoryToPeripheral,
+		.DMA_BufferSize = 1 // temporary
+	};
 	DMA_Init(WIFI_TX_DMA_STREAM, &DMA_InitStructure);
 	/* Disabling double buffer mode */
 	DMA_DoubleBufferModeCmd(WIFI_TX_DMA_STREAM, DISABLE);
 	/* Enabling interrupt after finished transmission */
-	NVIC_InitStructure.NVIC_IRQChannel = WIFI_TX_DMA_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIDMATX;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = WIFI_TX_DMA_NVIC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIDMATX,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(WIFI_TX_DMA_STREAM, DMA_IT_TC, ENABLE);
-#ifdef FOLLOW_TRAJECTORY
 	/*
 	 * Configuring DMA stream for reception over USART
 	 * Stream is configured to download data from Rx to memory
@@ -170,34 +195,35 @@ void Initialize() {
 	 * and transmitted in burst of 16 bytes
 	 * Data is saved to memory as 32-bit WORD, so each burst moves 4x WORD items
 	 */
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	//DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)tab1;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&WIFI_USART -> DR);
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-	DMA_InitStructure.DMA_Channel = WIFI_RX_DMA_CHANNEL;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	DMA_InitStructure.DMA_BufferSize = 1;
+	DMA_InitStructure = (DMA_InitTypeDef){
+		.DMA_FIFOMode = DMA_FIFOMode_Enable,
+		.DMA_FIFOThreshold = DMA_FIFOThreshold_Full,
+		.DMA_MemoryBurst = DMA_MemoryBurst_INC4,
+		.DMA_MemoryDataSize = DMA_MemoryDataSize_Word,
+		.DMA_MemoryInc = DMA_MemoryInc_Enable,
+		.DMA_Memory0BaseAddr = 0, // temporary
+		.DMA_Mode = DMA_Mode_Normal,
+		.DMA_PeripheralBaseAddr = (uint32_t)(&WIFI_USART -> DR),
+		.DMA_PeripheralBurst = DMA_PeripheralBurst_Single,
+		.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte,
+		.DMA_PeripheralInc = DMA_PeripheralInc_Disable,
+		.DMA_Priority = DMA_Priority_High,
+		.DMA_Channel = WIFI_RX_DMA_CHANNEL,
+		.DMA_DIR = DMA_DIR_PeripheralToMemory,
+		.DMA_BufferSize = 1 // temporary
+	},
 	DMA_Init(WIFI_RX_DMA_STREAM, &DMA_InitStructure);
 	DMA_FlowControllerConfig(WIFI_RX_DMA_STREAM, DMA_FlowCtrl_Memory);
-	/* Enabling double buffer mode */
-	//DMA_DoubleBufferModeConfig(COM_RX_DMA_STREAM, (uint32_t)tab2, DMA_Memory_0);
-	//DMA_DoubleBufferModeCmd(COM_RX_DMA_STREAM, ENABLE);
 	/* Enabling interrupt after receiving */
-	NVIC_InitStructure.NVIC_IRQChannel = WIFI_RX_DMA_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIDMARX;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = WIFI_RX_DMA_NVIC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_WIFIDMARX,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	DMA_ITConfig(WIFI_RX_DMA_STREAM, DMA_IT_TC, ENABLE);
 	/* Enabling UART */
-#endif
 	USART_Cmd(WIFI_USART, ENABLE);
 
 
@@ -206,11 +232,13 @@ void Initialize() {
 	RCC_AHB1PeriphClockCmd(MOTORL_GPIO_CLOCK, ENABLE);
 	RCC_AHB1PeriphClockCmd(MOTORR_GPIO_CLOCK, ENABLE);
 	/* Pins */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-	GPIO_InitStructure.GPIO_Pin = MOTORL_GPIO_INA_PIN | MOTORL_GPIO_INB_PIN | MOTORL_GPIO_ENA_PIN | MOTORL_GPIO_ENB_PIN;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_OUT,
+		.GPIO_OType = GPIO_OType_PP,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_2MHz,
+		.GPIO_Pin = MOTORL_GPIO_INA_PIN | MOTORL_GPIO_INB_PIN | MOTORL_GPIO_ENA_PIN | MOTORL_GPIO_ENB_PIN
+	};
 	GPIO_Init(MOTORL_GPIO, &GPIO_InitStructure);
 	GPIO_InitStructure.GPIO_Pin = MOTORR_GPIO_INA_PIN | MOTORR_GPIO_INB_PIN | MOTORR_GPIO_ENA_PIN | MOTORR_GPIO_ENB_PIN;
 	GPIO_Init(MOTORR_GPIO, &GPIO_InitStructure);
@@ -220,21 +248,25 @@ void Initialize() {
 	/* Clock for timer */
 	MOTOR_PWM_TIM_CLOCK_FUN(MOTOR_PWM_TIM_CLOCK, ENABLE);
 	/* Pins as alternate function out */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-	GPIO_InitStructure.GPIO_Pin = MOTOR_PWM_GPIO_LEFT_PIN | MOTOR_PWM_GPIO_RIGHT_PIN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_AF,
+		.GPIO_OType = GPIO_OType_OD,
+		.GPIO_Pin = MOTOR_PWM_GPIO_LEFT_PIN | MOTOR_PWM_GPIO_RIGHT_PIN,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_50MHz
+	};
 	GPIO_Init(MOTOR_PWM_GPIO, &GPIO_InitStructure);
 	/* Redirect pins */
 	GPIO_PinAFConfig(MOTOR_PWM_GPIO, MOTOR_PWM_GPIO_LEFT_PINSOURCE, MOTOR_PWM_GPIO_AF);
 	GPIO_PinAFConfig(MOTOR_PWM_GPIO, MOTOR_PWM_GPIO_RIGHT_PINSOURCE, MOTOR_PWM_GPIO_AF);
 	/* Timer configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = MOTOR_PWM_TIM_PRESCALER;									// 84MHz
-	TIM_TimeBaseStructure.TIM_Period = MOTOR_PWM_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_Prescaler = MOTOR_PWM_TIM_PRESCALER,			// 84MHz
+		.TIM_Period = MOTOR_PWM_TIM_PERIOD,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_CounterMode = TIM_CounterMode_Up,
+		.TIM_RepetitionCounter = 0
+	};
 	TIM_TimeBaseInit(MOTOR_PWM_TIM, &TIM_TimeBaseStructure);
 	/* Outputs for timer */
 	TIM_OCStructInit(&TIM_OCInitStructure);
@@ -256,11 +288,13 @@ void Initialize() {
 	/* GPIO clocks */
 	RCC_AHB1PeriphClockCmd(LEDS_GPIO_CLOCK, ENABLE);
 	/* GPIO pins */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-	GPIO_InitStructure.GPIO_Pin = LEDS_GPIO_1_PIN;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_OUT,
+		.GPIO_OType = GPIO_OType_PP,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_25MHz,
+		.GPIO_Pin = LEDS_GPIO_1_PIN
+	};
 	GPIO_Init(LEDS_GPIO_1, &GPIO_InitStructure);
 	GPIO_InitStructure.GPIO_Pin = LEDS_GPIO_2_PIN | LEDS_GPIO_3_PIN | LEDS_GPIO_4_PIN | LEDS_GPIO_5_PIN | LEDS_GPIO_6_PIN;
 	GPIO_Init(LEDS_GPIO_26, &GPIO_InitStructure);
@@ -273,10 +307,13 @@ void Initialize() {
 	ENCODERS_TIM_L_CLOCK_FUN(ENCODERS_TIM_L_CLOCK, ENABLE);
 	ENCODERS_TIM_R_CLOCK_FUN(ENCODERS_TIM_R_CLOCK, ENABLE);
 	/* Configuring pins as inputs alternate function */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Pin = ENCODERS_GPIO_LA_PIN;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_AF,
+		.GPIO_PuPd = GPIO_PuPd_UP,
+		.GPIO_Speed = GPIO_Speed_50MHz,
+		.GPIO_OType = GPIO_OType_PP,
+		.GPIO_Pin = ENCODERS_GPIO_LA_PIN
+	};
 	GPIO_Init(ENCODERS_GPIO_LA, &GPIO_InitStructure);
 	GPIO_InitStructure.GPIO_Pin = ENCODERS_GPIO_LB_PIN;
 	GPIO_Init(ENCODERS_GPIO_LB, &GPIO_InitStructure);
@@ -290,11 +327,13 @@ void Initialize() {
 	GPIO_PinAFConfig(ENCODERS_GPIO_RA, ENCODERS_GPIO_RA_PINSOURCE, ENCODERS_GPIO_R_AF);
 	GPIO_PinAFConfig(ENCODERS_GPIO_RB, ENCODERS_GPIO_RB_PINSOURCE, ENCODERS_GPIO_R_AF);
 	/* Timers configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = (uint16_t)0x0000;
-	TIM_TimeBaseStructure.TIM_Period = (uint32_t)0xFFFFFFFFL;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_Prescaler = (uint16_t)0x0000,
+		.TIM_Period = (uint32_t)0xFFFFFFFFL,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_CounterMode = TIM_CounterMode_Up,
+		.TIM_RepetitionCounter = 0
+	};
 	TIM_TimeBaseInit(ENCODERS_TIM_L, &TIM_TimeBaseStructure);
 	TIM_TimeBaseInit(ENCODERS_TIM_R, &TIM_TimeBaseStructure);
 	/* Encoder interface */
@@ -313,27 +352,32 @@ void Initialize() {
 	RCC_AHB1PeriphClockCmd(BATTLVL_GPIO_CLOCK, ENABLE);
 	BATTLVL_ADC_CLOCK_FUN(BATTLVL_ADC_CLOCK, ENABLE);
 	/* Configuring GPIO Pin */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-	GPIO_InitStructure.GPIO_Pin = BATTLVL_GPIO_PIN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_AN,
+		.GPIO_Pin = BATTLVL_GPIO_PIN,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_25MHz,
+		.GPIO_OType = GPIO_OType_PP
+	};
 	GPIO_Init(BATTLVL_GPIO, &GPIO_InitStructure);
 	/* ADC common init */
-	ADC_CommonStructInit(&ADC_CommonInitStructure);
-	ADC_CommonInitStructure.ADC_Mode = ADC_Mode_Independent;
-	ADC_CommonInitStructure.ADC_Prescaler = ADC_Prescaler_Div8;
-	ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
-	ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
+	ADC_CommonInitStructure = (ADC_CommonInitTypeDef){
+		.ADC_Mode = ADC_Mode_Independent,
+		.ADC_Prescaler = ADC_Prescaler_Div8,
+		.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles,
+		.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled
+	};
 	ADC_CommonInit(&ADC_CommonInitStructure);
 	/* Configuring ADC line, continuous mode, 12 bit resolution */
-	ADC_StructInit(&ADC_InitStructure);
-	ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
-	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T1_CC1;
-	ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
-	ADC_InitStructure.ADC_NbrOfConversion = 1;
-	ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
-	ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+	ADC_InitStructure = (ADC_InitTypeDef){
+		.ADC_ContinuousConvMode = ENABLE,
+		.ADC_DataAlign = ADC_DataAlign_Right,
+		.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T1_CC1,
+		.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None,
+		.ADC_NbrOfConversion = 1,
+		.ADC_Resolution = ADC_Resolution_12b,
+		.ADC_ScanConvMode = DISABLE
+	};
 	ADC_Init(BATTLVL_ADC, &ADC_InitStructure);
 	/* Configuring channel */
 	ADC_RegularChannelConfig(BATTLVL_ADC, BATTLVL_ADC_CHANNEL, 1, ADC_SampleTime_480Cycles);
@@ -342,9 +386,12 @@ void Initialize() {
 	ADC_AnalogWatchdogSingleChannelConfig(BATTLVL_ADC, BATTLVL_ADC_CHANNEL);
 	ADC_AnalogWatchdogThresholdsConfig(BATTLVL_ADC, 0x0FFF, (uint16_t)(BATTLVL_THRESHOLD_VOLTAGE/BATTLVL_CONV_2_VOLTAGE));
 	/* Interrupt for analog watchdog */
-	NVIC_InitStructure.NVIC_IRQChannel = ADC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_ADC;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = ADC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_ADC,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	ADC_ITConfig(BATTLVL_ADC, ADC_IT_AWD, ENABLE);
 	/* Enabling ADC and starting first conversion */
@@ -357,21 +404,25 @@ void Initialize() {
 	RCC_AHB1PeriphClockCmd(POT_GPIO_CLOCK, ENABLE);
 	POT_ADC_CLOCK_FUN(POT_ADC_CLOCK, ENABLE);
 	/* Configuring GPIO pin */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-	GPIO_InitStructure.GPIO_Pin = POT_GPIO_PIN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_AN,
+		.GPIO_Pin = POT_GPIO_PIN,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_25MHz,
+		.GPIO_OType = GPIO_OType_PP
+	};
 	GPIO_Init(POT_GPIO, &GPIO_InitStructure);
 	/* ADC common init was done before */
 	/* ADC configuring, 12-bit single conversion triggered by TIM8 CC1 */
-	ADC_StructInit(&ADC_InitStructure);
-	ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
-	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T8_CC1;
-	ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising;
-	ADC_InitStructure.ADC_NbrOfConversion = 1;
-	ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
-	ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+	ADC_InitStructure = (ADC_InitTypeDef){
+		.ADC_ContinuousConvMode = DISABLE,
+		.ADC_DataAlign = ADC_DataAlign_Right,
+		.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T8_CC1,
+		.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising,
+		.ADC_NbrOfConversion = 1,
+		.ADC_Resolution = ADC_Resolution_12b,
+		.ADC_ScanConvMode = DISABLE
+	};
 	ADC_Init(POT_ADC, &ADC_InitStructure);
 	/* Configuring channel */
 	ADC_RegularChannelConfig(POT_ADC, POT_ADC_CHANNEL, 1, ADC_SampleTime_480Cycles);
@@ -382,11 +433,13 @@ void Initialize() {
 	/* Clock */
 	HELPER_TIM_CLOCK_FUN(HELPER_TIM_CLOCK, ENABLE);
 	/* Timer configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = HELPER_TIM_PRESCALER;
-	TIM_TimeBaseStructure.TIM_Period = HELPER_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_RepetitionCounter = 0,
+		.TIM_Prescaler = HELPER_TIM_PRESCALER,
+		.TIM_Period = HELPER_TIM_PERIOD,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_CounterMode = TIM_CounterMode_Up
+	};
 	TIM_TimeBaseInit(HELPER_TIM, &TIM_TimeBaseStructure);
 	/* Capture Compare channel 1 */
 	TIM_OCStructInit(&TIM_OCInitStructure);
@@ -410,20 +463,24 @@ void Initialize() {
 	/* Clock for timer */
 	SERVO_TIM_CLOCK_FUN(SERVO_TIM_CLOCK, ENABLE);
 	/* Pins as alternate function out */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_Pin = SERVO_GPIO_PIN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_AF,
+		.GPIO_OType = GPIO_OType_PP,
+		.GPIO_Pin = SERVO_GPIO_PIN,
+		.GPIO_PuPd = GPIO_PuPd_NOPULL,
+		.GPIO_Speed = GPIO_Speed_2MHz
+	};
 	GPIO_Init(SERVO_GPIO, &GPIO_InitStructure);
 	/* Redirect pins */
 	GPIO_PinAFConfig(SERVO_GPIO, SERVO_GPIO_PINSOURCE, SERVO_GPIO_AF);
 	/* Timer configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = SERVO_TIM_PRESCALER;
-	TIM_TimeBaseStructure.TIM_Period = SERVO_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_RepetitionCounter = 0,
+		.TIM_Prescaler = SERVO_TIM_PRESCALER,
+		.TIM_Period = SERVO_TIM_PERIOD,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_CounterMode = TIM_CounterMode_Up
+	};
 	TIM_TimeBaseInit(SERVO_TIM, &TIM_TimeBaseStructure);
 	/* Outputs for timer */
 	TIM_OCStructInit(&TIM_OCInitStructure);
@@ -454,17 +511,22 @@ void Initialize() {
 
 	/* Configure two timers to time OS busy percent */
 	CPUUSAGE_TIM_CLOCK_FUN(CPUUSAGE_TIM_CLOCKS, ENABLE);
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = CPUUSAGE_TIM_PRESCALER;
-	TIM_TimeBaseStructure.TIM_Period = CPUUSAGE_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision - TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_Prescaler = CPUUSAGE_TIM_PRESCALER,
+		.TIM_Period = CPUUSAGE_TIM_PERIOD,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_CounterMode = TIM_CounterMode_Up,
+		.TIM_RepetitionCounter = 0
+	};
 	TIM_TimeBaseInit(CPUUSAGE_BASE_TIM, &TIM_TimeBaseStructure);
 	TIM_TimeBaseInit(CPUUSAGE_CNT_TIM, &TIM_TimeBaseStructure);
 	TIM_ITConfig(CPUUSAGE_BASE_TIM, TIM_IT_Update, ENABLE);
-	NVIC_InitStructure.NVIC_IRQChannel = CPUUSAGE_BASE_TIM_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_OSBUSY;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = CPUUSAGE_BASE_TIM_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_OSBUSY,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	TIM_Cmd(CPUUSAGE_BASE_TIM, ENABLE);
 
@@ -475,10 +537,14 @@ void Initialize() {
 	/* Enable SYSCFG clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
 	/* Pins as inputs with pullup */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-	GPIO_InitStructure.GPIO_Pin = SWITCHES_GPIO_1_PIN | SWITCHES_GPIO_2_PIN | SWITCHES_GPIO_3_PIN | SWITCHES_GPIO_4_PIN | SWITCHES_GPIO_5_PIN | SWITCHES_GPIO_6_PIN;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructure = (GPIO_InitTypeDef){
+		.GPIO_Mode = GPIO_Mode_IN,
+		.GPIO_Pin = SWITCHES_GPIO_1_PIN | SWITCHES_GPIO_2_PIN | SWITCHES_GPIO_3_PIN |
+					SWITCHES_GPIO_4_PIN | SWITCHES_GPIO_5_PIN | SWITCHES_GPIO_6_PIN,
+		.GPIO_PuPd = GPIO_PuPd_UP,
+		.GPIO_Speed = GPIO_Speed_2MHz,
+		.GPIO_OType = GPIO_OType_PP
+	};
 	GPIO_Init(SWITCHES_GPIO, &GPIO_InitStructure);
 	/* Connect EXTI line to GPIO */
 	SYSCFG_EXTILineConfig(SWITCHES_EXTI_PORTSOURCE, SWITCHES_EXTI_1_PINSOURCE);
@@ -515,9 +581,12 @@ void Initialize() {
 	EXTI_Init(&EXTI_InitStructure);
 	// current lantern state is checked and set during lantern initialization
 	/* NVIC config */
-	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_SWITCHES;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = EXTI9_5_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_SWITCHES,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
 	NVIC_Init(&NVIC_InitStructure);
@@ -525,18 +594,23 @@ void Initialize() {
 	/* Clock enable */
 	SWITCHES_TIM_CLOCK_FUN(SWITCHES_TIM_CLOCK, ENABLE);
 	/* Frequency configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = SWITCHES_TIM_PRESCALER;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-	TIM_TimeBaseStructure.TIM_Period = SWITCHES_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_Prescaler = SWITCHES_TIM_PRESCALER,
+		.TIM_CounterMode = TIM_CounterMode_Up,
+		.TIM_Period = SWITCHES_TIM_PERIOD,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_RepetitionCounter = 0
+	};
 	TIM_TimeBaseInit(SWITCHES_TIM, &TIM_TimeBaseStructure);
 	/* Interrupt generation */
 	TIM_ITConfig(SWITCHES_TIM, TIM_IT_Update, ENABLE);
 	/* Interrupt configuration */
-	NVIC_InitStructure.NVIC_IRQChannel = SWITCHES_NVIC_TIM_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_SWITCHES_TIM;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = SWITCHES_NVIC_TIM_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_SWITCHES_TIM,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	/* DO NOT START TIMER HERE */
 
@@ -552,11 +626,13 @@ void Initialize() {
 	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE3, LANTERN_GPIO_AF);
 	GPIO_PinAFConfig(LANTERN_GPIO, LANTERN_GPIO_PINSOURCE4, LANTERN_GPIO_AF);
 	/* Time base configuration */
-	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-	TIM_TimeBaseStructure.TIM_Prescaler = LANTERN_TIM_PRESCALER;
-	TIM_TimeBaseStructure.TIM_Period = LANTERN_TIM_PERIOD;
-	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseStructure = (TIM_TimeBaseInitTypeDef){
+		.TIM_RepetitionCounter = 0,
+		.TIM_Prescaler = LANTERN_TIM_PRESCALER,
+		.TIM_Period = LANTERN_TIM_PERIOD,
+		.TIM_ClockDivision = TIM_CKD_DIV1,
+		.TIM_CounterMode = TIM_CounterMode_Up
+	};
 	TIM_TimeBaseInit(LANTERN_TIM, &TIM_TimeBaseStructure);
 	/* Output Compare Toggle Mode configuration - all powered down; this simplifies turning it off initially and is shorter */
 	TIM_OCStructInit(&TIM_OCInitStructure);
@@ -576,9 +652,12 @@ void Initialize() {
 	/* Enable outputs */
 	TIM_CtrlPWMOutputs(LANTERN_TIM, ENABLE);
 	/* Configuring interrupt on TIM Update */
-	NVIC_InitStructure.NVIC_IRQChannel = LANTERN_NVIC_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_LANTERN;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = LANTERN_NVIC_IRQn,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_LANTERN,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
 	TIM_ITConfig(LANTERN_TIM, TIM_IT_Update, ENABLE);
 	/* Do not enable timer - will be done in enableLantern call */
