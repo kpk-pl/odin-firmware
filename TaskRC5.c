@@ -127,7 +127,7 @@ void issueDrive(uint8_t direction, float speed) {
 		sendSpeeds(speed, speed * 0.5f, 0);
 		break;
 	case 4:
-		sendSpeeds(-speed * 0.5f, speed * 0.75f, 0);
+		sendSpeeds(-speed * 0.75f, speed * 0.75f, 0);
 		break;
 	case 5:
 		sendSpeeds(.0f, .0f, 0);
