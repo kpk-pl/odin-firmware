@@ -13,21 +13,18 @@
 /**
  * \brief Drives over a straight line to target point.
  * @param command Drive command pointer
- * @param wakeTime Wake time from calling function, allowing to synchronize time between calls
  */
-static void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime);
+static void driveLine(const DriveCommand_Struct* command);
 /**
  * \brief Drives to target point. First turn in the direction of target point, then drive to it.
  * @param command Drive command pointer
- * @param wakeTime Wake time from calling function, allowing to synchronize time between calls
  */
-static void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime);
+static void drivePoint(const DriveCommand_Struct* command);
 /**
  * \brief Turns or drives over circular trajectory. Note that it cannot turn by more than 180 degrees ralative.
  * @param command Drive command pointer
- * @param wakeTime Wake time from calling function, allowing to synchronize time between calls
  */
-static void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime);
+static void driveAngleArc(const DriveCommand_Struct* command);
 
 /**
  * \brief Checks if there is more driving commands to perform
@@ -40,7 +37,6 @@ xTaskHandle driveTask;		/*!< This task handler */
 static bool isDriving = false;
 
 void TaskDrive(void * p) {
-	portTickType wakeTime = xTaskGetTickCount();
 	DriveCommand_Struct * command;
 	bool taken = false;
 
@@ -73,11 +69,11 @@ void TaskDrive(void * p) {
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
 
 			if (command->Type == DriveCommand_Type_Line)
-				driveLine(command, &wakeTime);
+				driveLine(command);
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc)
-				driveAngleArc(command, &wakeTime);
+				driveAngleArc(command);
 			else if (command->Type == DriveCommand_Type_Point)
-				drivePoint(command, &wakeTime);
+				drivePoint(command);
 		}
 		else { /* command->Speed < 0.0f */
 			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");
@@ -88,9 +84,10 @@ void TaskDrive(void * p) {
 	}
 }
 
-void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime) {
+void driveLine(const DriveCommand_Struct* command) {
 	if (command->Type != DriveCommand_Type_Line) return;
 
+	portTickType wakeTime = xTaskGetTickCount();
 	TelemetryData_Struct telemetryData, begTelData;
 
 	if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
@@ -112,7 +109,7 @@ void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime) {
 			getTelemetryScaled(&telemetryData);
 			if (hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y) >= dist - breakingDistance)
 				break;
-			vTaskDelayUntil(wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+			vTaskDelayUntil(&wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 		}
 	}
 
@@ -132,11 +129,13 @@ void driveLine(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		sendSpeeds(speed, speed, portMAX_DELAY);
 	}
 	/* Wait for a bit */
-	vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+	vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 }
 
-void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
+void drivePoint(const DriveCommand_Struct* command) {
 	if (command->Type != DriveCommand_Type_Point) return;
+
+	portTickType wakeTime = xTaskGetTickCount();
 
 	TelemetryData_Struct telemetryData, begTelData;
 
@@ -167,7 +166,7 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 				break;
 
 			/* Wait for a while */
-			vTaskDelayUntil(wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+			vTaskDelayUntil(&wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 		}
 	}
 
@@ -209,12 +208,14 @@ void drivePoint(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		sendSpeeds(v - w * ROBOT_DIAM / 2.0f, v + w * ROBOT_DIAM / 2.0f, portMAX_DELAY);
 
 		/* Wait a moment */
-		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
 }
 
-void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
+void driveAngleArc(const DriveCommand_Struct* command) {
 	if (command->Type != DriveCommand_Type_Angle && command->Type != DriveCommand_Type_Arc) return;
+
+	portTickType wakeTime = xTaskGetTickCount();
 
 	TelemetryData_Struct telemetryData, begTelData;
 
@@ -258,7 +259,7 @@ void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		while(1) {
 			getTelemetryScaled(&telemetryData);
 			if (fabsf(normalizeOrientation(targetO - telemetryData.O)) < breakingAngle) break;
-			vTaskDelayUntil(wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+			vTaskDelayUntil(&wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 		}
 	}
 
@@ -280,7 +281,7 @@ void driveAngleArc(const DriveCommand_Struct* command, portTickType* wakeTime) {
 		sendSpeeds(maxLeft * speedCoef, maxRight * speedCoef, portMAX_DELAY);
 
 		/* Wait a little */
-		vTaskDelayUntil(wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
 }
 
