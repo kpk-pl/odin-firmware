@@ -18,11 +18,6 @@ typedef enum {
 } Smoothness_Type;
 
 /**
- * \brief Drives over a straight line to target point.
- * @param command Drive command pointer
- */
-static void driveLine(const DriveCommand_Struct* command);
-/**
  * \brief Drives to target point. First turn in the direction of target point, then drive to it.
  * @param command Drive command pointer
  */
@@ -79,7 +74,14 @@ void TaskDrive(void * p) {
 
 			if (command->Type == DriveCommand_Type_Line) {
 				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
-				driveLine(command);
+
+				/* Change to driving to point */
+				command->Type = DriveCommand_Type_Point;
+				TelemetryData_Struct telemetry;
+				getTelemetryScaled(&telemetry);
+				command->Param2 = sinf(telemetry.O) * command->Param1;
+				command->Param1 = cosf(telemetry.O) * command->Param1;
+				drivePoint(command);
 			}
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
 				if (globalLogEvents) {
@@ -104,52 +106,6 @@ void TaskDrive(void * p) {
 		/* Free space where the command was held */
 		vPortFree(command);
 	}
-}
-
-void driveLine(const DriveCommand_Struct* command) {
-	if (command->Type != DriveCommand_Type_Line) return;
-
-	portTickType wakeTime = xTaskGetTickCount();
-	TelemetryData_Struct telemetryData, begTelData;
-
-	const float breakingDistance = 100.0f;
-	const float dist = fabsf(command->Param1);
-	const float maxSpeed = copysignf(1.0f, (command->Param1)) * command->Speed;
-
-	/* Get starting point telemetry data */
-	getTelemetryScaled(&begTelData);
-
-	/* Start driving at max speed if far away from target */
-	if (dist > breakingDistance) {
-		/* Set motors speed allowing negative speed */
-		sendSpeeds(maxSpeed, maxSpeed, portMAX_DELAY);
-
-		/* Wait in periods until position is too close to target position */
-		while(1) {
-			getTelemetryScaled(&telemetryData);
-			if (hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y) >= dist - breakingDistance)
-				break;
-			vTaskDelayUntil(&wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
-		}
-	}
-
-	/* Regulate speed to gently approach target with desired accuracy */
-	while(1) {
-		/* Read current position */
-		getTelemetryScaled(&telemetryData);
-
-		/* Calculate remaining distance */
-		float rem = dist - hypotf(telemetryData.X - begTelData.X, telemetryData.Y - begTelData.Y);
-
-		/* Finish if distance is very very small */
-		if (rem < 0.5f) break;
-
-		/* Set motors speed constantly as robot approaches target distance */
-		float speed = maxSpeed * (0.8f * rem / breakingDistance + 0.2f);
-		sendSpeeds(speed, speed, portMAX_DELAY);
-	}
-	/* Wait for a bit */
-	vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 }
 
 void drivePoint(const DriveCommand_Struct* command) {
