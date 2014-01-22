@@ -77,12 +77,25 @@ void TaskDrive(void * p) {
 			/* Recalculate speed from m/s to rad/s */
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
 
-			if (command->Type == DriveCommand_Type_Line)
+			if (command->Type == DriveCommand_Type_Line) {
+				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
 				driveLine(command);
-			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc)
+			}
+			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
+				if (globalLogEvents) {
+					if (command->Type == DriveCommand_Type_Angle) {
+						safePrint(30, "Turning by %.2f %s\n", command->Param2, (command->Param1 < 0.5f ? "relative" : "absolute"));
+					}
+					else {
+						safePrint(58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
+					}
+				}
 				driveAngleArc(command);
-			else if (command->Type == DriveCommand_Type_Point)
+			}
+			else if (command->Type == DriveCommand_Type_Point) {
+				if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
 				drivePoint(command);
+			}
 		}
 		else { /* command->Speed < 0.0f */
 			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");
@@ -98,8 +111,6 @@ void driveLine(const DriveCommand_Struct* command) {
 
 	portTickType wakeTime = xTaskGetTickCount();
 	TelemetryData_Struct telemetryData, begTelData;
-
-	if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
 
 	const float breakingDistance = 100.0f;
 	const float dist = fabsf(command->Param1);
@@ -146,8 +157,6 @@ void drivePoint(const DriveCommand_Struct* command) {
 
 	portTickType wakeTime = xTaskGetTickCount();
 	TelemetryData_Struct telemetryData;
-
-	if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
 
 	/* First of all, turn to target point with desired accuracy */
 	/* Get starting point telemetry data */
@@ -235,15 +244,6 @@ void driveAngleArc(const DriveCommand_Struct* command) {
 	portTickType wakeTime = xTaskGetTickCount();
 
 	TelemetryData_Struct telemetryData, begTelData;
-
-	if (globalLogEvents) {
-		if (command->Type == DriveCommand_Type_Angle) {
-			safePrint(30, "Turning by %.2f %s\n", command->Param2, (command->Param1 < 0.5f ? "relative" : "absolute"));
-		}
-		else {
-			safePrint(58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
-		}
-	}
 
 	const float breakingAngle = 45.0f * DEGREES_TO_RAD;
 
