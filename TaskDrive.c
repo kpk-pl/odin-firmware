@@ -201,64 +201,35 @@ void turnRads(float rads, MotorSpeed_Struct speed, float epsilon, Smoothness_Typ
 void driveAngleArc(const DriveCommand_Struct* command) {
 	if (command->Type != DriveCommand_Type_Angle && command->Type != DriveCommand_Type_Arc) return;
 
-	portTickType wakeTime = xTaskGetTickCount();
 	TelemetryData_Struct telemetryData;
-
-	const float breakingAngle = 45.0f * DEGREES_TO_RAD;
 
 	/* Get starting point telemetry data */
 	getTelemetryScaled(&telemetryData);
 
-	/* Calculate target orientation */
-	float targetO = command->Param2 * DEGREES_TO_RAD;
-	if (command->Param1 < 0.5f || command->Type == DriveCommand_Type_Arc)
-		targetO += telemetryData.O;
-	targetO = normalizeOrientation(targetO);
+	/* Calculate angle to turn */
+	float angle = command->Param2 * DEGREES_TO_RAD;
+	if (command->Param1 > 0.5f && command->Type == DriveCommand_Type_Angle)
+		angle = normalizeOrientation(angle - telemetryData.O); // shortest path to target angle
 
-	/* Calculate direction; dir == 1 - turning left */
-	int8_t dir = ((targetO > telemetryData.O && fabsf(targetO - telemetryData.O) < M_PI) || (targetO < telemetryData.O && fabsf(telemetryData.O - targetO) > M_PI) ? 1 : -1);
+	float direction = copysignf(1.0f, angle);
 
-	/* Compute maximal speeds for both wheels */
-	const float maxLeft = command->Speed * (command->Type == DriveCommand_Type_Angle ?
-			(float)dir * -1.0f :
-			1.0f - (float)dir*ROBOT_DIAM/(2.0f*command->Param1*globalPositionScale) );
-	const float maxRight = command->Speed * (command->Type == DriveCommand_Type_Angle ?
-			(float)dir :
-			1.0f + (float)dir*ROBOT_DIAM/(2.0f*command->Param1*globalPositionScale) );
-
-	/* Turn with maximum speed as long as turning angle is big */
-	if (fabsf(normalizeOrientation(targetO - telemetryData.O)) > breakingAngle) {
-		/* Set maximum speed */
-		sendSpeeds(maxLeft, maxRight, portMAX_DELAY);
-
-		/* Wait for reaching close proximity of target angle */
-		while(1) {
-			getTelemetryScaled(&telemetryData);
-			if (fabsf(normalizeOrientation(targetO - telemetryData.O)) < breakingAngle) break;
-			vTaskDelayUntil(&wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
-		}
+	MotorSpeed_Struct speeds;
+	if (command->Type == DriveCommand_Type_Angle) {
+		speeds.RightSpeed = direction*command->Speed;
+		speeds.LeftSpeed = -speeds.RightSpeed;
+	}
+	else {
+		/* Calculate speeds as if there was no maximum speed */
+		float adjustment = direction*ROBOT_DIAM/(2.0f*command->Param1*globalPositionScale);
+		speeds.LeftSpeed = command->Speed * (1.0f - adjustment);
+		speeds.RightSpeed = command->Speed * (1.0f + adjustment);
+		/* Correct both speeds so that maximum speed is not exceeded */
+		float maxs = fmaxf(speeds.LeftSpeed, speeds.RightSpeed);
+		speeds.LeftSpeed /= maxs;
+		speeds.RightSpeed /= maxs;
 	}
 
-	/* Regulate speed to allow gentle target angle approaching with desired accuracy */
-	while(1) {
-		/* Read current orientation */
-		getTelemetryScaled(&telemetryData);
-		/* Compute angle distance to target */
-		float dist = fabsf(normalizeOrientation(telemetryData.O - targetO));
-
-		/* End if distance is very small or direction changes */
-		if (dist < 0.25f * DEGREES_TO_RAD ||
-				((targetO > telemetryData.O && targetO - telemetryData.O < M_PI) ||
-				 (targetO < telemetryData.O && telemetryData.O - targetO > M_PI) ? 1 : -1) != dir)
-			break;
-
-		/* Calculate speeds */
-		float speedCoef = 0.9f * dist / breakingAngle + 0.1f;
-		sendSpeeds(maxLeft * speedCoef, maxRight * speedCoef, portMAX_DELAY);
-
-		/* Wait a little */
-		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
-	}
+	turnRads(angle, speeds, 0.1f * DEGREES_TO_RAD, Smoothness_None);
 }
 
 bool isCurrentlyDriving() {
