@@ -10,38 +10,33 @@
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
 
-typedef enum {
-	Smoothness_None = 0,
-	Smoothness_Beginning = 1,
-	Smoothness_End = 2,
-	Smoothness_Both = 3
-} Smoothness_Type;
-
 /**
  * \brief Drives to target point. First turn in the direction of target point, then drive to it.
  * @param command Drive command pointer
+ * @param smooth if true then robot will slow down at the end
  */
-static void drivePoint(const DriveCommand_Struct* command);
+static void drivePoint(const DriveCommand_Struct* command, const bool smooth);
 /**
  * \brief Turns or drives over circular trajectory. Note that it cannot turn by more than 180 degrees ralative.
  * @param command Drive command pointer
+ * @param smooth if true then robot will slow down at the end
  */
-static void driveAngleArc(const DriveCommand_Struct* command);
-
-/**
- * \brief Checks if there is more driving commands to perform
- * @return true if more commands awaits execution
- */
-static bool isThereMoreDrivingCommands(void);
+static void driveAngleArc(const DriveCommand_Struct* command, const bool smooth);
 
 /**
  * \brief Sets wheels speeds and waits for the robot to turn specified angle
  * @param rads Angle that the robot should turn before stopping
  * @param speed Wheels' speeds
  * @param epsilon Error angle which is acceptable. Robot will stop if distance to target is less than epsilon
- * @param smoothness How smooth trajectory should be
+ * @param smooth if true then robot will slow down at the end
  */
-static void turnRads(float rads, MotorSpeed_Struct speed, float epsilon, Smoothness_Type smoothness);
+static void turnRads(const float rads, const MotorSpeed_Struct speed, const float epsilon, const bool smooth);
+
+/**
+ * \brief Checks if there is more driving commands to perform
+ * @return true if more commands awaits execution
+ */
+static bool isThereMoreDrivingCommands(void);
 
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 xTaskHandle driveTask;		/*!< This task handler */
@@ -53,7 +48,7 @@ void TaskDrive(void * p) {
 
 	while(1) {
 		/* Take one command from queue or wait for the command to arrive */
-		if (!isThereMoreDrivingCommands()) {		// free resources
+		if (!isThereMoreDrivingCommands()) {				// free resources
 			sendSpeeds(0.0f, 0.0f, portMAX_DELAY);			// stop motors as there is no command available
 			if (taken) {
 				xSemaphoreGive(motorControllerMutex);
@@ -79,6 +74,9 @@ void TaskDrive(void * p) {
 			/* Recalculate speed from m/s to rad/s */
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
 
+			/* If no more commands, then slow down at the end */
+			bool smooth = !isThereMoreDrivingCommands();
+
 			if (command->Type == DriveCommand_Type_Line) {
 				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
 
@@ -88,7 +86,7 @@ void TaskDrive(void * p) {
 				getTelemetryScaled(&telemetry);
 				command->Param2 = telemetry.Y + sinf(telemetry.O) * command->Param1;
 				command->Param1 = telemetry.X + cosf(telemetry.O) * command->Param1;
-				drivePoint(command);
+				drivePoint(command, smooth);
 			}
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
 				if (globalLogEvents) {
@@ -99,11 +97,11 @@ void TaskDrive(void * p) {
 						safePrint(58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
 					}
 				}
-				driveAngleArc(command);
+				driveAngleArc(command, smooth);
 			}
 			else if (command->Type == DriveCommand_Type_Point) {
 				if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
-				drivePoint(command);
+				drivePoint(command, smooth);
 			}
 		}
 		else { /* command->Speed < 0.0f */
@@ -115,11 +113,12 @@ void TaskDrive(void * p) {
 	}
 }
 
-void drivePoint(const DriveCommand_Struct* command) {
+void drivePoint(const DriveCommand_Struct* command, const bool smooth) {
 	if (command->Type != DriveCommand_Type_Point) return;
 
 	portTickType wakeTime = xTaskGetTickCount();
 	TelemetryData_Struct telemetryData;
+	float smoothDistance = 50.0f / globalPositionScale;
 
 	/* First of all, turn to target point with desired accuracy */
 	/* Get starting point telemetry data */
@@ -135,7 +134,7 @@ void drivePoint(const DriveCommand_Struct* command) {
 					{.LeftSpeed = -rightSpeed,
 					 .RightSpeed = rightSpeed},
 				1.0f * DEGREES_TO_RAD,
-				Smoothness_Beginning);
+				false);
 	}
 
 	/* Start regulator - driving to point requires constant speeds updates */
@@ -162,9 +161,9 @@ void drivePoint(const DriveCommand_Struct* command) {
 		float v = command->Speed;						/*<< Linear speed - always maximum */
 		float w = k * command->Speed * ey;				/*<< Rotational speed - depending on ey; the bigger turn to make the bigger the speed is */
 
-		/* Begin to slow down if closer than 5cm from target */
-		if (d < 50.0f) {
-			v = v * (0.7f * d / 50.0f + 0.3f);
+		/* Slow down based on smoothness */
+		if (smooth && d < 50.0f) { // smooth ending - more important than beginning
+			v = v * (0.7f * d / smoothDistance + 0.3f);
 		}
 
 		/* Limit maximal rotational speed to half of maximum speed */
@@ -180,32 +179,7 @@ void drivePoint(const DriveCommand_Struct* command) {
 	}
 }
 
-void turnRads(float rads, MotorSpeed_Struct speed, float epsilon, Smoothness_Type smoothness) {
-	portTickType wakeTime = xTaskGetTickCount();
-	TelemetryData_Struct telemetryData;
-
-	/* Read initial telemetry */
-	getTelemetryRaw(&telemetryData);
-
-	/* Compute target orientation */
-	float targetO = telemetryData.O + rads;
-	float error;
-
-	while(1) {
-		getTelemetryRaw(&telemetryData);
-		error = targetO - telemetryData.O;
-		if (fabsf(error) < epsilon || error*rads < 0.0f)
-			break;
-
-		// smoothness here
-
-		sendSpeeds(speed.LeftSpeed, speed.RightSpeed, portMAX_DELAY);
-		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
-	}
-	sendSpeeds(0,0,portMAX_DELAY);
-}
-
-void driveAngleArc(const DriveCommand_Struct* command) {
+void driveAngleArc(const DriveCommand_Struct* command, const bool smooth) {
 	if (command->Type != DriveCommand_Type_Angle && command->Type != DriveCommand_Type_Arc) return;
 
 	TelemetryData_Struct telemetryData;
@@ -236,7 +210,39 @@ void driveAngleArc(const DriveCommand_Struct* command) {
 		speeds.RightSpeed *= adjustment;
 	}
 
-	turnRads(angle, speeds, 0.1f * DEGREES_TO_RAD, Smoothness_None);
+	turnRads(angle, speeds, 0.1f * DEGREES_TO_RAD, smooth);
+}
+
+void turnRads(const float rads, const MotorSpeed_Struct speed, const float epsilon, const bool smooth) {
+	portTickType wakeTime = xTaskGetTickCount();
+	TelemetryData_Struct telemetryData;
+	float smoothAngle = 10.0f * DEGREES_TO_RAD;
+
+	/* Read initial telemetry */
+	getTelemetryRaw(&telemetryData);
+
+	/* Compute target orientation */
+	float targetO = telemetryData.O + rads;
+	float error, abserror;
+
+	while(1) {
+		getTelemetryRaw(&telemetryData);
+		error = targetO - telemetryData.O;
+		abserror = fabsf(error);
+		if (abserror < epsilon || error*rads < 0.0f)
+			break;
+
+		MotorSpeed_Struct adjspeed = speed;
+
+		if (smooth && abserror < smoothAngle) {
+			float adjustment = (0.7f * abserror / smoothAngle + 0.3f);
+			adjspeed.LeftSpeed = speed.LeftSpeed * adjustment;
+			adjspeed.RightSpeed = speed.RightSpeed * adjustment;
+		}
+
+		sendSpeeds(adjspeed.LeftSpeed, adjspeed.RightSpeed, portMAX_DELAY);
+		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+	}
 }
 
 bool isCurrentlyDriving() {
