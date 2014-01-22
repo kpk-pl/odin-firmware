@@ -17,7 +17,7 @@
  */
 static void drivePoint(const DriveCommand_Struct* command, const bool smooth);
 /**
- * \brief Turns or drives over circular trajectory. Note that it cannot turn by more than 180 degrees ralative.
+ * \brief Turns or drives over circular trajectory.
  * @param command Drive command pointer
  * @param smooth if true then robot will slow down at the end
  */
