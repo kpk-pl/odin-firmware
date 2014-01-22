@@ -34,7 +34,7 @@ static void driveAngleArc(const DriveCommand_Struct* command);
  */
 static bool isThereMoreDrivingCommands(void);
 
-static void turnRads(float rads, float speed, float epsilon, Smoothness_Type smoothness);
+static void turnRads(float rads, MotorSpeed_Struct speed, float epsilon, Smoothness_Type smoothness);
 
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 xTaskHandle driveTask;		/*!< This task handler */
@@ -79,8 +79,8 @@ void TaskDrive(void * p) {
 				command->Type = DriveCommand_Type_Point;
 				TelemetryData_Struct telemetry;
 				getTelemetryScaled(&telemetry);
-				command->Param2 = sinf(telemetry.O) * command->Param1;
-				command->Param1 = cosf(telemetry.O) * command->Param1;
+				command->Param2 = telemetry.Y + sinf(telemetry.O) * command->Param1;
+				command->Param1 = telemetry.X + cosf(telemetry.O) * command->Param1;
 				drivePoint(command);
 			}
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
@@ -122,7 +122,13 @@ void drivePoint(const DriveCommand_Struct* command) {
 	float angO = normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O);
 
 	if (fabsf(angO) > 10.0 * DEGREES_TO_RAD) {
-		turnRads(angO, command->Speed, 1.0f * DEGREES_TO_RAD, Smoothness_Beginning);
+		float rightSpeed = copysignf(command->Speed, angO);
+		turnRads(angO,
+				(MotorSpeed_Struct)
+					{.LeftSpeed = -rightSpeed,
+					 .RightSpeed = rightSpeed},
+				1.0f * DEGREES_TO_RAD,
+				Smoothness_Beginning);
 	}
 
 	/* Start regulator - driving to point requires constant speeds updates */
@@ -167,7 +173,7 @@ void drivePoint(const DriveCommand_Struct* command) {
 	}
 }
 
-void turnRads(float rads, float speed, float epsilon, Smoothness_Type smoothness) {
+void turnRads(float rads, MotorSpeed_Struct speed, float epsilon, Smoothness_Type smoothness) {
 	portTickType wakeTime = xTaskGetTickCount();
 	TelemetryData_Struct telemetryData;
 
@@ -184,11 +190,9 @@ void turnRads(float rads, float speed, float epsilon, Smoothness_Type smoothness
 		if (fabsf(error) < epsilon || error*rads < 0.0f)
 			break;
 
-		float sp = (rads < 0.0f) ? -speed : speed;
-
 		// smoothness here
 
-		sendSpeeds(-sp, sp, portMAX_DELAY);
+		sendSpeeds(speed.LeftSpeed, speed.RightSpeed, portMAX_DELAY);
 		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
 	sendSpeeds(0,0,portMAX_DELAY);
