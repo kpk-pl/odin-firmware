@@ -141,7 +141,7 @@ static portBASE_TYPE execCommand(int8_t* outBuffer, size_t outBufferLen, const i
 
 static const CLI_Command_Definition_t systemComDef = {
     (const int8_t*)"system",
-    (const int8_t*)"system <reset|battery|cpu|stack|memory|aua|save|restore>\n",
+    (const int8_t*)"system <reset|battery|cpu|stack|memory|aua|save|restore|sdcard>\n",
     systemCommand,
     1
 };
@@ -288,6 +288,9 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 	else if (cmatch("restore", param, 4)) { // rest
 		bool ok = readInit(InitTarget_All);
 		snprintf((char*)outBuffer, outBufferLen, "System state restored %s\n", ok ? "successfully" : " but errors present");
+	}
+	else if (cmatch("sdcard", param, 2)) {
+		snprintf((char*)outBuffer, outBufferLen, "SD card state: %s\n", globalSDMounted ? "mounted" : "error");
 	}
 	else {
 		strncpy((char*)outBuffer, incorrectMessage, outBufferLen);
