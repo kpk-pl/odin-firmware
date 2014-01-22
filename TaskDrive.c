@@ -10,6 +10,13 @@
 
 #define TASKDRIVE_BASEDELAY_MS 10		/*!< Base time period for motors regulators */
 
+typedef enum {
+	Smoothness_None = 0,
+	Smoothness_Beginning = 1,
+	Smoothness_End = 2,
+	Smoothness_Both = 3
+} Smoothness_Type;
+
 /**
  * \brief Drives over a straight line to target point.
  * @param command Drive command pointer
@@ -31,6 +38,8 @@ static void driveAngleArc(const DriveCommand_Struct* command);
  * @return true if more commands awaits execution
  */
 static bool isThereMoreDrivingCommands(void);
+
+static void turnRads(float rads, float speed, float epsilon, Smoothness_Type smoothness);
 
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 xTaskHandle driveTask;		/*!< This task handler */
@@ -136,38 +145,19 @@ void drivePoint(const DriveCommand_Struct* command) {
 	if (command->Type != DriveCommand_Type_Point) return;
 
 	portTickType wakeTime = xTaskGetTickCount();
-
-	TelemetryData_Struct telemetryData, begTelData;
+	TelemetryData_Struct telemetryData;
 
 	if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
 
 	/* First of all, turn to target point with desired accuracy */
 	/* Get starting point telemetry data */
-	getTelemetryScaled(&begTelData);
+	getTelemetryRawScaled(&telemetryData);
 
-	/* Calculate target orientation */
-	float targetO = normalizeOrientation(atan2f(command->Param2 - begTelData.Y, command->Param1 - begTelData.X));
-	/* Calculate direction; dir == 1 - turning left */
-	int8_t dir = ((targetO > begTelData.O && fabsf(targetO - begTelData.O) < M_PI) || (targetO < begTelData.O && fabsf(begTelData.O - targetO) > M_PI) ? 1 : -1);
+	/* Calculate angle to target */
+	float angO = normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O);
 
-	/* Start turning if targetO is bigger than threshold */
-	if (fabsf(targetO) > 20.0f * DEGREES_TO_RAD) {
-		/* Compute speeds and send them to queue */
-		float leftspeed = (float)dir * (-1.0f) * command->Speed;
-		sendSpeeds(leftspeed, -leftspeed, portMAX_DELAY);
-
-		/* Wait for angle distance to become small enough */
-		while(1) {
-			/* Read current telemetry data */
-			getTelemetryScaled(&telemetryData);
-
-			/* End turning if close enough to target angle */
-			if (fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) < 20.0f * DEGREES_TO_RAD)
-				break;
-
-			/* Wait for a while */
-			vTaskDelayUntil(&wakeTime, 3*TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
-		}
+	if (fabsf(angO) > 10.0 * DEGREES_TO_RAD) {
+		turnRads(angO, command->Speed, 1.0f * DEGREES_TO_RAD, Smoothness_Beginning);
 	}
 
 	/* Start regulator - driving to point requires constant speeds updates */
@@ -210,6 +200,33 @@ void drivePoint(const DriveCommand_Struct* command) {
 		/* Wait a moment */
 		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
+}
+
+void turnRads(float rads, float speed, float epsilon, Smoothness_Type smoothness) {
+	portTickType wakeTime = xTaskGetTickCount();
+	TelemetryData_Struct telemetryData;
+
+	/* Read initial telemetry */
+	getTelemetryRaw(&telemetryData);
+
+	/* Compute target orientation */
+	float targetO = telemetryData.O + rads;
+	float error;
+
+	while(1) {
+		getTelemetryRaw(&telemetryData);
+		error = targetO - telemetryData.O;
+		if (fabsf(error) < epsilon || error*rads < 0.0f)
+			break;
+
+		float sp = (rads < 0.0f) ? -speed : speed;
+
+		// smoothness here
+
+		sendSpeeds(-sp, sp, portMAX_DELAY);
+		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
+	}
+	sendSpeeds(0,0,portMAX_DELAY);
 }
 
 void driveAngleArc(const DriveCommand_Struct* command) {
