@@ -221,12 +221,12 @@ void driveAngleArc(const DriveCommand_Struct* command) {
 	else {
 		/* Calculate speeds as if there was no maximum speed */
 		float adjustment = direction*ROBOT_DIAM/(2.0f*command->Param1*globalPositionScale);
-		speeds.LeftSpeed = command->Speed * (1.0f - adjustment);
-		speeds.RightSpeed = command->Speed * (1.0f + adjustment);
+		speeds.LeftSpeed = (1.0f - adjustment);
+		speeds.RightSpeed = (1.0f + adjustment);
 		/* Correct both speeds so that maximum speed is not exceeded */
-		float maxs = fmaxf(speeds.LeftSpeed, speeds.RightSpeed);
-		speeds.LeftSpeed /= maxs;
-		speeds.RightSpeed /= maxs;
+		adjustment = command->Speed / fmaxf(speeds.LeftSpeed, speeds.RightSpeed);
+		speeds.LeftSpeed *= adjustment ;
+		speeds.RightSpeed *= adjustment;
 	}
 
 	turnRads(angle, speeds, 0.1f * DEGREES_TO_RAD, Smoothness_None);
