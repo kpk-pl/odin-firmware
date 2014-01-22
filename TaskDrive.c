@@ -34,6 +34,13 @@ static void driveAngleArc(const DriveCommand_Struct* command);
  */
 static bool isThereMoreDrivingCommands(void);
 
+/**
+ * \brief Sets wheels speeds and waits for the robot to turn specified angle
+ * @param rads Angle that the robot should turn before stopping
+ * @param speed Wheels' speeds
+ * @param epsilon Error angle which is acceptable. Robot will stop if distance to target is less than epsilon
+ * @param smoothness How smooth trajectory should be
+ */
 static void turnRads(float rads, MotorSpeed_Struct speed, float epsilon, Smoothness_Type smoothness);
 
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
