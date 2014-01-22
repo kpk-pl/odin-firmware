@@ -478,7 +478,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 	else {
 		TelemetryData_Struct tl;
 		getTelemetry(&tl);
-		snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O);
+		snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 		ok = true;
 	}
 
