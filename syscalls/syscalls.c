@@ -67,12 +67,10 @@ int _write(int file, char *ptr, int len)
 		for (; counter > 0; counter--) {
 			if (*ptr == 0) break;
 			if (getUSBStatus() == ON) {
-				USART_SendData(COM_USART, *ptr);
-				while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
+				sendUSB(*ptr);
 			}
 			if (getWiFiStatus() == ON) {
-				USART_SendData(WIFI_USART, *ptr);
-				while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
+				sendWiFi(*ptr);
 			}
 			ptr++;
 		}

@@ -143,4 +143,7 @@ WiFiMode getWiFiMode();
 
 void setWiFiFactoryDefault(FunctionalState state);
 
+void sendWiFi(uint8_t byte);
+void sendUSB(uint8_t byte);
+
 #endif
