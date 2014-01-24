@@ -383,3 +383,17 @@ void sendInterfaceBlocking(uint8_t byte, Interface_Type interface) {
 	if (throughUSB)
 		while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
 }
+
+int printInterfaceBlocking(char *str, int length, Interface_Type interface) {
+	if (getWiFi2USBBridgeStatus() != ON) {
+		int counter = length;
+		for (; counter > 0; counter--) {
+			if (*str == 0) break;
+			sendInterfaceBlocking(*str, interface);
+			str++;
+		}
+		return length;
+	}
+	else
+		return 0;
+}

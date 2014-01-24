@@ -62,17 +62,7 @@ int _read(int file, char *ptr, int len)
 
 int _write(int file, char *ptr, int len)
 {
-	if (getWiFi2USBBridgeStatus() != ON) {
-		int counter = len;
-		for (; counter > 0; counter--) {
-			if (*ptr == 0) break;
-			sendInterfaceBlocking(*ptr, Interface_All_Active);
-			ptr++;
-		}
-		return len;
-	}
-	else
-		return 0;
+	return printInterfaceBlocking(ptr, len, Interface_All_Active);
 }
 
 void abort(void)

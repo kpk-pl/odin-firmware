@@ -1302,11 +1302,10 @@ portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 	/* Acquire resources for printing */
 	xSemaphoreTake(printfMutex, portMAX_DELAY);
 
-	extern int _write(int file, char *ptr, int len);
 	/* Read the whole file and print its content */
 	do {
 		f_read(file, buffer, 500, &bytesRead);
-		_write(0, buffer, bytesRead);
+		printInterfaceBlocking(buffer, bytesRead, Interface_All_Active);
 	} while (bytesRead == 500);
 
 	/* Release resources, free space, close file */
