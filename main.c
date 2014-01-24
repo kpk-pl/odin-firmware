@@ -222,7 +222,7 @@ void TaskBoot(void *p) {
 	printf("Booting completed\n");
 
 	/* Issue immediate setting WiFi speed to higher */
-	TaskWiFiMngrConstructor(WiFiMngr_Command_SetHighSpeed);
+	//TaskWiFiMngrConstructor(WiFiMngr_Command_SetHighSpeed);
 
 	// delete TaskBootIdle and itself
 	vTaskDelete(taskBootIdleHandle);
