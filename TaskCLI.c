@@ -835,10 +835,7 @@ portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 		}
 		else if (cmatch("reconnect", param[0], 3)) { // rec
 			if (nOfParams == 1) {
-				bool cok = TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect);
-				if (cok)
-					strncpy((char*)outBuffer, "Reconnect issued\n", outBufferLen);
-				else
+				if (!TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect))
 					strncpy((char*)outBuffer, "Reconnect failed\n", outBufferLen);
 				ok = true;
 			}
