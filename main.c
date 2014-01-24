@@ -55,7 +55,6 @@ int main(void)
 	NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
 	SystemInit();
 	SystemCoreClockUpdate();
-	//RCC_HSEConfig(RCC_HSE_ON);
 
 	Initialize();
 
@@ -222,7 +221,8 @@ void TaskBoot(void *p) {
 
 	printf("Booting completed\n");
 
-	//TaskWiFiMngrConstructor(WiFiMngr_Command_AdjustSpeeds);
+	/* Issue immediate setting WiFi speed to higher */
+	TaskWiFiMngrConstructor(WiFiMngr_Command_SetHighSpeed);
 
 	// delete TaskBootIdle and itself
 	vTaskDelete(taskBootIdleHandle);

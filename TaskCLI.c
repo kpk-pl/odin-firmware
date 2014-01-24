@@ -196,7 +196,7 @@ static const CLI_Command_Definition_t motorComDef = {
 };
 static const CLI_Command_Definition_t wifiComDef = {
     (const int8_t*)"wifi",
-    (const int8_t*)"wifi <reset|<set <command|data>>|reconnect|hs>\n",
+    (const int8_t*)"wifi <reset|<set <command|data>>|reconnect>\n",
     wifiCommand,
     -1
 };
@@ -837,13 +837,6 @@ portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 			if (nOfParams == 1) {
 				if (!TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect))
 					strncpy((char*)outBuffer, "Reconnect failed\n", outBufferLen);
-				ok = true;
-			}
-		}
-		else if (cmatch("hs", param[0], 1)) { // h
-			if (nOfParams == 1) {
-				if (!TaskWiFiMngrConstructor(WiFiMngr_Command_SetHighSpeed))
-					strncpy((char*)outBuffer, "Setting high speed failed\n", outBufferLen);
 				ok = true;
 			}
 		}

@@ -41,13 +41,6 @@ static bool actionReconnect();
  */
 static bool actionSetHighSpeed();
 
-/**
- * After changing speed and POR event, UART speed and module speed might be different.
- * Check configure UART to module speed
- * @retval true if speeds match afterwards, false on failure
- */
-static bool actionAdjustSpeeds();
-
 void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	/* WiFi must be turned on for that */
 	if (getWiFiStatus() == OFF) {
@@ -73,9 +66,6 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 		break;
 	case WiFiMngr_Command_SetHighSpeed:
 		ret = actionSetHighSpeed();
-		break;
-	case WiFiMngr_Command_AdjustSpeeds:
-		ret = actionAdjustSpeeds();
 		break;
 	default:
 		ret = false;
@@ -115,24 +105,6 @@ bool actionSetHighSpeed() {
 	printInterfaceBlocking("ATB=921600,8,n,1\n", 10000, Interface_WiFi_Active);
 	vTaskDelay(200/portTICK_RATE_MS);
 	InitializeWiFiUART(921600);
-	return true;
-}
-
-bool actionAdjustSpeeds() {
-	/* Check if communication is good */
-	if (!wifiTransaction("AT\n", "[OK]", 2, 500)) {
-		/* If not try to set up higher UART speed */
-		InitializeWiFiUART(921600);
-
-		/* Dummy transaction */
-		wifiTransaction("AT\n", "[OK]", 2, 500);
-
-		/* Check communication once again */
-		if (!wifiTransaction("AT\n", "[OK]", 2, 500))
-			return false;
-		else
-			return true;
-	}
 	return true;
 }
 
