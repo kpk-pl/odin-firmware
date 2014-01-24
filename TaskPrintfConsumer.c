@@ -30,7 +30,7 @@ void TaskPrintfConsumer(void * p) {
 			continue;
 		}
 
-		/* Wait for new message and take it, process any incomming message as quickly as possible */
+		/* Wait for new message and take it, process any incoming message as quickly as possible */
 		xQueueReceive(printfQueue, &msg, portMAX_DELAY);
 
 		/* Acquire resource */

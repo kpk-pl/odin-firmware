@@ -1,4 +1,5 @@
 #include <stm32f4xx.h>
+#include <stdbool.h>
 #include "hardware.h"
 #include "hwinterface.h"
 #include <math.h>
@@ -364,12 +365,21 @@ void setWiFiFactoryDefault(FunctionalState state) {
 	taskEXIT_CRITICAL();
 }
 
-void sendWiFi(const uint8_t byte) {
-	USART_SendData(WIFI_USART, byte);
-	while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
-}
+void sendInterfaceBlocking(uint8_t byte, Interface_Type interface) {
+	bool throughWiFi = ((interface & Interface_WiFi) != 0);
+	bool throughUSB = ((interface & Interface_USB) != 0);
+	if (interface & 0x04) { // active flag mask
+		throughWiFi = (throughWiFi && (getWiFiStatus() == ON));
+		throughUSB = (throughUSB && (getUSBStatus() == ON));
+	}
 
-void sendUSB(const uint8_t byte) {
-	USART_SendData(COM_USART, byte);
-	while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
+	if (throughWiFi)
+		USART_SendData(WIFI_USART, byte);
+	if (throughUSB)
+		USART_SendData(COM_USART, byte);
+
+	if (throughWiFi)
+		while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
+	if (throughUSB)
+		while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
 }

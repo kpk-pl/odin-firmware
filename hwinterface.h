@@ -7,6 +7,22 @@ typedef enum {LOW = 0, HIGH = !LOW} BitVal;
 typedef enum {OFF = 0, ON = !OFF} OnOff;
 typedef enum {WiFiMode_Command = 0, WiFiMode_Data = 1} WiFiMode;
 
+/**
+ * Interface configuration
+ * bit 0   - WiFi
+ * bit 1   - USB
+ * bit 2   - Active flag modifier
+ */
+typedef enum {
+	Interface_None = 0,
+	Interface_WiFi = 1,
+	Interface_USB = 2,
+	Interface_All = 3,
+	Interface_WiFi_Active = 5,
+	Interface_USB_Active = 6,
+	Interface_All_Active = 7
+} Interface_Type;
+
 #define IS_BITVAL(x) (x == LOW || x == HIGH)
 #define IS_ONOFF(x) (x == ON || x == OFF)
 #define IS_WIFIMODE(x) (x == WiFiMode_Command || x == WiFiMode_Data)
@@ -143,7 +159,6 @@ WiFiMode getWiFiMode();
 
 void setWiFiFactoryDefault(FunctionalState state);
 
-void sendWiFi(const uint8_t byte);
-void sendUSB(const uint8_t byte);
+void sendInterfaceBlocking(uint8_t byte, Interface_Type interface);
 
 #endif
