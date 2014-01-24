@@ -12,6 +12,7 @@ xQueueHandle WiFiMngrInputQueue = NULL;
 
 static char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines);
 static bool wifiTransaction(char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime);
+static bool actionReconnect();
 
 void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	/* WiFi must be turned on for that */
@@ -30,19 +31,16 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	/* Dummy transaction, might fail - to clean internal WiFi module buffer */
 	wifiTransaction("AT\n", "", 2, 500);
 
-	bool ok = false;
-	do {
-		if (!wifiTransaction("AT+WD\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+WAUTO=0,OdinWN\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+WAUTH=2\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+WWPA=OdinTheGod\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+NDHCP=0\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+NSET=192.168.50.2,255.255.255.0,192.168.50.1\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+NAUTO=1,1,,4000\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("AT+XDUM=1\n", "[OK]", 2, 500)) break;
-		if (!wifiTransaction("ATA\n", "[OK]", 4, 20000)) break;
-		ok = true;
-	} while(0);
+	bool ret;
+
+	switch(*cmd) {
+	case WiFiMngr_Command_Reconnect:
+		ret = actionReconnect();
+		break;
+	default:
+		ret = false;
+		break;
+	}
 
 	/* Go back to data mode */
 	setWiFiMode(WiFiMode_Data);
@@ -51,13 +49,26 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	/* Release resources for printing */
 	xSemaphoreGive(printfMutex);
 
-	if (ok)
-		safePrint(26, "WiFi module reconnected\n");
+	if (ret)
+		safePrint(18, "OK: WiFi manager\n");
 	else
-		safePrint(33, "Error: WiFi module reconnection\n");
+		safePrint(21, "Error: WiFi manager\n");
 
 	/* Destroy this task and all resources */
 	TaskWiFiMngrDestructor();
+}
+
+bool actionReconnect() {
+	if (!wifiTransaction("AT+WD\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+WAUTO=0,OdinWN\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+WAUTH=2\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+WWPA=OdinTheGod\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+NDHCP=0\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+NSET=192.168.50.2,255.255.255.0,192.168.50.1\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+NAUTO=1,1,,4000\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("AT+XDUM=1\n", "[OK]", 2, 500)) return false;
+	if (!wifiTransaction("ATA\n", "[OK]", 4, 20000)) return false;
+	return true;
 }
 
 char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines) {
