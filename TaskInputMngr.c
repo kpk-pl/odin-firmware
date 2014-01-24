@@ -1,4 +1,4 @@
-#include "TaskInputBuffer.h"
+#include "TaskInputMngr.h"
 #include "main.h"
 #include "priorities.h"
 #include "stackSpace.h"
@@ -10,10 +10,10 @@
 
 #define BUF_RX_LEN 100				/*!< Maximum length of UART command */
 
-xTaskHandle commInputBufferTask;	/*!< This task handle */
-xQueueHandle commInputBufferQueue;	/*!< Queue for incoming data that was received in ISR's */
+xTaskHandle commInputMngrTask;	/*!< This task handle */
+xQueueHandle commInputMngrQueue;	/*!< Queue for incoming data that was received in ISR's */
 
-void TaskInputBuffer(void * p) {
+void TaskInputMngr(void * p) {
 	PrintInput_Struct newInput;
 
 	bool incoming[2] = {false, false}; // state machine
@@ -22,11 +22,11 @@ void TaskInputBuffer(void * p) {
 	uint8_t i;
 
 	vTaskDelay(500/portTICK_RATE_MS);
-	while (xQueueReceive(commInputBufferQueue, &newInput, 0) == pdTRUE);
+	while (xQueueReceive(commInputMngrQueue, &newInput, 0) == pdTRUE);
 
 	while(1) {
 		/* Block until new command is available */
-		xQueueReceive(commInputBufferQueue, &newInput, portMAX_DELAY);
+		xQueueReceive(commInputMngrQueue, &newInput, portMAX_DELAY);
 
 		/* Check source */
 		switch (newInput.Source) {
@@ -75,9 +75,9 @@ void TaskInputBuffer(void * p) {
 	}
 }
 
-void TaskInputBufferConstructor() {
-	xTaskCreate(TaskInputBuffer, NULL, TASKINPUTBUFFER_STACKSPACE, NULL, PRIOTITY_TASK_INPUTBUFFER, &commInputBufferTask);
-	commInputBufferQueue = xQueueCreate(100, sizeof(PrintInput_Struct));
+void TaskInputMngrConstructor() {
+	xTaskCreate(TaskInputMngr, NULL, TASKINPUTBUFFER_STACKSPACE, NULL, PRIOTITY_TASK_INPUTBUFFER, &commInputMngrTask);
+	commInputMngrQueue = xQueueCreate(100, sizeof(PrintInput_Struct));
 }
 
 /* ISR for COM USART - must be called in USARTx_IRQHandler */
@@ -91,7 +91,7 @@ void COMAction(void) {
 			xQueueSendToBackFromISR(USB2WiFiBufferQueue, &in.Input, &contextSwitch);
 		}
 		else {
-			xQueueSendToBackFromISR(commInputBufferQueue, &in, &contextSwitch);
+			xQueueSendToBackFromISR(commInputMngrQueue, &in, &contextSwitch);
 		}
 		USART_ClearFlag(COM_USART, USART_FLAG_RXNE);
 	}
@@ -115,7 +115,7 @@ void WIFIAction(void) {
 			xQueueSendToBackFromISR(WiFi2USBBufferQueue, &in.Input, &contextSwitch);
 		}
 		else {
-			xQueueSendToBackFromISR(commInputBufferQueue, &in, &contextSwitch);
+			xQueueSendToBackFromISR(commInputMngrQueue, &in, &contextSwitch);
 		}
 		USART_ClearFlag(WIFI_USART, USART_FLAG_RXNE);
 	}

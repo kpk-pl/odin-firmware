@@ -1,12 +1,12 @@
-#ifndef _TASKINPUTBUFFER_H_
-#define _TASKINPUTBUFFER_H_
+#ifndef _TASKINPUTMNGR_H_
+#define _TASKINPUTMNGR_H_
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 
-extern xTaskHandle commInputBufferTask;
-extern xQueueHandle commInputBufferQueue;
+extern xTaskHandle commInputMngrTask;
+extern xQueueHandle commInputMngrQueue;
 
 /**
  *  \brief Types of input's character source
@@ -30,11 +30,11 @@ typedef struct {
  * Essentially it does the same work as interrupts should, but in this way interrupts only send received data to
  * process in this task. Interrupt routines are therefore shorter and can be called more often.
  */
-void TaskInputBuffer(void *);			// Task to handle input characters from any source - it makes possible to set very high transfer speeds
+void TaskInputMngr(void *);			// Task to handle input characters from any source - it makes possible to set very high transfer speeds
 
 /**
  * \brief Sets all OS-related objects for use. It should be called on startup, only once, before scheduler starts
  */
-void TaskInputBufferConstructor();
+void TaskInputMngrConstructor();
 
-#endif /* _TASKINPUTBUFFER_H_ */
+#endif /* _TASKINPUTMNGR_H_ */

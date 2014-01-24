@@ -17,7 +17,7 @@
 #include "TaskCLI.h"
 #include "TaskLED.h"
 #include "TaskUSB2WiFiBridge.h"
-#include "TaskInputBuffer.h"
+#include "TaskInputMngr.h"
 #include "TaskPenCtrl.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
@@ -101,7 +101,7 @@ int main(void)
 	}
 
 	// start normal tasks - these should not really fire up because boot task is a DOMINATOR
-	TaskInputBufferConstructor();
+	TaskInputMngrConstructor();
 	if (globalUsingCLI)
 		TaskCLIConstructor();
 	else
@@ -237,7 +237,7 @@ void reportStackUsage() {
 	safePrint(17, "RC5Task: %d\n", uxTaskGetStackHighWaterMark(RC5Task));
 	safePrint(23, "telemetryTask: %d\n", uxTaskGetStackHighWaterMark(telemetryTask));
 	safePrint(27, "USBWiFiBridgeTask: %d\n", uxTaskGetStackHighWaterMark(USBWiFiBridgeTask));
-	safePrint(29, "commInputBufferTask: %d\n", uxTaskGetStackHighWaterMark(commInputBufferTask));
+	safePrint(23, "InputMngrTask: %d\n", uxTaskGetStackHighWaterMark(commInputMngrTask));
 	safePrint(21, "penCtrlTask: %d\n", uxTaskGetStackHighWaterMark(penCtrlTask));
 #ifdef USE_IMU_TELEMETRY
 	safePrint(17, "imuTask: %d\n", uxTaskGetStackHighWaterMark(imuTask));
