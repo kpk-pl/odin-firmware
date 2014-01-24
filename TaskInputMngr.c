@@ -7,8 +7,12 @@
 #include "TaskUSB2WiFiBridge.h"
 #include "TaskCommandHandler.h"
 #include "TaskCLI.h"
+#include "TaskWiFiMngr.h"
 
 #define BUF_RX_LEN 100				/*!< Maximum length of UART command */
+
+#define INDEX_USB 0
+#define INDEX_WIFI 1
 
 xTaskHandle commInputMngrTask;	/*!< This task handle */
 xQueueHandle commInputMngrQueue;	/*!< Queue for incoming data that was received in ISR's */
@@ -31,10 +35,10 @@ void TaskInputMngr(void * p) {
 		/* Check source */
 		switch (newInput.Source) {
 		case PrintSource_Type_USB:
-			i = 0;
+			i = INDEX_USB;
 			break;
 		case PrintSource_Type_WiFi:
-			i = 1;
+			i = INDEX_WIFI;
 			break;
 		default: break;
 		}
@@ -54,7 +58,10 @@ void TaskInputMngr(void * p) {
 				RXBUFPOS[i] = 0;
 
 				portBASE_TYPE send;
-				if (globalUsingCLI) {
+				if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiMngrInputQueue != NULL) {
+					send = xQueueSendToBack(WiFiMngrInputQueue, &ptr, 0);
+				}
+				else if (globalUsingCLI) {
 					send = xQueueSendToBack(CLIInputQueue, &ptr, 0);
 				}
 				else {

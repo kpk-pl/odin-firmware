@@ -22,6 +22,7 @@
 #include "TaskMotorCtrl.h"
 #include "TaskPenCtrl.h"
 #include "TaskTelemetry.h"
+#include "TaskWiFiMngr.h"
 
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
@@ -195,7 +196,7 @@ static const CLI_Command_Definition_t motorComDef = {
 };
 static const CLI_Command_Definition_t wifiComDef = {
     (const int8_t*)"wifi",
-    (const int8_t*)"wifi <reset|<set <command|data>>>\n",
+    (const int8_t*)"wifi <reset|<set <command|data>>|reconnect>\n",
     wifiCommand,
     -1
 };
@@ -823,12 +824,22 @@ portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 				}
 			}
 		}
-		else if (cmatch("reset", param[0], 1)) { // r
+		else if (cmatch("reset", param[0], 3)) { // res
 			if (nOfParams == 1) {
 				setWiFiReset(ENABLE);
 				vTaskDelay(200/portTICK_RATE_MS);
 				setWiFiReset(DISABLE);
 				strncpy((char*)outBuffer, "WiFi reset\n", outBufferLen);
+				ok = true;
+			}
+		}
+		else if (cmatch("reconnect", param[0], 3)) { // rec
+			if (nOfParams == 1) {
+				bool cok = TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect);
+				if (cok)
+					strncpy((char*)outBuffer, "Reconnect issued\n", outBufferLen);
+				else
+					strncpy((char*)outBuffer, "Reconnect failed\n", outBufferLen);
 				ok = true;
 			}
 		}
