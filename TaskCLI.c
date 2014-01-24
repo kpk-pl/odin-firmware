@@ -54,6 +54,7 @@ static const char* const incorrectMessage = "Incorrect command parameter(s).  En
  * @result 0 if Command matches, 1 otherwise
  */
 static size_t cmatch(const char *command, const char *input, const size_t shortest);
+
 /**
  * Slices command into small pieces separated by '\0'. Every piece is saved in params table
  * @param command Command to be sliced. '\0' Will be written after each separate word
@@ -62,6 +63,10 @@ static size_t cmatch(const char *command, const char *input, const size_t shorte
  * @retval Number of characters really retrieved
  */
 static size_t sliceCommand(char *command, char **params, const size_t n);
+
+/**
+ * Registers commands in CLI interpreter
+ */
 static void registerAllCommands();
 
 void TaskCLI(void *p) {
@@ -1398,7 +1403,7 @@ size_t cmatch(const char *command, const char *input, const size_t shortest) {
 	return 0;
 }
 
-static size_t sliceCommand(char *command, char **params, const size_t n) {
+size_t sliceCommand(char *command, char **params, const size_t n) {
 	size_t nFound = 0;
 
 	/* Ignore first word - it is a command name itself */

@@ -364,12 +364,12 @@ void setWiFiFactoryDefault(FunctionalState state) {
 	taskEXIT_CRITICAL();
 }
 
-void sendWiFi(uint8_t byte) {
+void sendWiFi(const uint8_t byte) {
 	USART_SendData(WIFI_USART, byte);
 	while (USART_GetFlagStatus(WIFI_USART, USART_FLAG_TXE) == RESET);
 }
 
-void sendUSB(uint8_t byte) {
+void sendUSB(const uint8_t byte) {
 	USART_SendData(COM_USART, byte);
 	while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
 }
