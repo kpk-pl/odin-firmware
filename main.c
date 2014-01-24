@@ -19,6 +19,7 @@
 #include "TaskUSB2WiFiBridge.h"
 #include "TaskInputMngr.h"
 #include "TaskPenCtrl.h"
+#include "TaskWiFiMngr.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
 #include "TaskIMUMagScaling.h"
@@ -220,6 +221,8 @@ void TaskBoot(void *p) {
 #endif
 
 	printf("Booting completed\n");
+
+	//TaskWiFiMngrConstructor(WiFiMngr_Command_AdjustSpeeds);
 
 	// delete TaskBootIdle and itself
 	vTaskDelete(taskBootIdleHandle);

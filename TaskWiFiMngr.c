@@ -3,6 +3,7 @@
 #include "stackSpace.h"
 #include "priorities.h"
 #include "hwinterface.h"
+#include "hwinit.h"
 
 #include "TaskWiFiMngr.h"
 #include "TaskPrintfConsumer.h"
@@ -10,9 +11,42 @@
 xTaskHandle WiFiMngrTask = NULL;
 xQueueHandle WiFiMngrInputQueue = NULL;
 
+/**
+ * Receive selected line from response from WiFi module. Lines before selecred are ignored
+ * @param waitTime Time to wait for a response in ms
+ * @param ignoreLines How many lines to ignore before reading the one really needed
+ * @retval Pointer with response. Must be freed afterwards
+ */
 static char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines);
+
+/**
+ * Perform whole transaction with WiFi module. Send command and expect good response
+ * @param command Command to be send
+ * @param response Expected response (beginning of it). The actual response might be longer, but will be correctly recognized
+ * @param ignoreLinesResp How many lines to ignore before reading actual output
+ * @param waitTime Time to wait for response line
+ * @retval true on success, false on error
+ */
 static bool wifiTransaction(char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime);
+
+/**
+ * Performs reconnect action, setting up wifi connection
+ * @retval true on success, false otherwise
+ */
 static bool actionReconnect();
+
+/**
+ * Sets the highest possible communication speed with WiFi module
+ * @retval true on success, false otherwise
+ */
+static bool actionSetHighSpeed();
+
+/**
+ * After changing speed and POR event, UART speed and module speed might be different.
+ * Check configure UART to module speed
+ * @retval true if speeds match afterwards, false on failure
+ */
+static bool actionAdjustSpeeds();
 
 void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	/* WiFi must be turned on for that */
@@ -36,6 +70,12 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	switch(*cmd) {
 	case WiFiMngr_Command_Reconnect:
 		ret = actionReconnect();
+		break;
+	case WiFiMngr_Command_SetHighSpeed:
+		ret = actionSetHighSpeed();
+		break;
+	case WiFiMngr_Command_AdjustSpeeds:
+		ret = actionAdjustSpeeds();
 		break;
 	default:
 		ret = false;
@@ -68,6 +108,31 @@ bool actionReconnect() {
 	if (!wifiTransaction("AT+NAUTO=1,1,,4000\n", "[OK]", 2, 500)) return false;
 	if (!wifiTransaction("AT+XDUM=1\n", "[OK]", 2, 500)) return false;
 	if (!wifiTransaction("ATA\n", "[OK]", 4, 20000)) return false;
+	return true;
+}
+
+bool actionSetHighSpeed() {
+	printInterfaceBlocking("ATB=921600,8,n,1\n", 10000, Interface_WiFi_Active);
+	vTaskDelay(200/portTICK_RATE_MS);
+	InitializeWiFiUART(921600);
+	return true;
+}
+
+bool actionAdjustSpeeds() {
+	/* Check if communication is good */
+	if (!wifiTransaction("AT\n", "[OK]", 2, 500)) {
+		/* If not try to set up higher UART speed */
+		InitializeWiFiUART(921600);
+
+		/* Dummy transaction */
+		wifiTransaction("AT\n", "[OK]", 2, 500);
+
+		/* Check communication once again */
+		if (!wifiTransaction("AT\n", "[OK]", 2, 500))
+			return false;
+		else
+			return true;
+	}
 	return true;
 }
 

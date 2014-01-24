@@ -12,6 +12,8 @@ extern xQueueHandle WiFiMngrInputQueue;
 
 typedef enum {
 	WiFiMngr_Command_Reconnect = 0,
+	WiFiMngr_Command_SetHighSpeed,
+	WiFiMngr_Command_AdjustSpeeds
 } WiFiMngr_Command_Type;
 
 /**

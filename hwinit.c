@@ -132,16 +132,8 @@ void Initialize() {
 	GPIO_SetBits(WIFI_GPIO_SIG, WIFI_GPIO_SIG_RESET_PIN | WIFI_GPIO_SIG_LMTFRES_PIN | WIFI_GPIO_SIG_ALARM_PIN);
 	GPIO_ResetBits(WIFI_GPIO_SIG, WIFI_GPIO_SIG_CMDDATA_PIN);
 	GPIO_Init(WIFI_GPIO_SIG, &GPIO_InitStructure);
-	/* Configuring UART, no parity, 1 stop bit */
-	USART_InitStructure = (USART_InitTypeDef){
-		.USART_BaudRate = WIFI_USART_SPEED,
-		.USART_HardwareFlowControl = USART_HardwareFlowControl_None,
-		.USART_Mode = USART_Mode_Rx | USART_Mode_Tx,
-		.USART_Parity = USART_Parity_No,
-		.USART_StopBits = USART_StopBits_1,
-		.USART_WordLength = USART_WordLength_8b
-	};
-	USART_Init(WIFI_USART, &USART_InitStructure);
+	/* Set up UART */
+	InitializeWiFiUART(WIFI_USART_SPEED_DEFAULT);
 	/* Configuring interrupt for USART */
 	NVIC_InitStructure = (NVIC_InitTypeDef){
 		.NVIC_IRQChannel = WIFI_NVIC_IRQn,
@@ -663,4 +655,17 @@ void Initialize() {
 	/* Do not enable timer - will be done in enableLantern call */
 	/* Init lantern properly to be on or off at startup */
 	enableLantern(getSwitchStatus(6) == OFF ? DISABLE : ENABLE);
+}
+
+void InitializeWiFiUART(uint32_t speed) {
+	/* Configuring UART, no parity, 1 stop bit */
+	 USART_InitTypeDef USART_InitStructure = {
+		.USART_BaudRate = speed,
+		.USART_HardwareFlowControl = USART_HardwareFlowControl_None,
+		.USART_Mode = USART_Mode_Rx | USART_Mode_Tx,
+		.USART_Parity = USART_Parity_No,
+		.USART_StopBits = USART_StopBits_1,
+		.USART_WordLength = USART_WordLength_8b
+	};
+	USART_Init(WIFI_USART, &USART_InitStructure);
 }
