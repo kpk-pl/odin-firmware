@@ -66,12 +66,6 @@ int _write(int file, char *ptr, int len)
 		int counter = len;
 		for (; counter > 0; counter--) {
 			if (*ptr == 0) break;
-//			if (getUSBStatus() == ON) {
-//				sendUSB(*ptr);
-//			}
-//			if (getWiFiStatus() == ON) {
-//				sendWiFi(*ptr);
-//			}
 			sendInterfaceBlocking(*ptr, Interface_All_Active);
 			ptr++;
 		}
