@@ -30,17 +30,19 @@ void TaskPrintfConsumer(void * p) {
 			continue;
 		}
 
-		/* Wait for new message and take it, process any incoming message as quickly as possible */
+		/* Wait for new message, don't take it, process any incoming message as quickly as possible */
+		xQueuePeek(printfQueue, &msg, portMAX_DELAY);
+
+		/* Discard any messages coming when bridge is on */
+		if (getWiFi2USBBridgeStatus() == ON) {
+			continue;
+		}
+
+		/* Take message from queue */
 		xQueueReceive(printfQueue, &msg, portMAX_DELAY);
 
 		/* Acquire resource */
 		xSemaphoreTake(printfMutex, portMAX_DELAY);
-
-		/* Discard any messages coming when bridge is on */
-		if (getWiFi2USBBridgeStatus() == ON) {
-			vPortFree(msg);
-			continue;
-		}
 
 		/* Set start address at the beginning of the message */
 		COM_TX_DMA_STREAM->M0AR = (uint32_t)msg; // base addr

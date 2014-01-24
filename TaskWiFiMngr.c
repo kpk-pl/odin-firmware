@@ -7,8 +7,6 @@
 #include "TaskWiFiMngr.h"
 #include "TaskPrintfConsumer.h"
 
-#define WAIT_FOR_RESPONSE_TIME 1000
-
 xTaskHandle WiFiMngrTask = NULL;
 xQueueHandle WiFiMngrInputQueue = NULL;
 
@@ -29,9 +27,11 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	setWiFiMode(WiFiMode_Command);
 	vTaskDelay(200/portTICK_RATE_MS);
 
+	/* Dummy transaction, might fail - to clean internal WiFi module buffer */
+	wifiTransaction("AT\n", "", 2, 500);
+
 	bool ok = false;
 	do {
-		if (!wifiTransaction("AT\n", "[OK]", 2, 500)) break;
 		if (!wifiTransaction("AT+WD\n", "[OK]", 2, 500)) break;
 		if (!wifiTransaction("AT+WAUTO=0,OdinWN\n", "[OK]", 2, 500)) break;
 		if (!wifiTransaction("AT+WAUTH=2\n", "[OK]", 2, 500)) break;
