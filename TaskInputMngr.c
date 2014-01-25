@@ -95,7 +95,7 @@ void COMAction(void) {
 	if (USART_GetITStatus(COM_USART, USART_IT_RXNE) == SET) {
 		in.Input = USART_ReceiveData(COM_USART);
 		if (getWiFi2USBBridgeStatus() == ON) {
-			xQueueSendToBackFromISR(USB2WiFiBufferQueue, &in.Input, &contextSwitch);
+			xQueueSendToBackFromISR(USB2WiFiBridgeQueue, &in, &contextSwitch);
 		}
 		else {
 			xQueueSendToBackFromISR(commInputMngrQueue, &in, &contextSwitch);
@@ -119,7 +119,7 @@ void WIFIAction(void) {
 	if (USART_GetITStatus(WIFI_USART, USART_IT_RXNE) == SET) {
 		in.Input = USART_ReceiveData(WIFI_USART);
 		if (getWiFi2USBBridgeStatus() == ON) {
-			xQueueSendToBackFromISR(WiFi2USBBufferQueue, &in.Input, &contextSwitch);
+			xQueueSendToBackFromISR(USB2WiFiBridgeQueue, &in, &contextSwitch);
 		}
 		else {
 			xQueueSendToBackFromISR(commInputMngrQueue, &in, &contextSwitch);

@@ -6,8 +6,7 @@
 #include "queue.h"
 
 extern xTaskHandle USBWiFiBridgeTask;
-extern xQueueHandle WiFi2USBBufferQueue;
-extern xQueueHandle USB2WiFiBufferQueue;
+extern xQueueHandle USB2WiFiBridgeQueue;
 
 /**
  * \brief Task for USB-WiFi bridge to transfer commands between two UARTs
