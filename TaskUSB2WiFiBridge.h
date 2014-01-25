@@ -18,4 +18,9 @@ void TaskUSBWiFiBridge(void *);
  */
 void TaskUSB2WiFiBridgeConstructor();
 
+/**
+ * \brief Ends task and frees all related system objects
+ */
+void TaskUSB2WiFiBridgeDestructor();
+
 #endif /* _TASKUSB2WIFIBRIDGE_H_ */

@@ -83,7 +83,7 @@ void TaskInputMngr(void * p) {
 }
 
 void TaskInputMngrConstructor() {
-	xTaskCreate(TaskInputMngr, NULL, TASKINPUTBUFFER_STACKSPACE, NULL, PRIOTITY_TASK_INPUTBUFFER, &commInputMngrTask);
+	xTaskCreate(TaskInputMngr, NULL, TASKINPUTBUFFER_STACKSPACE, NULL, PRIORITY_TASK_INPUTBUFFER, &commInputMngrTask);
 	commInputMngrQueue = xQueueCreate(100, sizeof(PrintInput_Struct));
 }
 

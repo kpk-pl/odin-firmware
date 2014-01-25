@@ -3,6 +3,7 @@
 #include "main.h"
 #include "priorities.h"
 #include "stackSpace.h"
+#include "hwinterface.h"
 
 xTaskHandle USBWiFiBridgeTask = NULL;
 xQueueHandle USB2WiFiBridgeQueue = NULL;
@@ -24,10 +25,22 @@ void TaskUSBWiFiBridge(void *p) {
 }
 
 void TaskUSB2WiFiBridgeConstructor() {
-	xTaskCreate(TaskUSBWiFiBridge, NULL, TASKBRIDGE_STACKSPACE, NULL, PRIOTITY_TASK_BRIDGE, &USBWiFiBridgeTask);
-	USB2WiFiBridgeQueue = xQueueCreate(100, sizeof(PrintInput_Struct));
+	if (USBWiFiBridgeTask == NULL && USB2WiFiBridgeQueue == NULL) {
+		xTaskCreate(TaskUSBWiFiBridge, NULL, TASKBRIDGE_STACKSPACE, NULL, PRIORITY_TASK_BRIDGE, &USBWiFiBridgeTask);
+		USB2WiFiBridgeQueue = xQueueCreate(100, sizeof(PrintInput_Struct));
+		enableWiFi2USBBridge(ENABLE);
+	}
 }
 
-void TaskUSB2WiFiDestructor() {
+void TaskUSB2WiFiBridgeDestructor() {
+	enableWiFi2USBBridge(DISABLE);
+	if (USB2WiFiBridgeQueue != NULL)
+		vQueueDelete(USB2WiFiBridgeQueue);
+	USB2WiFiBridgeQueue = NULL;
 
+	xTaskHandle task = USBWiFiBridgeTask;
+	if (USBWiFiBridgeTask != NULL) {
+		USBWiFiBridgeTask = NULL;
+		vTaskDelete(task);
+	}
 }

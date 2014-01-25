@@ -20,6 +20,7 @@
 #include "TaskInputMngr.h"
 #include "TaskPenCtrl.h"
 #include "TaskWiFiMngr.h"
+#include "TaskAsyncCallHandler.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
 #include "TaskIMUMagScaling.h"
@@ -111,8 +112,8 @@ int main(void)
 	TaskPrintfConsumerConstructor();
 	TaskRC5Constructor();
 	TaskTelemetryConstructor();
-	TaskUSB2WiFiBridgeConstructor();
 	TaskPenCtrlConstructor();
+	AsyncCallHandlerTaskConstructor();
 #ifdef FOLLOW_TRAJECTORY
 	TaskTrajectoryConstructor();
 #endif
@@ -239,9 +240,9 @@ void reportStackUsage() {
 	safePrint(23, "motorCtrlTask: %d\n", uxTaskGetStackHighWaterMark(motorCtrlTask));
 	safePrint(17, "RC5Task: %d\n", uxTaskGetStackHighWaterMark(RC5Task));
 	safePrint(23, "telemetryTask: %d\n", uxTaskGetStackHighWaterMark(telemetryTask));
-	safePrint(27, "USBWiFiBridgeTask: %d\n", uxTaskGetStackHighWaterMark(USBWiFiBridgeTask));
 	safePrint(23, "InputMngrTask: %d\n", uxTaskGetStackHighWaterMark(commInputMngrTask));
 	safePrint(21, "penCtrlTask: %d\n", uxTaskGetStackHighWaterMark(penCtrlTask));
+	safePrint(26, "asyncCallHandler: %d\n", uxTaskGetStackHighWaterMark(AsyncCallHandlerTask));
 #ifdef USE_IMU_TELEMETRY
 	safePrint(17, "imuTask: %d\n", uxTaskGetStackHighWaterMark(imuTask));
 #endif
@@ -275,12 +276,16 @@ void Switch2Changed() {
 
 /* Called from ISR */
 void Switch3Changed() {
+	portBASE_TYPE contextSwitch = pdFALSE;
+	AsyncCall_Type call;
 	if (getSwitchStatus(3) == ON) {
-		enableWiFi2USBBridge(ENABLE);
+		call.Call = TaskUSB2WiFiBridgeConstructor;
 	}
 	else {
-		enableWiFi2USBBridge(DISABLE);
+		call.Call = TaskUSB2WiFiBridgeDestructor;
 	}
+	xQueueSendFromISR(AsyncCallHandlerQueue, &call, &contextSwitch);
+	portEND_SWITCHING_ISR(contextSwitch);
 }
 
 /* Called from ISR */

@@ -8,6 +8,9 @@
 #include "hwinterface.h"
 #include "main.h"
 
+#include "TaskAsyncCallHandler.h"
+#include "TaskUSB2WiFiBridge.h"
+
 void Initialize() {
 	GPIO_InitTypeDef GPIO_InitStructure;
 	NVIC_InitTypeDef NVIC_InitStructure;
@@ -560,7 +563,10 @@ void Initialize() {
 	/* Switch 3 */
 	EXTI_InitStructure.EXTI_Line = SWITCHES_EXTI_3_LINE;
 	EXTI_Init(&EXTI_InitStructure);
-	if (getSwitchStatus(3) == ON) enableWiFi2USBBridge(ENABLE);
+	if (getSwitchStatus(3) == ON) {
+		AsyncCall_Type call = {.Call = TaskUSB2WiFiBridgeConstructor};
+		xQueueSend(AsyncCallHandlerQueue, &call, 0);
+	}
 	/* Switch 4 */
 	EXTI_InitStructure.EXTI_Line = SWITCHES_EXTI_4_LINE;
 	EXTI_Init(&EXTI_InitStructure);
