@@ -992,6 +992,7 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 							ok = true;
 						}
 						else {
+// TODO: do not open it here!!!
 							TrajectoryRequest_Struct request;
 							request.source = TrajectorySource_File;
 							FIL *file = pvPortMalloc(sizeof(FIL));
