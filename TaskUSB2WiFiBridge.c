@@ -25,7 +25,8 @@ void TaskUSBWiFiBridge(void *p) {
 }
 
 void TaskUSB2WiFiBridgeConstructor() {
-	if (USBWiFiBridgeTask == NULL && USB2WiFiBridgeQueue == NULL) {
+	if (USBWiFiBridgeTask == NULL && USB2WiFiBridgeQueue == NULL &&
+			getWiFiStatus() == ON && getUSBStatus() == ON) {
 		xTaskCreate(TaskUSBWiFiBridge, NULL, TASKBRIDGE_STACKSPACE, NULL, PRIORITY_TASK_BRIDGE, &USBWiFiBridgeTask);
 		USB2WiFiBridgeQueue = xQueueCreate(100, sizeof(PrintInput_Struct));
 		enableWiFi2USBBridge(ENABLE);
