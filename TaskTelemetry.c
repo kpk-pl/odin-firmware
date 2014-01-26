@@ -124,13 +124,7 @@ void scaleOdometryCorrectionParam(int turns) {
 		(360.0f*turns-180.0f)*globalOdometryCorrectionGain, 360*turns-180);
 }
 
-void getTelemetry(TelemetryData_Struct *data) {
-	getTelemetryRaw(data);
-	data->O = normalizeOrientation(data->O);
-}
-
-void getTelemetryRaw(TelemetryData_Struct *data) {
-	/* Ensure that data is coherent and nothing is changed in between */
+void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style) {
 	taskENTER_CRITICAL();
 	{
 		data->X = globalTelemetryData.X;
@@ -138,15 +132,12 @@ void getTelemetryRaw(TelemetryData_Struct *data) {
 		data->O = globalTelemetryData.O;
 	}
 	taskEXIT_CRITICAL();
-}
 
-void getTelemetryRawScaled(TelemetryData_Struct *data) {
-	getTelemetryRaw(data);
-	data->X /= globalPositionScale;
-	data->Y /= globalPositionScale;
-}
-
-void getTelemetryScaled(TelemetryData_Struct *data) {
-	getTelemetryRawScaled(data);
-	data->O = normalizeOrientation(data->O);
+	if (style & TelemetryStyle_Scaled) {
+		data->X /= globalPositionScale;
+		data->Y /= globalPositionScale;
+	}
+	if (style & TelemetryStyle_Normalized) {
+		data->O = normalizeOrientation(data->O);
+	}
 }

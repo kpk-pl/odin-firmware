@@ -80,7 +80,7 @@ void TaskDrive(void * p) {
 				/* Change to driving to point */
 				command->Type = DriveCommand_Type_Point;
 				TelemetryData_Struct telemetry;
-				getTelemetryScaled(&telemetry);
+				getTelemetry(&telemetry, TelemetryStyle_Common);
 				command->Param2 = telemetry.Y + sinf(telemetry.O) * command->Param1;
 				command->Param1 = telemetry.X + cosf(telemetry.O) * command->Param1;
 				drivePoint(command, smooth);
@@ -119,7 +119,7 @@ void drivePoint(const DriveCommand_Struct* command, const bool smooth) {
 
 	/* First of all, turn to target point with desired accuracy */
 	/* Get starting point telemetry data */
-	getTelemetryRawScaled(&telemetryData);
+	getTelemetry(&telemetryData, TelemetryStyle_Scaled);
 
 	/* Calculate angle to target */
 	float angO = normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O);
@@ -137,7 +137,7 @@ void drivePoint(const DriveCommand_Struct* command, const bool smooth) {
 	/* Start regulator - driving to point requires constant speeds updates */
 	while(1) {
 		/* Read current position */
-		getTelemetryScaled(&telemetryData);
+		getTelemetry(&telemetryData, TelemetryStyle_Common);
 
 		/* Finish up if target is really close or robot's missing the target */
 		float d = hypotf(telemetryData.X - command->Param1, telemetryData.Y - command->Param2);
@@ -182,7 +182,7 @@ void driveAngleArc(const DriveCommand_Struct* command, const bool smooth) {
 	TelemetryData_Struct telemetryData;
 
 	/* Get starting point telemetry data */
-	getTelemetryScaled(&telemetryData);
+	getTelemetry(&telemetryData, TelemetryStyle_Common);
 
 	/* Calculate angle to turn */
 	float angle = command->Param2 * DEGREES_TO_RAD;
@@ -216,14 +216,14 @@ void turnRads(const float rads, const MotorSpeed_Struct speed, const float epsil
 	float smoothAngle = 10.0f * DEGREES_TO_RAD;
 
 	/* Read initial telemetry */
-	getTelemetryRaw(&telemetryData);
+	getTelemetry(&telemetryData, TelemetryStyle_Raw);
 
 	/* Compute target orientation */
 	float targetO = telemetryData.O + rads;
 	float error, abserror;
 
 	while(1) {
-		getTelemetryRaw(&telemetryData);
+		getTelemetry(&telemetryData, TelemetryStyle_Raw);
 		error = targetO - telemetryData.O;
 		abserror = fabsf(error);
 		if (abserror < epsilon || error*rads < 0.0f)

@@ -58,13 +58,13 @@ void TaskPenCtrl(void *p) {
 		if (copyPen != globalCurrentPen || reset) {
 			setPenDown();
 			stateMachine = 0;
-			getTelemetryRaw(&telemetryOld);
+			getTelemetry(&telemetryOld, TelemetryStyle_Raw);
 			tickOld = xTaskGetTickCount();
 			copyPen = globalCurrentPen;
 			reset = false;
 		}
 
-		getTelemetryRaw(&telemetry);
+		getTelemetry(&telemetry, TelemetryStyle_Raw);
 		distance += hypotf(telemetryOld.X - telemetry.X, telemetryOld.Y - telemetry.Y);
 		telemetryOld = telemetry;
 

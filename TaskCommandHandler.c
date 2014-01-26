@@ -135,7 +135,7 @@ void COMHandle(const char * command) {
 		}
 		break;
 	case TELEMETRY_PRINT:
-		getTelemetry(&td);
+		getTelemetry(&td, TelemetryStyle_Normalized);
 		safePrint(40, "X:%.2f Y:%.2f O:%.1f\n", td.X, td.Y, td.O / DEGREES_TO_RAD);
 		break;
 	case CPU_RESET:

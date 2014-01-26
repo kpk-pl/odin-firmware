@@ -151,7 +151,7 @@ void TaskIMU(void * p) {
 				}
 
 				if (globalLogIMU) {
-					getTelemetryRaw(&telemetry);
+					getTelemetry(&telemetry, TelemetryStyle_Raw);
 #ifdef USE_GYRO_FOR_IMU
 					safePrint(60, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 #else
@@ -229,7 +229,7 @@ void TaskIMU(void * p) {
 #endif
 				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
 				prev_angle = cangle;
-				getTelemetry(&telemetry);
+				getTelemetry(&telemetry, TelemetryStyle_Normalized);
 				if (!globalDoneIMUScaling)
 					initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
 				cangle = interpolateAngle(telemetry.O) + TWOM_PI * (float)turn_counter;

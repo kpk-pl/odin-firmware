@@ -165,7 +165,7 @@ void TaskMotorCtrl(void * p) {
 		speedRight = (float)(posRight - prevPosRight);
 
 		/* Compute telemetry update */
-		getTelemetry(&telemetryData);
+		getTelemetry(&telemetryData, TelemetryStyle_Raw);
 		float deltaS = (speedRight + speedLeft) * IMPS_TO_MM_TRAVELED / 2.0f;
 		telemetryUpdate.dO = (speedRight - speedLeft) * IMPS_TO_MM_TRAVELED / ROBOT_DIAM;
 		telemetryUpdate.dX = deltaS * cosf(telemetryData.O);

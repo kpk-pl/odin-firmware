@@ -40,6 +40,16 @@ typedef struct {
 	float O;				/*!< Orientation angle coordinate in radians */
 } TelemetryData_Struct;
 
+/**
+ *
+ */
+typedef enum {
+	TelemetryStyle_Raw = 0, 		/*!< Raw telemetry data without any scaling or orientation normalization */
+	TelemetryStyle_Scaled = 1,		/*!< Coordinates scaled, but orientation not normalized */
+	TelemetryStyle_Normalized = 2,	/*!< Orientation normalized, coordinates not scaled */
+	TelemetryStyle_Common = 3		/*!< Orientation normalized, coordinates scaled */
+} TelemetryStyle_Type;
+
 void TaskTelemetry(void *);	// Task calculating global position and orientation based on all available sources (IMU, odometry, camera, etc. )
 
 /**
@@ -52,22 +62,7 @@ void TaskTelemetryConstructor();
  *
  * This function provides mutual exclusion and data coherency.
  */
-void getTelemetry(TelemetryData_Struct *data);
-
-/**
- *  \brief Returns current telemetry data without orientation normalization to +-M_PI
- */
-void getTelemetryRaw(TelemetryData_Struct *data);
-
-/**
- * \brief Returns telemetry with scaled position
- */
-void getTelemetryScaled(TelemetryData_Struct *data);
-
-/**
- * \brief Returns raw telemetry with scaled position
- */
-void getTelemetryRawScaled(TelemetryData_Struct *data);
+void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style);
 
 /**
  *  \brief Returns normalized orientation angle provided as input in radians, output is [-PI, +PI]

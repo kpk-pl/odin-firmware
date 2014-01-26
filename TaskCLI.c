@@ -486,7 +486,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 		else if (cmatch("raw", param[0], 1)) { // r
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
-				getTelemetryRaw(&tl);
+				getTelemetry(&tl, TelemetryStyle_Raw);
 				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 				ok = true;
 			}
@@ -494,14 +494,14 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 		else if (cmatch("scaled", param[0], 6)) { // scaled
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
-				getTelemetryScaled(&tl);
+				getTelemetry(&tl, TelemetryStyle_Common);
 				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 				ok = true;
 			}
 			else if (nOfParams == 2) {
 				if (cmatch("raw", param[1], 1)) { // r
 					TelemetryData_Struct tl;
-					getTelemetryRawScaled(&tl);
+					getTelemetry(&tl, TelemetryStyle_Scaled);
 					snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 					ok = true;
 				}
@@ -510,7 +510,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 	}
 	else {
 		TelemetryData_Struct tl;
-		getTelemetry(&tl);
+		getTelemetry(&tl, TelemetryStyle_Normalized);
 		snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 		ok = true;
 	}
