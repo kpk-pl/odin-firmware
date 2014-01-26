@@ -277,14 +277,20 @@ void Switch2Changed() {
 /* Called from ISR */
 void Switch3Changed() {
 	portBASE_TYPE contextSwitch = pdFALSE;
-	AsyncCall_Type call;
+
+	AsyncCall_Type call = {
+		.Type = AsyncCallProc_Void
+	};
+
 	if (getSwitchStatus(3) == ON) {
-		call.Call = TaskUSB2WiFiBridgeConstructor;
+		call.CallVoid = TaskUSB2WiFiBridgeConstructor;
 	}
 	else {
-		call.Call = TaskUSB2WiFiBridgeDestructor;
+		call.CallVoid = TaskUSB2WiFiBridgeDestructor;
 	}
+
 	xQueueSendFromISR(AsyncCallHandlerQueue, &call, &contextSwitch);
+
 	portEND_SWITCHING_ISR(contextSwitch);
 }
 

@@ -564,7 +564,10 @@ void Initialize() {
 	EXTI_InitStructure.EXTI_Line = SWITCHES_EXTI_3_LINE;
 	EXTI_Init(&EXTI_InitStructure);
 	if (getSwitchStatus(3) == ON) {
-		AsyncCall_Type call = {.Call = TaskUSB2WiFiBridgeConstructor};
+		AsyncCall_Type call = {
+			.CallVoid = TaskUSB2WiFiBridgeConstructor,
+			.Type = AsyncCallProc_Void
+		};
 		xQueueSend(AsyncCallHandlerQueue, &call, 0);
 	}
 	/* Switch 4 */

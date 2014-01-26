@@ -23,6 +23,7 @@
 #include "TaskPenCtrl.h"
 #include "TaskTelemetry.h"
 #include "TaskWiFiMngr.h"
+#include "TaskAsyncCallHandler.h"
 
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
@@ -172,7 +173,7 @@ static const CLI_Command_Definition_t penComDef = {
 static const CLI_Command_Definition_t telemetryComDef = {
     (const int8_t*)"telemetry",
     (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
-    		 "\todometry correction [#param]\n"
+    		 "\todometry <<scale #turns>|<correction [#param]>>\n"
     		 "\timu <enable|disable>\n"
     		 "\tscale [#value]\n",
     telemetryCommand,
@@ -423,6 +424,29 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 					else if (nOfParams == 3) {
 						globalOdometryCorrectionGain = strtof(param[2], NULL);
 						snprintf((char*)outBuffer, outBufferLen, "Odometry correction param: %.6g\n", globalOdometryCorrectionGain);
+						ok = true;
+					}
+				}
+				else if (cmatch("scale", param[1], 1)) { // s
+					if (nOfParams == 3) {
+						int turns = atoi(param[2]);
+						if (turns > 0) {
+							if (!isCurrentlyDriving()) {
+								AsyncCall_Type call = {
+									.Type = AsyncCallProc_Int,
+									.CallInt = scaleOdometryCorrectionParam,
+									.IntParam = turns
+								};
+								xQueueSend(AsyncCallHandlerQueue, &call, portMAX_DELAY);
+								strncpy((char*)outBuffer, "Scaling started\n", outBufferLen);
+							}
+							else {
+								strncpy((char*)outBuffer, "Robot cannot drive while scaling\n", outBufferLen);
+							}
+						}
+						else {
+							strncpy((char*)outBuffer, "Only positive number of turns allowed\n", outBufferLen);
+						}
 						ok = true;
 					}
 				}

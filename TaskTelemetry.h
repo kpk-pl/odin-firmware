@@ -74,4 +74,17 @@ void getTelemetryRawScaled(TelemetryData_Struct *data);
  */
 float normalizeOrientation(float in);
 
+/**
+ *  \brief Perform globalOdometryCorrectionGain scaling by the following procedure with pen down:
+ *  1. Drive straight for 10cm
+ *  2. Turn left 360*turns - 180 degrees
+ *  3. Drive straight for 10cm
+ *
+ *  This procedure will result in drawing an angle on the ground. By measuring it it will be
+ *  possible to calculate new globalOdometryCorrectionGain. Instructions will be printed on
+ *  the screen.
+ *  @param turns How many turns robot should do. The more turns the more precise measuring will be
+ */
+void scaleOdometryCorrectionParam(int turns);
+
 #endif /* _TASKTELEMETRY_H_ */

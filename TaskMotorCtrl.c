@@ -21,6 +21,9 @@ xSemaphoreHandle motorControllerMutex;	/*!< Mutex to allow many consecutive spee
 
 volatile uint32_t globalLogSpeedCounter = 0;				/*!< Counter to allow only a few logs from speed to be printed */
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting for regulator */
+
+static MotorSpeed_Struct motorSpeed = {0.0f, 0.0f}; 		/*!< Last ordered speed in rads / sec */
+
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	volatile MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
 		.forward = {
@@ -74,8 +77,6 @@ volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting fo
 
 void TaskMotorCtrl(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
-	/* Speed is given in radians per second */
-	MotorSpeed_Struct motorSpeed = {0.0f, 0.0f};
 
 	//const float maxSpeedAllowed = 6300.0f * IMPS_TO_RAD; // 6300 is max ticks per second on both motors
 	const float maxSpeedAllowed = 10.0f;  // 10 rad/s - It looks like this is the limit for motor controllers' parameters to hold
@@ -248,4 +249,8 @@ void sendSpeeds(float left, float right, unsigned portLONG delay) {
 		.RightSpeed = right
 	};
 	xQueueSendToBack(motorCtrlQueue, &motorsSpeed, delay);
+}
+
+bool isCurrentlyDriving() {
+	return (motorSpeed.LeftSpeed != 0.0f) || (motorSpeed.RightSpeed != 0.0f);
 }

@@ -8,6 +8,8 @@
 #include "complementary.h"
 
 #include "TaskPrintfConsumer.h"
+#include "TaskMotorCtrl.h"
+#include "TaskDrive.h"
 
 float globalOdometryCorrectionGain = 1.0075f;	/*!< Gain that is used to correct odometry data (turning angle) */
 float globalPositionScale = 1.0f;				/*!< Scale for position; if set to 2 then robot will drive 80cm when told to drive 40cm */
@@ -84,6 +86,40 @@ float normalizeOrientation(float in) {
 	while (in > M_PI) in -= TWOM_PI;
 	while (in <= -M_PI) in += TWOM_PI;
 	return in;
+}
+
+void scaleOdometryCorrectionParam(int turns) {
+	if (isCurrentlyDriving()) return;
+
+	DriveCommand_Struct *cmd1 = pvPortMalloc(sizeof(DriveCommand_Struct));
+	DriveCommand_Struct *cmd2 = pvPortMalloc(sizeof(DriveCommand_Struct));
+	DriveCommand_Struct *cmd3 = pvPortMalloc(sizeof(DriveCommand_Struct));
+
+	*cmd3 = *cmd1 = (DriveCommand_Struct){
+		.Type = DriveCommand_Type_Line,
+		.UsePen = true,
+		.Speed = 0.07f,
+		.Param1 = 100.0f
+	};
+	*cmd2 = (DriveCommand_Struct){
+		.Type = DriveCommand_Type_Angle,
+		.UsePen = true,
+		.Speed = 0.07f,
+		.Param1 = 0.0f,
+		.Param2 = 360.0f * turns - 180.0f
+	};
+
+	xQueueSend(driveQueue, &cmd1, portMAX_DELAY);
+	xQueueSend(driveQueue, &cmd2, portMAX_DELAY);
+	xQueueSend(driveQueue, &cmd3, portMAX_DELAY);
+
+	vTaskDelay(1000/portTICK_RATE_MS);
+	while (isCurrentlyDriving()) {
+		vTaskDelay(10/portTICK_RATE_MS);
+	}
+
+	safePrint(85, "Scaling done!\nOdometry correction param will be: %.6g/(%d + dO)\n",
+		(360.0f*turns-180.0f)*globalOdometryCorrectionGain, 360*turns-180);
 }
 
 void getTelemetry(TelemetryData_Struct *data) {

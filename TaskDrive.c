@@ -40,7 +40,6 @@ static bool isThereMoreDrivingCommands(void);
 
 xQueueHandle driveQueue;	/*!< Queue with drive commands. It should contain type (DriveCommand_Struct*) */
 xTaskHandle driveTask;		/*!< This task handler */
-static bool isDriving = false;
 
 void TaskDrive(void * p) {
 	DriveCommand_Struct * command;
@@ -55,11 +54,9 @@ void TaskDrive(void * p) {
 				taken = false;
 				xQueueSendToBack(penCommandQueue, &taken, portMAX_DELAY);	// set pen up, use 'taken' variable as it is false either way
 			}
-			isDriving = false;
 		}
 
 		xQueueReceive(driveQueue, &command, portMAX_DELAY);
-		isDriving = true;
 
 		if (!taken) {	// block resources
 			xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
@@ -243,10 +240,6 @@ void turnRads(const float rads, const MotorSpeed_Struct speed, const float epsil
 		sendSpeeds(adjspeed.LeftSpeed, adjspeed.RightSpeed, portMAX_DELAY);
 		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
-}
-
-bool isCurrentlyDriving() {
-	return isDriving;
 }
 
 bool isThereMoreDrivingCommands(void) {

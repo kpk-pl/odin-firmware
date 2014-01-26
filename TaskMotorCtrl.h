@@ -1,6 +1,7 @@
 #ifndef _TASKMOTORCTRL_H_
 #define _TASKMOTORCTRL_H_
 
+#include <stdbool.h>
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
@@ -48,5 +49,7 @@ void TaskMotorCtrlConstructor();
  * @param delay Ticks to wait until speeds are sent
  */
 void sendSpeeds(float left, float right, unsigned portLONG delay);
+
+bool isCurrentlyDriving();
 
 #endif /* _TASKMOTORCTRL_H_ */
