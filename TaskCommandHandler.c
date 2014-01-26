@@ -324,6 +324,7 @@ void COMHandle(const char * command) {
 			dc->UsePen = (command[4] == '0' ? 0 : 1);
 			dc->Speed = strtof((char*)&command[6], &last);
 			dc->Param1 = strtof(last+1, &last);
+			dc->Smooth = false;
 			/* Only 'line' has one parameter */
 			if (dc->Type != DriveCommand_Type_Line) {
 				dc->Param2 = strtof(last+1, NULL);

@@ -99,14 +99,16 @@ void scaleOdometryCorrectionParam(int turns) {
 		.Type = DriveCommand_Type_Line,
 		.UsePen = true,
 		.Speed = 0.07f,
-		.Param1 = 100.0f
+		.Param1 = 100.0f,
+		.Smooth = true
 	};
 	*cmd2 = (DriveCommand_Struct){
 		.Type = DriveCommand_Type_Angle,
 		.UsePen = true,
 		.Speed = 0.07f,
 		.Param1 = 0.0f,
-		.Param2 = 360.0f * turns - 180.0f
+		.Param2 = 360.0f * turns - 180.0f,
+		.Smooth = true
 	};
 
 	xQueueSend(driveQueue, &cmd1, portMAX_DELAY);

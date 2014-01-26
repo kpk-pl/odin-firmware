@@ -54,7 +54,8 @@ void TaskIMUMagScaling(void *p) {
 			.Type = DriveCommand_Type_Angle,
 			.UsePen = false,
 			.Speed = 0.3f,
-			.Param1 = 1	// absolute angle
+			.Param1 = 1.0f,	// absolute angle
+			.Smooth = true
 		};
 		DriveCommand_Struct *dc;
 

@@ -72,7 +72,7 @@ void TaskDrive(void * p) {
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
 
 			/* If no more commands, then slow down at the end */
-			bool smooth = !isThereMoreDrivingCommands();
+			bool smooth = !isThereMoreDrivingCommands() || command->Smooth;
 
 			if (command->Type == DriveCommand_Type_Line) {
 				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);

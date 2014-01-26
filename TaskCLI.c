@@ -1086,6 +1086,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					cmd->UsePen = pen;
 					cmd->Speed = speed;
 					cmd->Param1 = dist;
+					cmd->Smooth = false;
 					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
 					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
 					ok = true;
@@ -1125,6 +1126,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					cmd->Speed = speed;
 					cmd->Param1 = (relative ? 0.0f : 1.0f);
 					cmd->Param2 = ang;
+					cmd->Smooth = false;
 					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
 					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
 					ok = true;
@@ -1154,6 +1156,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					cmd->Speed = speed;
 					cmd->Param1 = radius;
 					cmd->Param2 = angle;
+					cmd->Smooth = false;
 					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
 					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
 					ok = true;
@@ -1183,6 +1186,7 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					cmd->Speed = speed;
 					cmd->Param1 = x;
 					cmd->Param2 = y;
+					cmd->Smooth = false;
 					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
 					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
 					ok = true;

@@ -26,7 +26,7 @@ typedef enum {
 typedef struct {
 	DriveCommand_Type Type;			/*<< Command type, one of DriveCommand_Type */
 	bool UsePen;					/*<< If true then pen will be held down, up otherwise */
-	//bool Smooth;					/*<< If driving should be smooth */
+	bool Smooth;					/*<< If driving should be smooth */
 	float Speed;					/*<< Robot's speed, only positive values */
 	float Param1;					/*<< Command param #1 */
 	float Param2;					/*<< Command param #2 */
