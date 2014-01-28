@@ -20,6 +20,8 @@ static void TaskAsyncCallHandler(void *p) {
 		case AsyncCallProc_Int:
 			call.CallInt(call.IntParam);
 			break;
+		default:
+			break;
 		}
 	}
 }

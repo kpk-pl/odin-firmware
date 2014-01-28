@@ -296,6 +296,7 @@ bool saveInitCustomMotorController(FIL* file) {
 			case 2: f_puts(" Kp\n", file); break;
 			case 3: f_puts(" Ki\n", file); break;
 			case 4: f_puts(" Kd\n", file); break;
+			default: break;
 		}
 	}
 

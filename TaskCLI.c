@@ -166,7 +166,7 @@ static const CLI_Command_Definition_t delayComDef = {
 };
 static const CLI_Command_Definition_t penComDef = {
     (const int8_t*)"pen",
-    (const int8_t*)"pen <up|down|line [solid|dotted|dashed|ldashed|dotdashed]>\n",
+    (const int8_t*)"pen <up|down|enable|disable|line [solid|dotted|dashed|ldashed|dotdashed]>\n",
     penCommand,
     -1
 };
@@ -357,11 +357,25 @@ portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 				ok = true;
 			}
 		}
-		else if (cmatch("down", param[0], 1)) { // d
+		else if (cmatch("down", param[0], 2)) { // do
 			if (nOfParams == 1) {
 				bool usePen = true;
 				xQueueSendToBack(penCommandQueue, &usePen, portMAX_DELAY);
 				strncpy((char*)outBuffer, "Pen is down\n", outBufferLen);
+				ok = true;
+			}
+		}
+		else if (cmatch("enable", param[0], 1)) { // e
+			if (nOfParams == 1) {
+				enablePen(ENABLE);
+				strncpy((char*)outBuffer, "Pen enabled\n", outBufferLen);
+				ok = true;
+			}
+		}
+		else if (cmatch("disable", param[0], 2)) { // di
+			if (nOfParams == 1) {
+				enablePen(DISABLE);
+				strncpy((char*)outBuffer, "Pen disabled\n", outBufferLen);
 				ok = true;
 			}
 		}
@@ -436,6 +450,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 									.Type = AsyncCallProc_Int,
 									.CallInt = scaleOdometryCorrectionParam,
 									.IntParam = turns
+
 								};
 								xQueueSend(AsyncCallHandlerQueue, &call, portMAX_DELAY);
 								strncpy((char*)outBuffer, "Scaling started\n", outBufferLen);

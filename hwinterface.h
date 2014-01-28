@@ -60,6 +60,19 @@ void setPenDown(void);
 void setPenUp(void);
 
 /*
+ * @brief Enables or disables the pen (disable means turn off servo completely)
+ * After enabling servo goes to its last state
+ * @param newstate ENABLE / DISABLE
+ */
+void enablePen(FunctionalState newstate);
+
+/*
+ * @brief Return current servo state
+ * @retval ON / OFF
+ */
+OnOff getPenState();
+
+/*
  * @brief Sets four signals that control H-bridge of each motor
  * @param ENA EN_A signal
  * @param ENB EN_B signal

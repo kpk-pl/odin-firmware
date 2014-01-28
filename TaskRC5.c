@@ -91,6 +91,9 @@ void TaskRC5(void * p) {
 				case 52: /*<< purple button */
 					enableLantern(!getLanternState());
 					break;
+				case 54:  /*<< green Pst button */
+					enablePen(getPenState() == ON ? DISABLE : ENABLE);
+					break;
 				case 55: /*<< red Pon button */
 					setWiFiReset(ENABLE);
 					vTaskDelay(200/portTICK_RATE_MS);

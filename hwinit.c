@@ -486,11 +486,9 @@ void Initialize() {
 	TIM_OC2Init(SERVO_TIM, &TIM_OCInitStructure);
 	/* Set correct initial value for the servo */
 	setPenUp();
-	// TODO: read ADC value from potentiometer and adjust initial height
 	/* Enable preload */
 	TIM_OC2PreloadConfig(SERVO_TIM, TIM_OCPreload_Enable);
-	/* Enable timer */
-	TIM_Cmd(SERVO_TIM, ENABLE);
+	/* DO NOT enable timer - will be enabled using enablePen(ENABLE) from CLI or RC5 */
 
 
 	/* Configure independent watchdog */

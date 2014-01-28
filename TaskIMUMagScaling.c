@@ -29,7 +29,7 @@ void TaskIMUMagScaling(void *p) {
 	// ok, there was a request. Check if robot moved
 
 	TelemetryData_Struct telemetry;
-	getTelemetryRaw(&telemetry);
+	getTelemetry(&telemetry, TelemetryStyle_Raw);
 	if (fabsf(telemetry.X) > 0.1f || fabsf(telemetry.Y) > 0.1f || fabsf(telemetry.O) > 0.01f) goto finish;
 	// ok, robot is not moving, try to do scaling
 
