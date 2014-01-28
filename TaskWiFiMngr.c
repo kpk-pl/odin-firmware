@@ -27,7 +27,7 @@ static char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines);
  * @param waitTime Time to wait for response line
  * @retval true on success, false on error
  */
-static bool wifiTransaction(char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime);
+static bool wifiTransaction(const char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime);
 
 /**
  * Performs reconnect action, setting up wifi connection
@@ -127,7 +127,7 @@ char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines) {
 	return msg;
 }
 
-bool wifiTransaction(char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime) {
+bool wifiTransaction(const char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime) {
 	if (pdPASS != xQueueReset(WiFiMngrInputQueue))
 		return false;
 

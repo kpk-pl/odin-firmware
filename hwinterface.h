@@ -23,15 +23,6 @@ typedef enum {
 	Interface_All_Active = 7
 } Interface_Type;
 
-#define IS_BITVAL(x) (x == LOW || x == HIGH)
-#define IS_ONOFF(x) (x == ON || x == OFF)
-#define IS_WIFIMODE(x) (x == WiFiMode_Command || x == WiFiMode_Data)
-
-/*
- * This file provides basic hardware interface functions
- * such as lighting a led or setting PWM duty cycle of a motor
- */
-
 /*
  * @brief Set specified led to specified state
  * @param no: LED number, from 1 to 6
@@ -46,13 +37,6 @@ void lightLED(uint8_t no, OnOff state);
  * @retval None
  */
 void setServoPos(float prc);
-
-/*
- * @brief Sets servo position with respect to changed down position
- * @param None
- * @retval None
- */
-void updateServoPos(void);
 
 /*
  * @brief Sets a down position value as a reference to other servo functions
@@ -160,6 +144,6 @@ WiFiMode getWiFiMode();
 void setWiFiFactoryDefault(FunctionalState state);
 
 void sendInterfaceBlocking(uint8_t byte, Interface_Type interface);
-int printInterfaceBlocking(char *str, int length, Interface_Type interface);
+int printInterfaceBlocking(const char *str, int length, Interface_Type interface);
 
 #endif

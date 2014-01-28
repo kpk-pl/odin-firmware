@@ -19,11 +19,9 @@ static volatile OnOff WIFI2USBBRIDGE_STATUS = OFF;
 static volatile FunctionalState LANTER_STATE = ENABLE;
 
 void lightLED(uint8_t no, OnOff state) {
-	assert_param(no >= 1 && no <= 6);
-	assert_param(IS_ONOFF(state));
 	/* GPIOs may vary */
 	GPIO_TypeDef * gpio = (no == 1 ? LEDS_GPIO_1 : LEDS_GPIO_26);
-	uint16_t pin = LEDS_GPIO_1_PIN;
+	uint16_t pin;
 	switch (no) {
 	case 1:
 		pin = LEDS_GPIO_1_PIN;
@@ -43,6 +41,8 @@ void lightLED(uint8_t no, OnOff state) {
 	case 6:
 		pin = LEDS_GPIO_6_PIN;
 		break;
+	default:
+		return;
 	}
 
 	/* Change bits in critical section to ensure registers coherence */
@@ -81,11 +81,6 @@ void setPenUp(void) {
 }
 
 void setMotorLSignals(BitVal ENA, BitVal ENB, BitVal INA, BitVal INB) {
-	assert_param(IS_BITVAL(ENA));
-	assert_param(IS_BITVAL(ENB));
-	assert_param(IS_BITVAL(INA));
-	assert_param(IS_BITVAL(INB));
-
 	taskENTER_CRITICAL();
 	if (ENA == HIGH) GPIO_SetBits(MOTORL_GPIO, MOTORL_GPIO_ENA_PIN);
 	else GPIO_ResetBits(MOTORL_GPIO, MOTORL_GPIO_ENA_PIN);
@@ -99,11 +94,6 @@ void setMotorLSignals(BitVal ENA, BitVal ENB, BitVal INA, BitVal INB) {
 }
 
 void setMotorRSignals(BitVal ENA, BitVal ENB, BitVal INA, BitVal INB) {
-	assert_param(IS_BITVAL(ENA));
-	assert_param(IS_BITVAL(ENB));
-	assert_param(IS_BITVAL(INA));
-	assert_param(IS_BITVAL(INB));
-
 	taskENTER_CRITICAL();
 	if (ENA == HIGH) GPIO_SetBits(MOTORR_GPIO, MOTORR_GPIO_ENA_PIN);
 	else GPIO_ResetBits(MOTORR_GPIO, MOTORR_GPIO_ENA_PIN);
@@ -319,6 +309,8 @@ OnOff getSwitchStatus(uint8_t no) {
 	case 6:
 		if (GPIO_ReadInputDataBit(SWITCHES_GPIO, SWITCHES_GPIO_6_PIN) == Bit_SET) return OFF;
 		else return ON;
+	default:
+		return OFF;
 	}
 	return OFF;
 }
@@ -345,7 +337,6 @@ void setWiFiAlarm(FunctionalState state) {
 }
 
 void setWiFiMode(WiFiMode mode) {
-	assert_param(IS_WIFIMODE(mode));
 	taskENTER_CRITICAL();
 	if (mode == WiFiMode_Command) GPIO_SetBits(WIFI_GPIO_SIG, WIFI_GPIO_SIG_CMDDATA_PIN);
 	else GPIO_ResetBits(WIFI_GPIO_SIG, WIFI_GPIO_SIG_CMDDATA_PIN);
@@ -384,7 +375,7 @@ void sendInterfaceBlocking(uint8_t byte, Interface_Type interface) {
 		while (USART_GetFlagStatus(COM_USART, USART_FLAG_TXE) == RESET);
 }
 
-int printInterfaceBlocking(char *str, int length, Interface_Type interface) {
+int printInterfaceBlocking(const char *str, int length, Interface_Type interface) {
 	if (getWiFi2USBBridgeStatus() != ON) {
 		int counter = length;
 		for (; counter > 0; counter--) {
