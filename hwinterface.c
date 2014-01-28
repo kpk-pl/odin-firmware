@@ -396,3 +396,10 @@ int printInterfaceBlocking(const char *str, int length, Interface_Type interface
 	else
 		return 0;
 }
+
+void systemReset() {
+	/* Set too low preload value causing reset to occur */
+	IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+	IWDG_SetReload(1);
+	while(1);
+}

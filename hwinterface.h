@@ -159,4 +159,6 @@ void setWiFiFactoryDefault(FunctionalState state);
 void sendInterfaceBlocking(uint8_t byte, Interface_Type interface);
 int printInterfaceBlocking(const char *str, int length, Interface_Type interface);
 
+void systemReset();
+
 #endif

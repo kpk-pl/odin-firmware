@@ -60,9 +60,7 @@ void TaskRC5(void * p) {
 			else {
 				switch(frame.Command) {
 				case 12: /*<< OFF red button */
-					/* Set too low preload value causing reset to occur */
-					IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-					IWDG_SetReload(1);
+					systemReset();
 					break;
 				case 16: /*<< VOL up button */
 					maxSpeed *= 1.2f;

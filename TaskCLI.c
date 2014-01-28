@@ -274,9 +274,7 @@ portBASE_TYPE systemCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t
 		snprintf((char*)outBuffer, outBufferLen, "Available memory: %dkB\n", xPortGetFreeHeapSize());
 	}
 	else if (cmatch("reset", param, 4)) { // rese
-		IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-		IWDG_SetReload(1);
-		while(1);
+		systemReset();
 	}
 	else if (cmatch("battery", param, 1)) { // b
 		snprintf((char*)outBuffer, outBufferLen, "Battery voltage: %.2fV\n", getBatteryVoltage());
