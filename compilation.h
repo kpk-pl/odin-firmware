@@ -46,10 +46,12 @@
  * 	-std=c99
  *
  * 	Link:
- * 	Use memory layout from memory window
+ * 	Don't use memory layout
  * 	Discard unused sections
  * 	Don't use the standard system startup files
  * 	Use base C library
+ *
+ *  Provide path to arm-gcc-link.ld in Scatter File
  *
  * 	Libraries:
  * 	g  gnu tools arm embedded\4.7 2013q1\arm-none-eabi\lib\armv7e-m\fpu\
