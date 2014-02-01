@@ -345,6 +345,8 @@ bool readInitIMU(FIL* file) {
 	char buffer[25];
 
 	f_gets(buffer, 25, file);
+	globalUseIMUUpdates = strtod(buffer, NULL);
+	f_gets(buffer, 25, file);
 	if (strtod(buffer, NULL) != MAG_IMPROV_DATA_POINTS) return false;
 
 	uint8_t line;
@@ -360,6 +362,8 @@ bool saveInitIMU(FIL* file) {
 	if (file == NULL) return false;
 	char buffer[25];
 
+	snprintf(buffer, 25, "%d useIMUUpdates\n", globalUseIMUUpdates);
+	f_puts(buffer, file);
 	snprintf(buffer, 25, "%d n\n", MAG_IMPROV_DATA_POINTS);
 	f_puts(buffer, file);
 

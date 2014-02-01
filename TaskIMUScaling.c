@@ -63,7 +63,7 @@ void TaskIMUScaling(void *p) {
 
 	/* Update globals */
 #ifdef USE_GYRO_FOR_IMU
-	globalGyroDrift = gyroDrift / samplesCount;
+	globalGyroDrift = prevGyro / samplesCount;
 #endif
 	globalMagStartOrientation = magStartO / samplesCount;
 

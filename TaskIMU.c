@@ -113,13 +113,16 @@ void TaskIMU(void * p) {
 			VectorScale(&magSum, 1.0f / 3.0f, &magSum);
 #ifdef USE_GYRO_FOR_IMU
 			VectorScale(&gyroSum, 0.25f, &gyroSum);
-			dirFromGyro -= gyroSum.z * 0.04f - globalGyroDrift;
+			dirFromGyro -= gyroSum.z * 0.04f;
 #endif
 			dirFromMag = GetHeading(&accSum, &magSum, &front);
 
 			bool interpolated = false;
 			if (globalDoneIMUScaling) {
 				dirFromMag = interpolateAngle(dirFromMag);
+#ifdef USE_GYRO_FOR_IMU
+				dirFromGyro -= globalGyroDrift;
+#endif
 				interpolated = true;
 			}
 

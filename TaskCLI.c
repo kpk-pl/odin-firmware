@@ -464,6 +464,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 				}
 			}
 		}
+#ifdef USE_IMU_TELEMETRY
 		else if (cmatch("imu", param[0], 1)) { // i
 			if (nOfParams == 2) {
 				if (cmatch("enable", param[1], 1)) { // e
@@ -478,6 +479,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 				}
 			}
 		}
+#endif
 		if (cmatch("scale", param[0], 5)) { // scale
 			if (nOfParams == 2) {
 				float s = strtof(param[1], NULL);
