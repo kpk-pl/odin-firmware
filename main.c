@@ -23,7 +23,7 @@
 #include "TaskAsyncCallHandler.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"
-#include "TaskIMUMagScaling.h"
+#include "TaskIMUScaling.h"
 #endif
 #ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
@@ -122,7 +122,7 @@ int main(void)
 #endif
 #ifdef USE_IMU_TELEMETRY
 	TaskIMUConstructor();
-	TaskIMUMagScalingConstructor();	// this should be called at last
+	TaskIMUScalingConstructor();
 #endif
 
 	// boot task with DOMINATOR priority

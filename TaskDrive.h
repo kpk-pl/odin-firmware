@@ -32,6 +32,9 @@ typedef struct {
 	float Param2;					/*<< Command param #2 */
 } DriveCommand_Struct;
 
+#define DRIVECOMMAND_ANGLE_PARAM1_ABSOLUTE 1.0f
+#define DRIVECOMMAND_ANGLE_PARAM1_RELATIVE 0.0f
+
 /**
  * \brief Controls following one of four available trajectories.
  *

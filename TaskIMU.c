@@ -18,7 +18,7 @@
 #endif
 
 #include "TaskTelemetry.h"		// for typedefs
-#include "TaskIMUMagScaling.h"	// for external declarations
+#include "TaskIMUScaling.h"		// for external declarations
 #include "TaskPrintfConsumer.h"	// for printf
 
 /**
@@ -30,16 +30,9 @@ static void initI2CforIMU(void);
 
 /**
  * \brief Resets I2C peripheral after I2C hang
- *
  * It turns the peripheral off, disconnects ports, toggles pins several times to reset devices on line and turns I2C peripheral back on
  */
 static inline void resetI2C(void);
-
-/**
- *  \brief Initializes globalMagnetometerImprov struct and globalMagnetometerImprovData table so that magnetometer
- *  readings starts from zero.
- */
-static void initMagnetometerImprovInstance(float x0);
 
 /**
  * \brief Performs interpolation and normalization of the angle read from magnetometer
@@ -48,15 +41,18 @@ static void initMagnetometerImprovInstance(float x0);
  */
 static float interpolateAngle(float angle);
 
+/**
+ *  \brief Handler for timer overflow when I2C hangs up
+ *  @param xTimer Handle to timer which overflowed
+ */
+void imuWatchdogOverrun(xTimerHandle xTimer);
+
 static volatile bool globalIMUHang = false;								/*!< Indicates if IMU hanged lately */
-volatile bool globalDoneIMUScaling = false;								/*!< false if scaling was never done before, true otherwise. May be set in TaskIMUMagScaling */
-float globalMagnetometerImprovData[MAG_IMPROV_DATA_POINTS+1];	/*!< Array of scaling points used by interpolation to correct magnetometer readings */
-arm_linear_interp_instance_f32 globalMagnetometerImprov = {		/*!< Struct used for interpolation of magnetometer readings */
-	.nValues = MAG_IMPROV_DATA_POINTS+1,
-	.xSpacing = TWOM_PI / (float)MAG_IMPROV_DATA_POINTS,
-	.x1 = -M_PI,
-	.pYData = globalMagnetometerImprovData
-};
+volatile float globalMagnetometerImprovData[MAG_IMPROV_DATA_POINTS+1];	/*!< Array of scaling points used by interpolation to correct magnetometer readings */
+volatile float globalMagStartOrientation = NAN;							/*!< Start orientation when odometry reports 0 degrees */
+#ifdef USE_GYRO_FOR_IMU
+volatile float globalGyroDrift = NAN;									/*!< Drift scaled by IMU Scaling task */
+#endif
 
 xQueueHandle I2CEVFlagQueue = NULL;		/*!< Queue for I2C events synchronization and handling in interrupts to avoid busy-waits */
 xSemaphoreHandle imuI2CEV;				/*!< Semaphore for I2C successful event recognition */
@@ -76,12 +72,12 @@ void TaskIMU(void * p) {
 	VectorF accSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from accelerometer
 	VectorF magSum = {0.0f, 0.0f, 0.0f};		// place for 3 readings from magnetometer
 	const VectorF front = {0.0f, -1.0f, 0.0f};	// front of the robot relative to IMU mounting
-	float angle, cangle, prev_angle;
+	float dirFromMag, dirComplementary, prevDirFromMag;
 	static int32_t turn_counter = 0;			// static means that it will survive restart
 	TelemetryData_Struct telemetry;
 #ifdef USE_GYRO_FOR_IMU
 	VectorF gyroSum = {0.0f, 0.0f, 0.0f};		// place for 4 readings from gyro
-	float estDir;
+	float dirFromGyro;
 	Complementary_State cState;					// filter state
 	ComplementaryInit(&cState, 0.93f); 			// 0.5s time constant with 25Hz sampling
 #endif
@@ -105,10 +101,9 @@ void TaskIMU(void * p) {
 	vTaskPrioritySet(NULL, PRIORITY_TASK_IMU);
 
 	/* Wait a while until IMU stabilizes, TODO calibration here */
-	vTaskDelay(2000/portTICK_RATE_MS);
+	vTaskDelay(1000/portTICK_RATE_MS);
 
-	TelemetryUpdate_Struct update = {.dX = 0.0f, .dY = 0.0f, .Source = TelemetryUpdate_Source_IMU};
-
+	TelemetryUpdate_Struct update = {.dX = NAN, .dY = NAN, .Source = TelemetryUpdate_Source_IMU};
 	portTickType wakeTime = xTaskGetTickCount();
 
 	while (1) {
@@ -118,34 +113,35 @@ void TaskIMU(void * p) {
 			VectorScale(&magSum, 1.0f / 3.0f, &magSum);
 #ifdef USE_GYRO_FOR_IMU
 			VectorScale(&gyroSum, 0.25f, &gyroSum);
-			estDir -= gyroSum.z * 0.04f;
+			dirFromGyro -= gyroSum.z * 0.04f - globalGyroDrift;
 #endif
+			dirFromMag = GetHeading(&accSum, &magSum, &front);
 
-			angle = GetHeading(&accSum, &magSum, &front);
-
-			if (globalMagnetometerScalingInProgress != ENABLE)
-				angle = interpolateAngle(angle);
+			bool interpolated = false;
+			if (globalDoneIMUScaling) {
+				dirFromMag = interpolateAngle(dirFromMag);
+				interpolated = true;
+			}
 
 			// if abs angle > 90 deg and angle sign changes
-			if (fabsf(angle) > HALFM_PI && angle*prev_angle < 0.0f) {
-				if (angle > 0.0f) { // switching from -180 -> 180
+			if (fabsf(dirFromMag) > HALFM_PI && dirFromMag*prevDirFromMag < 0.0f) {
+				if (dirFromMag > 0.0f) // switching from -180 -> 180
 					turn_counter--;
-				}
-				else {
+				else
 					turn_counter++;
-				}
 			}
-			prev_angle = angle;
+			prevDirFromMag = dirFromMag;
 
-			angle += TWOM_PI * (float)turn_counter;
+			dirFromMag += TWOM_PI * (float)turn_counter;
 
-			if (globalMagnetometerScalingInProgress == DISABLE) {
+			if (globalDoneIMUScaling && interpolated) {
 #ifdef USE_GYRO_FOR_IMU
-				cangle = ComplementaryGet(&cState, cangle - gyroSum.z * 0.04f, angle);
+				dirComplementary = ComplementaryGet(&cState, dirComplementary - gyroSum.z * 0.04f, dirFromMag);
 #else
-				cangle = angle;
+				dirComplementary = dirFromMag;
 #endif
-				update.dO = cangle;
+				update.dO = dirComplementary;
+
 				if (xQueueSendToBack(telemetryQueue, &update, 0) == errQUEUE_FULL) {
 					if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
 				}
@@ -153,14 +149,22 @@ void TaskIMU(void * p) {
 				if (globalLogIMU) {
 					getTelemetry(&telemetry, TelemetryStyle_Raw);
 #ifdef USE_GYRO_FOR_IMU
-					safePrint(60, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, estDir / DEGREES_TO_RAD, cangle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+					safePrint(60, "Mag: %.1f Gyro: %.1f Comp: %.1f Odo: %.1f\n", dirFromMag / DEGREES_TO_RAD, dirFromGyro / DEGREES_TO_RAD, dirComplementary / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 #else
-					safePrint(60, "Mag: %.1f Odo: %.1f\n", angle / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
+					safePrint(60, "Mag: %.1f Odo: %.1f\n", dirFromMag / DEGREES_TO_RAD, telemetry.O / DEGREES_TO_RAD);
 #endif
 				}
 			}
-			else {
-				xQueueSendToBack(magnetometerScalingQueue, &angle, 0); // this queue should exist if globalMagnetometerScaling == ENABLE
+			else if (!globalDoneIMUScaling) {
+				IMUAngles_Type angles = {
+#ifdef USE_GYRO_FOR_IMU
+					.AngleGyro = dirFromGyro,
+#else
+					.AngleGyro = NAN,
+#endif
+					.AngleMag = dirFromMag
+				};
+				xQueueSendToBack(imuScalingQueue, &angles, 0);
 			}
 
 #ifdef USE_GYRO_FOR_IMU
@@ -222,19 +226,16 @@ void TaskIMU(void * p) {
 			VectorAdd(&magSum, &read, &magSum);
 
 			if (samplingState == 7) { 						// initialize all values to first reading
+				prevDirFromMag = GetHeading(&accSum, &magSum, &front); // initial heading;
+#ifdef USE_GYRO_FOR_IMU
+				getTelemetry(&telemetry, TelemetryStyle_Raw);
+				dirFromGyro = dirComplementary = telemetry.O;
+#endif
+
 				VectorScale(&accSum, 4.0f, &accSum);		// will be scaled back at state 0
 				VectorScale(&magSum, 3.0f, &magSum);
 #ifdef USE_GYRO_FOR_IMU
 				VectorScale(&gyroSum, 4.0f, &gyroSum);
-#endif
-				cangle = GetHeading(&accSum, &magSum, &front); // initial heading
-				prev_angle = cangle;
-				getTelemetry(&telemetry, TelemetryStyle_Normalized);
-				if (!globalDoneIMUScaling)
-					initMagnetometerImprovInstance(cangle - telemetry.O);  // scale to be 0 at initial
-				cangle = interpolateAngle(telemetry.O) + TWOM_PI * (float)turn_counter;
-#ifdef USE_GYRO_FOR_IMU
-				estDir = cangle;
 #endif
 			}
 
@@ -343,28 +344,27 @@ void initI2CforIMU(void) {
 	I2C_Init(IMU_I2C, &I2C_InitStructure);
 }
 
-void initMagnetometerImprovInstance(float x0) {
-	float offset = -M_PI + x0;
-
-	for (uint16_t i = 0; i<globalMagnetometerImprov.nValues; i++) {
-		globalMagnetometerImprovData[i] = globalMagnetometerImprov.xSpacing * i + offset; // Must be continuous, no normalization. Normalize afterwards.
-	}
-}
-
 float interpolateAngle(float angle) {
+	/* Make sure that angle is in the range of interpolation data */
+	while (angle < globalMagnetometerImprovData[0])
+		angle += TWOM_PI;
+	while (angle > globalMagnetometerImprovData[MAG_IMPROV_DATA_POINTS])
+		angle -= TWOM_PI;
+
 	uint16_t i;
-
-	angle += (ceil(globalMagnetometerImprov.pYData[0] / TWOM_PI) + 1.0f) * TWOM_PI;		// make sure that input angle is in range
-
-	for (i = 0; ; ++i) {
-		if (angle < globalMagnetometerImprov.pYData[i % globalMagnetometerImprov.nValues] + (float)(i/globalMagnetometerImprov.nValues) * TWOM_PI) break;
+	for (i = 1; i < MAG_IMPROV_DATA_POINTS+1; ++i) {
+		if (globalMagnetometerImprovData[i] > angle) break;
 	}
 
-	float a = globalMagnetometerImprov.pYData[i % globalMagnetometerImprov.nValues - 1] + (float)(i/globalMagnetometerImprov.nValues) * TWOM_PI;
-	float b = globalMagnetometerImprov.pYData[i % globalMagnetometerImprov.nValues] + (float)(i/globalMagnetometerImprov.nValues) * TWOM_PI;
+	float a = (float)(i-1)*TWOM_PI / MAG_IMPROV_DATA_POINTS - M_PI;
+	float b = (float)i*TWOM_PI / MAG_IMPROV_DATA_POINTS - M_PI;
 
-	float prc = (angle - a) / (b - a);
-	return normalizeOrientation((prc + (float)(i-1)) * globalMagnetometerImprov.xSpacing + globalMagnetometerImprov.x1);
+	float prc = (angle - globalMagnetometerImprovData[i-1]) /
+			(globalMagnetometerImprovData[i]-globalMagnetometerImprovData[i-1]);
+
+	angle = prc * (b-a) + a;
+
+	return normalizeOrientation(angle - globalMagStartOrientation + globalMagnetometerImprovData[MAG_IMPROV_DATA_POINTS/2]);
 }
 
 void IMUI2CEVHandler(void) {

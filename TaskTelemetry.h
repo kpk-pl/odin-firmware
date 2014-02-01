@@ -65,6 +65,12 @@ void TaskTelemetryConstructor();
 void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style);
 
 /**
+ * Checks if robot moved since last reset
+ * @retval true if robot moved, false otherwise
+ */
+bool movedSinceReset();
+
+/**
  *  \brief Returns normalized orientation angle provided as input in radians, output is [-PI, +PI]
  */
 float normalizeOrientation(float in);

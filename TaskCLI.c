@@ -110,9 +110,8 @@ void TaskCLI(void *p) {
 		if (strncmp(msgBuffer, "[ERROR: INVALID INPUT]", 21) == 0) {
 			if (getWiFiStatus() == ON) {
 				enableWiFi(DISABLE);
-				enableUSB(ENABLE);
-				safePrint(48, "WiFi error detected, check wireless connection\n");
-				lightLED(1, ON);
+				if (!TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect))
+					safePrint(36, "[CLI] WiFi error: Reconnect failed\n");
 			}
 			continue;
 		}
@@ -1408,12 +1407,12 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 		else
 			safePrint(12, "[%5ldB ]", fno.fsize);
 
-		safePrint(50, " %s", *fno.lfname ? fno.lfname : fno.fname);
+		safePrint(50, " %s\n", *fno.lfname ? fno.lfname : fno.fname);
 	}
 	f_closedir(&dir);
 
 	vPortFree(lfn);
-	strncpy((char*)outBuffer, "\n", outBufferLen);
+	strncpy((char*)outBuffer, "", outBufferLen);
 	return pdFALSE;
 }
 

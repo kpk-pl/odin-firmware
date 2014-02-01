@@ -10,7 +10,7 @@
 #include "hwinterface.h"
 #include "memory.h"
 
-#include "TaskIMUMagScaling.h"
+#include "TaskIMUScaling.h"
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskPenCtrl.h"
@@ -80,7 +80,7 @@ void TaskRC5(void * p) {
 					break;
 #ifdef USE_IMU_TELEMETRY
 				case 42: /*<< clock button */
-					xSemaphoreGive(imuMagScalingReq);
+					globalScaleMagnetometerRequest = true;
 					break;
 #endif
 				case 43: /*<< screen button above purple button */

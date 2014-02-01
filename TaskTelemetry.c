@@ -17,11 +17,13 @@ bool globalUseIMUUpdates = true;
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;						/*!< This task's handle */
 
+static bool globalMovedSinceReset = false;
+
 /**
  * \brief Global variable that holds current up-to-date telemetry data.
  *
  * Only telemetryTask should write to it.
- * To read from this one should use getTelemetry function than provides mutual exclusion to ensure data coherency
+ * To read from this one should use getTelemetry function than provides mutual exclusion to ensure data coherence
  */
 volatile TelemetryData_Struct globalTelemetryData = {0.0f, 0.0f, 0.0f};
 
@@ -71,8 +73,15 @@ void TaskTelemetry(void * p) {
 #endif
 			break;
 		default:
-			if (globalLogEvents) safePrint(37, "Invalid telemetry update type: %d\n", update.Source);
+			if (globalLogEvents)
+				safePrint(37, "Invalid telemetry update type: %d\n", update.Source);
 			break;
+		}
+
+		if (!globalMovedSinceReset) {
+			if (globalTelemetryData.X != 0.0f || globalTelemetryData.Y != 0.0f || globalTelemetryData.O != 0.0f) {
+				globalMovedSinceReset = true;
+			}
 		}
 	}
 }
@@ -82,10 +91,16 @@ void TaskTelemetryConstructor() {
 	telemetryQueue = xQueueCreate(30, sizeof(TelemetryUpdate_Struct));
 }
 
+bool movedSinceReset() {
+	return globalMovedSinceReset;
+}
+
 float normalizeOrientation(float in) {
-	while (in > M_PI) in -= TWOM_PI;
+/*	while (in > M_PI) in -= TWOM_PI;
 	while (in <= -M_PI) in += TWOM_PI;
 	return in;
+*/
+	return in - floorf((in + M_PI)/TWOM_PI) * TWOM_PI;
 }
 
 void scaleOdometryCorrectionParam(int turns) {

@@ -325,7 +325,7 @@ bool readInitPIDMotorController(FIL* file) {
 bool saveInitPIDMotorController(FIL* file) {
 	if (file == NULL) return false;
 
-	char buffer[25];
+	char buffer[20];
 
 	snprintf(buffer, 20, "%.8g Kp\n", globalMotorPidKp);
 	f_puts(buffer, file);
@@ -340,10 +340,34 @@ bool saveInitPIDMotorController(FIL* file) {
 
 #ifdef USE_IMU_TELEMETRY
 bool readInitIMU(FIL* file) {
-	return true;
+	if (file == NULL) return false;
+
+	char buffer[25];
+
+	f_gets(buffer, 25, file);
+	if (strtod(buffer, NULL) != MAG_IMPROV_DATA_POINTS) return false;
+
+	uint8_t line;
+	for (line = 0; !f_eof(file) && line < MAG_IMPROV_DATA_POINTS+1; ++line) {
+		f_gets(buffer, 25, file);
+		globalMagnetometerImprovData[line] = strtod(buffer, NULL);
+	}
+
+	return line == MAG_IMPROV_DATA_POINTS+1;
 }
 
 bool saveInitIMU(FIL* file) {
+	if (file == NULL) return false;
+	char buffer[25];
+
+	snprintf(buffer, 25, "%d n\n", MAG_IMPROV_DATA_POINTS);
+	f_puts(buffer, file);
+
+	for (uint8_t i = 0; i<MAG_IMPROV_DATA_POINTS+1; ++i) {
+		snprintf(buffer, 25, "%.8g\n", globalMagnetometerImprovData[i]);
+		f_puts(buffer, file);
+	}
+
 	return true;
 }
 #endif

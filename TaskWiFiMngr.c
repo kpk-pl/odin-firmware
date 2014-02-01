@@ -42,10 +42,18 @@ static bool actionReconnect();
 static bool actionSetHighSpeed();
 
 void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
+	bool turnedOn = false;
+
 	/* WiFi must be turned on for that */
 	if (getWiFiStatus() == OFF) {
-		safePrint(31, "Error: WiFi module turned off\n");
-		TaskWiFiMngrDestructor();
+		if (*cmd == WiFiMngr_Command_Reconnect) {
+			enableWiFi(ENABLE);
+			turnedOn = true;
+		}
+		else {
+			safePrint(31, "Error: WiFi module turned off\n");
+			TaskWiFiMngrDestructor();
+		}
 	}
 
 	/* Acquire resources for printing */
@@ -56,7 +64,7 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 	vTaskDelay(200/portTICK_RATE_MS);
 
 	/* Dummy transaction, might fail - to clean internal WiFi module buffer */
-	wifiTransaction("AT\n", "", 2, 500);
+	wifiTransaction("\nAT\n", "", 2, 500);
 
 	bool ret;
 
@@ -81,8 +89,12 @@ void TaskWiFiMngr(WiFiMngr_Command_Type *cmd) {
 
 	if (ret)
 		safePrint(18, "OK: WiFi manager\n");
-	else
+	else {
+		if (turnedOn)
+			enableWiFi(DISABLE);
+		lightLED(1, ON);
 		safePrint(21, "Error: WiFi manager\n");
+	}
 
 	/* Destroy this task and all resources */
 	TaskWiFiMngrDestructor();
@@ -113,7 +125,10 @@ char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines) {
 
 	while (ignoreLines-- > 0) {
 		xQueueReceive(WiFiMngrInputQueue, &msg, waitTime/portTICK_RATE_MS);
+		printInterfaceBlocking(msg, 1000, Interface_USB_Active);
 		if (msg) {
+			if (strncmp(msg, "[ERROR", 6) == 0)
+				return msg;
 			vPortFree(msg);
 			msg = NULL;
 		}
@@ -124,6 +139,7 @@ char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines) {
 
 	/* Receive actual output */
 	xQueueReceive(WiFiMngrInputQueue, &msg, waitTime/portTICK_RATE_MS);
+	printInterfaceBlocking(msg, 1000, Interface_USB_Active);
 	return msg;
 }
 
