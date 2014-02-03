@@ -31,9 +31,7 @@ typedef enum {
  */
 typedef struct {
 	TrajectorySource_Type source;
-	union {
-		FIL *file_ptr;
-	};
+	char *fileName;
 } TrajectoryRequest_Struct;
 
 extern TrajectoryControlerGains_Struct globalTrajectoryControlGains;  /*!< Export trajectory controller settings */

@@ -118,8 +118,7 @@ void TaskTrajectory(void *p) {
 			}
 
 			if (request.source == TrajectorySource_File) {
-				f_close(request.file_ptr);
-				vPortFree(request.file_ptr);
+				vPortFree(request.fileName);
 			}
 		}
 	}

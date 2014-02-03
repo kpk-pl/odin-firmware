@@ -979,12 +979,6 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
 	char *param[6];
 	bool ok = false;
-/* TODO:
- *     (const int8_t*)"trajectory ...\n"
-    		 "\tregulator params [iles paramsow]\n"
-    		 "\timport <(Npoints)>\n"
-    		 "\tfollow <streaming|<file #filename>|stop|reset>\n",
- */
 	size_t nOfParams = sliceCommand((char*)command, param, 6);
 
 	if (nOfParams > 0) {
@@ -1041,22 +1035,18 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 							ok = true;
 						}
 						else {
-// TODO: do not open it here!!!
 							TrajectoryRequest_Struct request;
 							request.source = TrajectorySource_File;
-							FIL *file = pvPortMalloc(sizeof(FIL));
-							FRESULT res = f_open(file, param[2], FA_READ | FA_OPEN_EXISTING);
-							if (res == FR_OK) {
-								request.file_ptr = file;
-								xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY);
+							request.fileName = pvPortMalloc(strlen(param[2]+1)*sizeof(char));
+							strcpy(request.fileName, param[2]);
+							if (xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY) == pdTRUE) {
 								strncpy((char*)outBuffer, "Request sent\n", outBufferLen);
-								ok = true;
 							}
 							else {
-								vPortFree(file);
-								strncpy((char*)outBuffer, "Could not open file or file does not exist\n", outBufferLen);
-								ok = true;
+								vPortFree(request.fileName);
+								strncpy((char*)outBuffer, "Could not send request\n", outBufferLen);
 							}
+							ok = true;
 						}
 					}
 				}
@@ -1418,7 +1408,7 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 		if (fno.fattrib & AM_DIR)
 			safePrint(12, "\n[  DIR  ]");
 		else
-			safePrint(12, "[%5ldB ]", fno.fsize);
+			safePrint(12, "\n[%5ldB ]", fno.fsize);
 
 		safePrint(50, " %s", *fno.lfname ? fno.lfname : fno.fname);
 	}
