@@ -81,11 +81,34 @@ void TaskTrajectory(void *p) {
 		}
 	}
 	else {
-// TODO: Needs finish and testing
+// TODO: Needs testing
 		TrajectoryRequest_Struct request;
+		FIL *file = NULL;
 		while(1) {
 			/* Wait for any request */
 			xQueueReceive(trajectoryRequestQueue, &request, portMAX_DELAY);
+
+			/* Handle file streaming */
+			if (request.source == TrajectorySource_File) {
+				/* Try to open the file */
+				file = pvPortMalloc(sizeof(FIL));
+				FRESULT res = f_open(file, request.fileName, FA_READ | FA_OPEN_EXISTING);
+				if (res != FR_OK) {
+					vPortFree(file);
+					file = NULL;
+					safePrint(90, "[Trajectory] Cannot open file %s for reading\n", request.fileName);
+				}
+				else {
+					safePrint(90, "[Trajectory] Reading trajectory from file %s\n", request.fileName);
+				}
+
+				/* Free allocated space for name buffer */
+				vPortFree(request.fileName);
+
+				/* If file cannot be opened, continue from the top */
+				if (res != FR_OK)
+					continue;
+			}
 
 			/* Execute request */
 			while(1) {
@@ -95,7 +118,9 @@ void TaskTrajectory(void *p) {
 					ok = TBgetNextPoint(&nextPoint);
 				}
 				else if (request.source == TrajectorySource_File) {
-					// read next point from file
+					UINT numBytes;
+					FRESULT res = f_read(file, (void*)&nextPoint, sizeof(TrajectoryPoint_Struct), &numBytes);
+					ok = (res == FR_OK && numBytes == sizeof(TrajectoryPoint_Struct));
 				}
 				else
 					break;
@@ -118,7 +143,9 @@ void TaskTrajectory(void *p) {
 			}
 
 			if (request.source == TrajectorySource_File) {
-				vPortFree(request.fileName);
+				f_close(file);
+				vPortFree(file);
+				file = NULL;
 			}
 		}
 	}
