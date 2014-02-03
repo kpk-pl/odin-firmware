@@ -231,10 +231,10 @@ static const CLI_Command_Definition_t driveComDef = {
     (const int8_t*)"drive",
     (const int8_t*)"drive ...\n"
     		 "\twait finish\n"
-    		 "\tline dist #mm speed #speed [pen]\n"
-    		 "\tturn <relative|absolute> angle #deg speed #speed [pen]\n"
-    		 "\tarc angle #deg radius #mm speed #speed [pen]\n"
-    		 "\tpoint x #x y #y speed #speed [pen]\n",
+    		 "\tline dist #mm speed #speed [pen] [smooth]\n"
+    		 "\tturn <relative|absolute> angle #deg speed #speed [pen] [smooth]\n"
+    		 "\tarc angle #deg radius #mm speed #speed [pen] [smooth]\n"
+    		 "\tpoint x #x y #y speed #speed [pen] [smooth]\n",
     driveCommand,
     -1
 };
@@ -1062,7 +1062,7 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 
 #ifdef DRIVE_COMMANDS
 portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
-	char *param[9];
+	char *param[10];
 	bool ok = false;
 
 	size_t nOfParams = sliceCommand((char*)command, param, 9);
@@ -1080,132 +1080,101 @@ portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 				}
 			}
 		}
-		else if (cmatch("line", param[0], 1)) { // l // p2 == 'dist', p3 == mm, p4 == 'speed', p5 == 'sp', p6 optional 'pen'
-			if ((nOfParams == 6 || nOfParams == 5) && cmatch("dist", param[1], 1) && cmatch("speed", param[3], 1)) {
-				bool pen = false;
-				bool error = false;
-				if (nOfParams == 6) {
-					if (cmatch("pen", param[5], 1)) { // p
-						pen = true;
-					}
-					else {
-						error = true;
-					}
-				}
-				if (!error) {
-					float dist = strtof(param[2], NULL);
-					float speed = strtof(param[4], NULL);
-					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
-					cmd->Type = DriveCommand_Type_Line;
-					cmd->UsePen = pen;
-					cmd->Speed = speed;
-					cmd->Param1 = dist;
-					cmd->Smooth = false;
-					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-					ok = true;
-				}
-			}
-		}
-		else if (cmatch("turn", param[0], 1)) { // t // p2 == relative or absolute, p3 == 'angle', p4 == deg, p5 == 'speed', p6 == sp, p7 == optional pen
-			if ((nOfParams == 7 || nOfParams == 6) && cmatch("angle", param[2], 1) && cmatch("speed", param[4], 1)) {
-				bool pen = false;
-				bool error = false;
-				bool relative;
-				if (nOfParams == 7) {
-					if (cmatch("pen", param[6], 1)) { // p
-						pen = true;
-					}
-					else {
-						error = true;
-					}
+		else if (cmatch("line", param[0], 1) || cmatch("turn", param[0], 1) || cmatch("arc", param[0], 1) || cmatch("point", param[0], 1)) { // l || t || a || p
+			/* Initial command with defaults */
+			DriveCommand_Struct cmd = {
+				.Smooth = false,
+				.UsePen = false
+			};
+			size_t currParam = 1;
+
+			/* One time loop to allow break statement */
+			do {
+				/* Minimum is 5 for line command*/
+				if (nOfParams < 5)
+					break;
+
+				/* Get command type */
+				switch(param[0][0]) {
+				case 'l':
+					cmd.Type = DriveCommand_Type_Line;
+					break;
+				case 't':
+					cmd.Type = DriveCommand_Type_Angle;
+					break;
+				case 'a':
+					cmd.Type = DriveCommand_Type_Arc;
+					break;
+				case 'p':
+					cmd.Type = DriveCommand_Type_Point;
+					break;
 				}
 
-				if (cmatch("relative", param[1], 1)) { // r
-					relative = true;
-				}
-				else if (cmatch("absolute", param[1], 1)) { // a
-					relative = false;
-				}
-				else {
-					error = true;
-				}
-
-				if (!error) {
-					float ang = strtof(param[3], NULL);
-					float speed = strtof(param[5], NULL);
-					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
-					cmd->Type = DriveCommand_Type_Angle;
-					cmd->UsePen = pen;
-					cmd->Speed = speed;
-					cmd->Param1 = (relative ? 0.0f : 1.0f);
-					cmd->Param2 = ang;
-					cmd->Smooth = false;
-					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-					ok = true;
-				}
-			}
-		}
-		else if (cmatch("arc", param[0], 1)) { // a  // p2 == 'angle', p3 == ang, p4 == 'radius', p5 == 'mm', p6 == 'speed', p7 == sp, p8 == optional 'pen'
-			if ((nOfParams == 8 || nOfParams == 7) && cmatch("angle", param[1], 1) && cmatch("radius", param[3], 1) && cmatch("speed", param[5], 1)) {
-				bool pen = false;
-				bool error = false;
-				if (nOfParams == 8) {
-					if (cmatch("pen", param[7], 1)) { // p
-						pen = true;
-					}
-					else {
-						error = true;
-					}
+				/* Handle relative/absolute switch for turn */
+				if (cmd.Type == DriveCommand_Type_Angle) {
+					if (cmatch("relative", param[currParam], 1))
+						cmd.Param1 = DRIVECOMMAND_ANGLE_PARAM1_RELATIVE;
+					else if (cmatch("absolute", param[currParam], 1))
+						cmd.Param1 = DRIVECOMMAND_ANGLE_PARAM1_ABSOLUTE;
+					else
+						break;
+					currParam++;
 				}
 
-				if (!error) {
-					float angle = strtof(param[2], NULL);
-					float radius = strtof(param[4], NULL);
-					float speed = strtof(param[6], NULL);
-					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
-					cmd->Type = DriveCommand_Type_Arc;
-					cmd->UsePen = pen;
-					cmd->Speed = speed;
-					cmd->Param1 = radius;
-					cmd->Param2 = angle;
-					cmd->Smooth = false;
-					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-					ok = true;
+				/* Check all constant strings */
+				if (cmd.Type == DriveCommand_Type_Line && !cmatch("dist", param[currParam], 1))
+					break;
+				else if (cmd.Type == DriveCommand_Type_Point && !(cmatch("x", param[currParam], 1) && cmatch("y", param[currParam+2], 1)))
+					break;
+				else if (cmd.Type == DriveCommand_Type_Arc && !cmatch("radius", param[currParam+2], 1))
+					break;
+				else if ((cmd.Type == DriveCommand_Type_Angle || cmd.Type == DriveCommand_Type_Arc) && !cmatch("angle", param[currParam], 1))
+					break;
+
+				/* Handle all parameters */
+				if (cmd.Type == DriveCommand_Type_Line || cmd.Type == DriveCommand_Type_Point)
+					cmd.Param1 = strtof(param[currParam+1], NULL);
+				else // line or arc here
+					cmd.Param2 = strtof(param[currParam+1], NULL);
+				currParam += 2;
+				if (cmd.Type == DriveCommand_Type_Point) {
+					cmd.Param2 = strtof(param[currParam+1], NULL);
+					currParam += 2;
 				}
-			}
-		}
-		else if (cmatch("point", param[0], 1)) { // p // p2 == 'x', p3 = x, p4 = 'y', p5 = y, p6 == 'speed', p7 == sp, p8 optional 'pen'
-			if ((nOfParams == 8 || nOfParams == 7) && strcmp("x", param[1]) == 0 && strcmp("y", param[3]) == 0 && cmatch("speed", param[5], 1)) {
-				bool pen = false;
-				bool error = false;
-				if (nOfParams == 8) {
-					if (cmatch("pen", param[7], 1)) { // p
-						pen = true;
-					}
-					else {
-						error = true;
-					}
+				else if (cmd.Type == DriveCommand_Type_Arc) {
+					cmd.Param1 = strtof(param[currParam+1], NULL);
+					currParam += 2;
 				}
 
-				if (!error) {
-					float x = strtof(param[2], NULL);
-					float y = strtof(param[4], NULL);
-					float speed = strtof(param[6], NULL);
-					DriveCommand_Struct *cmd = (DriveCommand_Struct*)pvPortMalloc(sizeof(DriveCommand_Struct));
-					cmd->Type = DriveCommand_Type_Point;
-					cmd->UsePen = pen;
-					cmd->Speed = speed;
-					cmd->Param1 = x;
-					cmd->Param2 = y;
-					cmd->Smooth = false;
-					xQueueSendToBack(driveQueue, &cmd, portMAX_DELAY);
-					strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
-					ok = true;
+				/* Handle speed */
+				if (nOfParams < currParam + 2 || !cmatch("speed", param[currParam], 1))
+					break;
+				cmd.Speed = strtof(param[currParam+1], NULL);
+				currParam += 2;
+
+				/* Handle optional pen */
+				if (nOfParams >= currParam + 1 && cmatch("pen", param[currParam], 1)) {
+					cmd.UsePen = true;
+					currParam++;
 				}
-			}
+
+				/* Handle optional smooth */
+				if (nOfParams >= currParam + 1 && cmatch("smooth", param[currParam], 1)) {
+					cmd.Smooth = true;
+					currParam++;
+				}
+
+				/* Check if there is no more parameters */
+				if (nOfParams > currParam)
+					break;
+
+				/* All in, send */
+				DriveCommand_Struct *pcmd = pvPortMalloc(sizeof(DriveCommand_Struct));
+				*pcmd = cmd;
+				xQueueSendToBack(driveQueue, &pcmd, portMAX_DELAY);
+				strncpy((char*)outBuffer, "Drive command accepted\n", outBufferLen);
+				ok = true;
+			} while(0);
 		}
 	}
 
