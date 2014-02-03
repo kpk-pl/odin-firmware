@@ -1409,7 +1409,7 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 		else
 			safePrint(12, "[%5ldB ]", fno.fsize);
 
-		safePrint(50, " %s\n", *fno.lfname ? fno.lfname : fno.fname);
+		safePrint(50, " %s", *fno.lfname ? fno.lfname : fno.fname);
 	}
 	f_closedir(&dir);
 
