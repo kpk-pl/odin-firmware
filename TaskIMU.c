@@ -167,7 +167,7 @@ void TaskIMU(void * p) {
 #endif
 					.AngleMag = dirFromMag
 				};
-				xQueueSendToBack(imuScalingQueue, &angles, 0);
+				xQueueOverwrite(imuScalingQueue, &angles);
 			}
 
 #ifdef USE_GYRO_FOR_IMU

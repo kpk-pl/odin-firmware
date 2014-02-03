@@ -64,7 +64,7 @@ void TaskTrajectory(void *p) {
 				}
 				getTelemetry(&telemetry, TelemetryStyle_Common);
 				calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+				sendSpeeds(motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 				send2 = false;
 			}
 			else {
@@ -74,7 +74,7 @@ void TaskTrajectory(void *p) {
 				}
 				if (!send2) {
 					safePrint(25, "Trajectory buffer empty\n");
-					sendSpeeds(.0f, .0f, portMAX_DELAY);
+					sendSpeeds(.0f, .0f);
 					send2 = true;
 				}
 			}
@@ -107,7 +107,7 @@ void TaskTrajectory(void *p) {
 					}
 					getTelemetry(&telemetry, TelemetryStyle_Common);
 					calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
-					xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+					sendSpeeds(motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 				}
 				else {
 					if (taken) {

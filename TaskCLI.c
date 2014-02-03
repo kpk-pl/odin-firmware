@@ -355,7 +355,7 @@ portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		if (cmatch("up", param[0], 1)) { // u
 			if (nOfParams == 1) {
 				bool usePen = false;
-				xQueueSendToBack(penCommandQueue, &usePen, portMAX_DELAY);
+				xQueueOverwrite(penCommandQueue, &usePen);
 				strncpy((char*)outBuffer, "Pen is up\n", outBufferLen);
 				ok = true;
 			}
@@ -363,7 +363,7 @@ portBASE_TYPE penCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		else if (cmatch("down", param[0], 2)) { // do
 			if (nOfParams == 1) {
 				bool usePen = true;
-				xQueueSendToBack(penCommandQueue, &usePen, portMAX_DELAY);
+				xQueueOverwrite(penCommandQueue, &usePen);
 				strncpy((char*)outBuffer, "Pen is down\n", outBufferLen);
 				ok = true;
 			}
@@ -562,7 +562,7 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					right = strtof(param[2], NULL);
 				}
 				snprintf((char*)outBuffer, outBufferLen, "Speeds set to %.3g left and %.3g right\n", left, right);
-				sendSpeeds(left, right, 0);
+				sendSpeeds(left, right);
 				ok = true;
 			}
 		}
@@ -831,7 +831,7 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 		}
 		else if (cmatch("brake", param[0], 1)) { // b
 			if (nOfParams == 1) {
-				sendSpeeds(0.0f, 0.0f, 0);
+				sendSpeeds(0.0f, 0.0f);
 				setMotorLBrake();
 				setMotorRBrake();
 				strncpy((char*)outBuffer, "Motors braking\n", outBufferLen);
