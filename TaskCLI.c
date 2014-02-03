@@ -77,7 +77,6 @@ void TaskCLI(void *p) {
 	char *outputString = (char*)FreeRTOS_CLIGetOutputBuffer();
 	char msgBuffer[150];
 
-	xSemaphoreTake(CLILoadCompleteSemaphore, 0); 						/* initial take */
 	registerAllCommands();
 
 	vTaskDelay(500/portTICK_RATE_MS);
@@ -1494,5 +1493,5 @@ size_t sliceCommand(char *command, char **params, const size_t n) {
 void TaskCLIConstructor() {
 	xTaskCreate(TaskCLI, NULL, TASKCLI_STACKSPACE, NULL, PRIORITY_TASK_CLI, &CLITask);
 	CLIInputQueue = xQueueCreate(100, sizeof(char*));
-	vSemaphoreCreateBinary(CLILoadCompleteSemaphore);
+	CLILoadCompleteSemaphore = xSemaphoreCreateBinary();
 }

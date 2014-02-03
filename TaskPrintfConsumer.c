@@ -18,11 +18,6 @@ xSemaphoreHandle printfMutex;			/*!< Mutex that needs to be acquired to control 
 void TaskPrintfConsumer(void * p) {
 	char *msg;
 
-	xSemaphoreTake(comUSARTTCSemaphore, 0);
-	xSemaphoreTake(comDMATCSemaphore, 0);
-	xSemaphoreTake(wifiUSARTTCSemaphore, 0);
-	xSemaphoreTake(wifiDMATCSemaphore, 0);
-
 	while(1) {
 		/* Turn off printing if bridge is on */
 		if (getWiFi2USBBridgeStatus() == ON) {
@@ -97,10 +92,10 @@ void TaskPrintfConsumer(void * p) {
 void TaskPrintfConsumerConstructor() {
 	xTaskCreate(TaskPrintfConsumer, NULL, TASKPRINTFCONSUMER_STACKSPACE, NULL, PRIORITY_TASK_PRINTFCONSUMER, &printfConsumerTask);
 	printfQueue = xQueueCreate(50, sizeof(char*));
-	vSemaphoreCreateBinary(comUSARTTCSemaphore);
-	vSemaphoreCreateBinary(comDMATCSemaphore);
-	vSemaphoreCreateBinary(wifiUSARTTCSemaphore);
-	vSemaphoreCreateBinary(wifiDMATCSemaphore);
+	comUSARTTCSemaphore = xSemaphoreCreateBinary();
+	comDMATCSemaphore = xSemaphoreCreateBinary();
+	wifiUSARTTCSemaphore = xSemaphoreCreateBinary();
+	wifiDMATCSemaphore = xSemaphoreCreateBinary();
 	printfMutex = xSemaphoreCreateMutex();
 }
 

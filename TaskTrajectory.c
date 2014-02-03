@@ -37,10 +37,7 @@ void TaskTrajectory(void *p) {
 	MotorSpeed_Struct motorSpeed;
 	portTickType wakeTime = xTaskGetTickCount();
 	TrajectoryPoint_Struct nextPoint;
-
 	bool taken = false;
-
-	xSemaphoreTake(trajectoryStopSemaphore, 0); // initial take
 
 	if (!globalUsingCLI) {
 		bool send1 = true, send2 = false;
@@ -82,6 +79,7 @@ void TaskTrajectory(void *p) {
 	}
 	else {
 // TODO: Needs finish and testing
+// TODO: Implement immediate stop mechanism
 		TrajectoryRequest_Struct request;
 		while(1) {
 			/* Wait for any request */
@@ -127,7 +125,7 @@ void TaskTrajectory(void *p) {
 void TaskTrajectoryConstructor() {
 	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY, &trajectoryTask);
 	trajectoryRequestQueue = xQueueCreate(10, sizeof(TrajectoryRequest_Struct));
-	vSemaphoreCreateBinary(trajectoryStopSemaphore);
+	trajectoryStopSemaphore = xSemaphoreCreateBinary();
 }
 
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,

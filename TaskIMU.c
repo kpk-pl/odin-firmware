@@ -84,7 +84,7 @@ void TaskIMU(void * p) {
 
 	uint8_t samplingState = 7;					// state machine's state
 
-	/* Take semaphores initially, so that they can be given later */
+	/* Take it in case reset occurred somewhere along the way */
 	xSemaphoreTake(imuI2CEV, 0);
 
 	/* Reset watchdog timer to 0 effectively starting it and init all IMU modules; then stop timer */
@@ -264,7 +264,7 @@ void imuWatchdogOverrun(xTimerHandle xTimer) {
 
 void TaskIMUConstructor() {
 	I2CEVFlagQueue = xQueueCreate(1, sizeof(uint32_t));
-	vSemaphoreCreateBinary(imuI2CEV);
+	imuI2CEV = xSemaphoreCreateBinary();
 	imuWatchdogTimer = xTimerCreate(NULL, 500/portTICK_RATE_MS, pdFALSE, NULL, imuWatchdogOverrun);
 	xTaskCreate(TaskIMU, NULL, TASKIMU_STACKSPACE, NULL, PRIORITY_TASK_IMU, &imuTask);
 }

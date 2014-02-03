@@ -38,8 +38,6 @@ void TaskRC5(void * p) {
 
 	/* Initialize RC5 hardware */
 	RC5_Receiver_Init();
-	/* Initial semaphore take so it can be given and waited for */
-	xSemaphoreTake(rc5CommandReadySemaphore, 0);
 
 	RC5Frame_TypeDef frame;
 	uint8_t toggle = 2;
@@ -154,5 +152,5 @@ void issueDrive(uint8_t direction, float speed) {
 
 void TaskRC5Constructor() {
 	xTaskCreate(TaskRC5, NULL, TASKRC5_STACKSPACE, NULL, PRIORITY_TASK_RC5, &RC5Task);
-	vSemaphoreCreateBinary(rc5CommandReadySemaphore);
+	rc5CommandReadySemaphore = xSemaphoreCreateBinary();
 }
