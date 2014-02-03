@@ -48,11 +48,11 @@ void TaskDrive(void * p) {
 	while(1) {
 		/* Take one command from queue or wait for the command to arrive */
 		if (!isThereMoreDrivingCommands()) {				// free resources
-			sendSpeeds(0.0f, 0.0f, portMAX_DELAY);			// stop motors as there is no command available
+			sendSpeeds(0.0f, 0.0f);							// stop motors as there is no command available
 			if (taken) {
 				xSemaphoreGive(motorControllerMutex);
 				taken = false;
-				xQueueSendToBack(penCommandQueue, &taken, portMAX_DELAY);	// set pen up, use 'taken' variable as it is false either way
+				xQueueOverwrite(penCommandQueue, &taken);	// set pen up, use 'taken' variable as it is false either way
 			}
 		}
 
@@ -66,7 +66,7 @@ void TaskDrive(void * p) {
 		/* Check if speed is not less than zero */
 		if (command->Speed >= 0.0f) {
 			/* Handle pen */
-			xQueueSendToBack(penCommandQueue, &command->UsePen, portMAX_DELAY);
+			xQueueOverwrite(penCommandQueue, &command->UsePen);
 
 			/* Recalculate speed from m/s to rad/s */
 			command->Speed = command->Speed * 1000.0f / RAD_TO_MM_TRAVELED;
@@ -169,7 +169,7 @@ void drivePoint(const DriveCommand_Struct* command, const bool smooth) {
 		}
 
 		/* Set wheels speeds */
-		sendSpeeds(v - w * ROBOT_DIAM / 2.0f, v + w * ROBOT_DIAM / 2.0f, portMAX_DELAY);
+		sendSpeeds(v - w * ROBOT_DIAM / 2.0f, v + w * ROBOT_DIAM / 2.0f);
 
 		/* Wait a moment */
 		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
@@ -237,7 +237,7 @@ void turnRads(const float rads, const MotorSpeed_Struct speed, const float epsil
 			adjspeed.RightSpeed = speed.RightSpeed * adjustment;
 		}
 
-		sendSpeeds(adjspeed.LeftSpeed, adjspeed.RightSpeed, portMAX_DELAY);
+		sendSpeeds(adjspeed.LeftSpeed, adjspeed.RightSpeed);
 		vTaskDelayUntil(&wakeTime, TASKDRIVE_BASEDELAY_MS/portTICK_RATE_MS);
 	}
 }

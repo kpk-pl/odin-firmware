@@ -9,7 +9,7 @@
 
 extern xTaskHandle motorCtrlTask;						/*!< Export this task's handle */
 extern xSemaphoreHandle motorControllerMutex;			/*!< Export mutex for trajectory regulators */
-extern xQueueHandle motorCtrlQueue;						/*!< Export queue's handle to which motor commands should be passed */
+//extern xQueueHandle motorCtrlQueue;					/*!< Export queue's handle to which motor commands should be passed */
 extern volatile uint32_t globalLogSpeedCounter;			/*!< Export counter useful when logging only a few speed entries */
 extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regulator setting flag */
 
@@ -46,9 +46,8 @@ void TaskMotorCtrlConstructor();
  * \brief Send speed update to motor controller
  * @param left Left wheel speed in rad/s
  * @param right Right wheel speed in rad/s
- * @param delay Ticks to wait until speeds are sent
  */
-void sendSpeeds(float left, float right, unsigned portLONG delay);
+void sendSpeeds(float left, float right);
 
 bool isCurrentlyDriving();
 

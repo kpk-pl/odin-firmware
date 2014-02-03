@@ -37,10 +37,7 @@ void TaskTrajectory(void *p) {
 	MotorSpeed_Struct motorSpeed;
 	portTickType wakeTime = xTaskGetTickCount();
 	TrajectoryPoint_Struct nextPoint;
-
 	bool taken = false;
-
-	xSemaphoreTake(trajectoryStopSemaphore, 0); // initial take
 
 	if (!globalUsingCLI) {
 		bool send1 = true, send2 = false;
@@ -64,7 +61,7 @@ void TaskTrajectory(void *p) {
 				}
 				getTelemetry(&telemetry, TelemetryStyle_Common);
 				calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
-				xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+				sendSpeeds(motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 				send2 = false;
 			}
 			else {
@@ -74,14 +71,15 @@ void TaskTrajectory(void *p) {
 				}
 				if (!send2) {
 					safePrint(25, "Trajectory buffer empty\n");
-					sendSpeeds(.0f, .0f, portMAX_DELAY);
+					sendSpeeds(.0f, .0f);
 					send2 = true;
 				}
 			}
 		}
 	}
 	else {
-// TODO: Needs testing
+// TODO: Needs finish and testing
+// TODO: Implement immediate stop mechanism
 		TrajectoryRequest_Struct request;
 		FIL *file = NULL;
 		while(1) {
@@ -132,7 +130,7 @@ void TaskTrajectory(void *p) {
 					}
 					getTelemetry(&telemetry, TelemetryStyle_Common);
 					calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
-					xQueueSendToBack(motorCtrlQueue, &motorSpeed, portMAX_DELAY); // order motors to drive with different speed, wait for them to accept
+					sendSpeeds(motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 				}
 				else {
 					if (taken) {
@@ -154,7 +152,7 @@ void TaskTrajectory(void *p) {
 void TaskTrajectoryConstructor() {
 	xTaskCreate(TaskTrajectory,	NULL, TASKTRAJECTORY_STACKSPACE, NULL, PRIORITY_TASK_TRAJECTORY, &trajectoryTask);
 	trajectoryRequestQueue = xQueueCreate(10, sizeof(TrajectoryRequest_Struct));
-	vSemaphoreCreateBinary(trajectoryStopSemaphore);
+	trajectoryStopSemaphore = xSemaphoreCreateBinary();
 }
 
 void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,

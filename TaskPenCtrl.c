@@ -100,7 +100,7 @@ void TaskPenCtrl(void *p) {
 
 void TaskPenCtrlConstructor() {
 	xTaskCreate(TaskPenCtrl, NULL, TASKPENCTRL_STACKSPACE, NULL, PRIORITY_TASK_PENCTRL, &penCtrlTask);
-	penCommandQueue = xQueueCreate(10, sizeof(bool));
+	penCommandQueue = xQueueCreate(1, sizeof(bool));
 }
 
 void setPenLineType(PenLine_Type type) {

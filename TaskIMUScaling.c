@@ -110,8 +110,6 @@ void TaskIMUScaling(void *p) {
 		vTaskDelay(100/portTICK_RATE_MS);						// wait for the other task to start processing command
 		xSemaphoreTake(motorControllerMutex, portMAX_DELAY); 	// recover mutex - now driving should end
 
-		xQueueReset(imuScalingQueue);  							// clear queue content
-
 		float sum = 0.0f;
 		for (uint8_t count = 0; count < MAGNETOMETER_MEASUREMENTS_PER_POINT; count++) {
 			xQueueReceive(imuScalingQueue, &IMUAngles, portMAX_DELAY);
@@ -168,7 +166,7 @@ void TaskIMUScaling(void *p) {
 }
 
 void TaskIMUScalingConstructor() {
-	imuScalingQueue = xQueueCreate(5, sizeof(IMUAngles_Type));
+	imuScalingQueue = xQueueCreate(1, sizeof(IMUAngles_Type));
 	xTaskCreate(TaskIMUScaling, NULL, TASKIMUSCALING_STACKSPACE, NULL, PRIORITY_TASK_IMUSCALING, &imuScalingTask);
 }
 

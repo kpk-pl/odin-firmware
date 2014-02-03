@@ -38,8 +38,6 @@ void TaskRC5(void * p) {
 
 	/* Initialize RC5 hardware */
 	RC5_Receiver_Init();
-	/* Initial semaphore take so it can be given and waited for */
-	xSemaphoreTake(rc5CommandReadySemaphore, 0);
 
 	RC5Frame_TypeDef frame;
 	uint8_t toggle = 2;
@@ -71,11 +69,11 @@ void TaskRC5(void * p) {
 					break;
 				case 32: /*<< CH up button */
 					tempboolean = false;
-					xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
+					xQueueOverwrite(penCommandQueue, &tempboolean);
 					break;
 				case 33: /*<< CH down button */
 					tempboolean = true;
-					xQueueSendToBack(penCommandQueue, &tempboolean, portMAX_DELAY);
+					xQueueOverwrite(penCommandQueue, &tempboolean);
 					break;
 #ifdef USE_IMU_TELEMETRY
 				case 42: /*<< clock button */
@@ -119,31 +117,31 @@ void issueDrive(uint8_t direction, float speed) {
 
 	switch(direction) {
 	case 1:
-		sendSpeeds(speed * 0.5f, speed, 0);
+		sendSpeeds(speed * 0.5f, speed);
 		break;
 	case 2:
-		sendSpeeds(speed, speed, 0);
+		sendSpeeds(speed, speed);
 		break;
 	case 3:
-		sendSpeeds(speed, speed * 0.5f, 0);
+		sendSpeeds(speed, speed * 0.5f);
 		break;
 	case 4:
-		sendSpeeds(-speed * 0.75f, speed * 0.75f, 0);
+		sendSpeeds(-speed * 0.75f, speed * 0.75f);
 		break;
 	case 5:
-		sendSpeeds(.0f, .0f, 0);
+		sendSpeeds(.0f, .0f);
 		break;
 	case 6:
-		sendSpeeds(speed * 0.75f, -speed * 0.75f, 0);
+		sendSpeeds(speed * 0.75f, -speed * 0.75f);
 		break;
 	case 7:
-		sendSpeeds(-speed * 0.5f, -speed, 0);
+		sendSpeeds(-speed * 0.5f, -speed);
 		break;
 	case 8:
-		sendSpeeds(-speed, -speed, 0);
+		sendSpeeds(-speed, -speed);
 		break;
 	case 9:
-		sendSpeeds(-speed, -speed * 0.5f, 0);
+		sendSpeeds(-speed, -speed * 0.5f);
 		break;
 	default:
 		return;
@@ -154,5 +152,5 @@ void issueDrive(uint8_t direction, float speed) {
 
 void TaskRC5Constructor() {
 	xTaskCreate(TaskRC5, NULL, TASKRC5_STACKSPACE, NULL, PRIORITY_TASK_RC5, &RC5Task);
-	vSemaphoreCreateBinary(rc5CommandReadySemaphore);
+	rc5CommandReadySemaphore = xSemaphoreCreateBinary();
 }
