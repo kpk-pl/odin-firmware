@@ -19,7 +19,6 @@
 #include "TaskUSB2WiFiBridge.h"
 #include "TaskInputMngr.h"
 #include "TaskPenCtrl.h"
-#include "TaskWiFiMngr.h"
 #include "TaskAsyncCallHandler.h"
 #ifdef USE_IMU_TELEMETRY
 #include "TaskIMU.h"

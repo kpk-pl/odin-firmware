@@ -3,11 +3,11 @@
 #include "priorities.h"
 #include "stackSpace.h"
 #include "hwinterface.h"
+#include "wifiactions.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskUSB2WiFiBridge.h"
 #include "TaskCommandHandler.h"
 #include "TaskCLI.h"
-#include "TaskWiFiMngr.h"
 
 #define BUF_RX_LEN 100				/*!< Maximum length of UART command */
 
@@ -58,8 +58,8 @@ void TaskInputMngr(void * p) {
 				RXBUFPOS[i] = 0;
 
 				portBASE_TYPE send;
-				if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiMngrInputQueue != NULL) {
-					send = xQueueSendToBack(WiFiMngrInputQueue, &ptr, 0);
+				if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiActionsInputQueue != NULL) {
+					send = xQueueSendToBack(WiFiActionsInputQueue, &ptr, 0);
 				}
 				else if (globalUsingCLI) {
 					send = xQueueSendToBack(CLIInputQueue, &ptr, 0);

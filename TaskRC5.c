@@ -14,7 +14,6 @@
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskPenCtrl.h"
-#include "TaskWiFiMngr.h"
 
 /*
  *              (2)

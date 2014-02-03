@@ -16,13 +16,13 @@
 #include "pointsBuffer.h"
 #include "memory.h"
 #include "streaming.h"
+#include "wifiactions.h"
 
 #include "TaskCLI.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskMotorCtrl.h"
 #include "TaskPenCtrl.h"
 #include "TaskTelemetry.h"
-#include "TaskWiFiMngr.h"
 #include "TaskAsyncCallHandler.h"
 
 #ifdef FOLLOW_TRAJECTORY
@@ -110,8 +110,14 @@ void TaskCLI(void *p) {
 		if (strncmp(msgBuffer, "[ERROR: INVALID INPUT]", 21) == 0) {
 			if (getWiFiStatus() == ON) {
 				enableWiFi(DISABLE);
-				if (!TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect))
-					safePrint(36, "[CLI] WiFi error: Reconnect failed\n");
+				AsyncCall_Type call = {
+					.Type = AsyncCallProc_Int,
+					.CallInt = reconnectToAP,
+					.IntParam = (int)true
+				};
+				if (xQueueSendToBack(AsyncCallHandlerQueue, &call, 0) != pdTRUE) {
+					lightLED(1, ON);
+				}
 			}
 			continue;
 		}
@@ -873,7 +879,12 @@ portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 		}
 		else if (cmatch("reconnect", param[0], 3)) { // rec
 			if (nOfParams == 1) {
-				if (!TaskWiFiMngrConstructor(WiFiMngr_Command_Reconnect))
+				AsyncCall_Type call = {
+					.Type = AsyncCallProc_Int,
+					.CallInt = reconnectToAP,
+					.IntParam = (int)true
+				};
+				if (xQueueSendToBack(AsyncCallHandlerQueue, &call, 0) != pdTRUE)
 					strncpy((char*)outBuffer, "Reconnect failed\n", outBufferLen);
 				ok = true;
 			}
