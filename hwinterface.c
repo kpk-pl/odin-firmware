@@ -8,7 +8,7 @@
 
 #define SERVO_MAX_POS 230 			/* Raw value to CC register */
 #define SERVO_MIN_POS 50  			/* Raw value to CC register */
-#define SERVO_UP_TO_DOWN 0.08f 		/* Percent of allowable motion space - 0.1 means 10% of (SERVO_MAX_POS - SERVO_MIN_POS) */
+#define SERVO_UP_TO_DOWN 0.1f 		/* Percent of allowable motion space - 0.1 means 10% of (SERVO_MAX_POS - SERVO_MIN_POS) */
 
 static volatile float SERVO_DOWN_POS = 0.5f;
 static volatile float SERVO_LAST_POS = 0.5f;

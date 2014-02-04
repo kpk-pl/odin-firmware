@@ -1036,7 +1036,7 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 						else {
 							TrajectoryRequest_Struct request;
 							request.source = TrajectorySource_File;
-							request.fileName = pvPortMalloc(strlen(param[2]+1)*sizeof(char));
+							request.fileName = pvPortMalloc((strlen(param[2])+1)*sizeof(char));
 							strcpy(request.fileName, param[2]);
 							if (xQueueSendToBack(trajectoryRequestQueue, &request, portMAX_DELAY) == pdTRUE) {
 								strncpy((char*)outBuffer, "Request sent\n", outBufferLen);

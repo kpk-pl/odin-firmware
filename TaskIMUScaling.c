@@ -69,9 +69,9 @@ void TaskIMUScaling(void *p) {
 
 	if (globalLogEvents) {
 #ifdef USE_GYRO_FOR_IMU
-		safePrint(57, "[IMUScale] Gyro drift updated: %.5g, %d samples\n", globalGyroDrift, samplesCount);
+		safePrint(59, "[IMUScale] Gyro drift updated: %.5g, %d samples\n", globalGyroDrift, samplesCount);
 #endif
-		safePrint(63, "[IMUScale] Magnetometer start orientation updated: %.5g\n", globalMagStartOrientation);
+		safePrint(64, "[IMUScale] Magnetometer start orientation updated: %.5g\n", globalMagStartOrientation);
 	}
 
 	/* Check if there is a request and if robot did not moved */

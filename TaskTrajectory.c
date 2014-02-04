@@ -108,6 +108,9 @@ void TaskTrajectory(void *p) {
 					continue;
 			}
 
+			/* Reset wake time */
+			wakeTime = xTaskGetTickCount();
+
 			/* Execute request */
 			while(1) {
 				/* Get next point */
@@ -123,6 +126,9 @@ void TaskTrajectory(void *p) {
 				else
 					break;
 
+				/* Wait for next sampling period; here because f_read is non-deterministic */
+				vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+
 				if (ok) {
 					if (!taken) {
 						xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
@@ -134,6 +140,7 @@ void TaskTrajectory(void *p) {
 				}
 				else {
 					if (taken) {
+						sendSpeeds(0.0f, 0.0f);
 						xSemaphoreGive(motorControllerMutex);
 						taken = false;
 					}
