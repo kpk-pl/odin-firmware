@@ -1283,8 +1283,12 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 	streamFinishTransmission();
 	streamRelease();
 
+// TODO: library bug here
 	UINT written;
-	f_write(file, writeBuffer, len, &written);
+	for (uint16_t i = 0; i<len; i += 1023) {
+		f_write(file, &writeBuffer[i], (len - i > 1023 ? 1023 : len-i), &written);
+	}
+	//f_write(file, writeBuffer, len, &written);
 
 	f_close(file);
 	vPortFree(file);

@@ -93,7 +93,7 @@ void TaskRC5(void * p) {
 					setWiFiReset(ENABLE);
 					vTaskDelay(200/portTICK_RATE_MS);
 					setWiFiReset(DISABLE);
-					safePrint(11, "WiFi reset\n");
+					safePrint(12, "WiFi reset\n");
 					break;
 				default:
 					break;

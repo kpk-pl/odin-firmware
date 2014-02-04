@@ -151,8 +151,7 @@ void TaskBoot(void *p) {
 		printf("Booting...\n");
 
 	// create semaphore for SD SPI DMA transfer
-	vSemaphoreCreateBinary(sdDMATCSemaphore);
-	xSemaphoreTake(sdDMATCSemaphore, 0);
+	sdDMATCSemaphore = xSemaphoreCreateBinary();
 
 	// Filesystem mount
 	printf("Mounting SD card...");
