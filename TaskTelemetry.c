@@ -6,16 +6,16 @@
 #include "priorities.h"
 #include "stackSpace.h"
 #include "complementary.h"
+#include "hwinterface.h"
 
 #include "TaskPrintfConsumer.h"
 #include "TaskMotorCtrl.h"
 #include "TaskDrive.h"
 
-float globalOdometryCorrectionGain = 1.0075f;	/*!< Gain that is used to correct odometry data (turning angle) */
+float globalIMUComplementaryFilterTimeConstant = 0.97f;	/*!< Used to initialize complementary filter */
+float globalOdometryCorrectionGain = 1.0049f;	/*!< Gain that is used to correct odometry data (turning angle) */
 float globalPositionScale = 1.0f;				/*!< Scale for position; if set to 2 then robot will drive 80cm when told to drive 40cm */
-#ifdef USE_IMU_TELEMETRY
 bool globalUseIMUUpdates = true;
-#endif
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;						/*!< This task's handle */
 
@@ -39,7 +39,7 @@ void TaskTelemetry(void * p) {
 
 	while(1) {
 #ifdef USE_IMU_TELEMETRY
-		ComplementaryInit(&filter, 0.999f);	// 40s time constant with 25Hz sampling
+		ComplementaryInit(&filter, globalIMUComplementaryFilterTimeConstant);
 #endif
 
 		/* Wait indefinitely while there is no update */
@@ -120,6 +120,13 @@ float normalizeOrientation(float in) {
 void scaleOdometryCorrectionParam(int turns) {
 	if (isCurrentlyDriving()) return;
 
+#ifdef USE_IMU_TELEMETRY
+	bool imuupd = globalUseIMUUpdates;
+	globalUseIMUUpdates = false;
+#endif
+	OnOff penen = getPenState();
+	enablePen(ENABLE);
+
 	DriveCommand_Struct *cmd1 = pvPortMalloc(sizeof(DriveCommand_Struct));
 	DriveCommand_Struct *cmd2 = pvPortMalloc(sizeof(DriveCommand_Struct));
 	DriveCommand_Struct *cmd3 = pvPortMalloc(sizeof(DriveCommand_Struct));
@@ -128,14 +135,15 @@ void scaleOdometryCorrectionParam(int turns) {
 		.Type = DriveCommand_Type_Line,
 		.UsePen = true,
 		.Speed = 0.07f,
-		.Param1 = 100.0f,
+		.Param1 = 200.0f,
 		.Smooth = true
 	};
+	cmd3->Param1 = 100;
 	*cmd2 = (DriveCommand_Struct){
 		.Type = DriveCommand_Type_Angle,
 		.UsePen = true,
 		.Speed = 0.07f,
-		.Param1 = 0.0f,
+		.Param1 = DRIVECOMMAND_ANGLE_PARAM1_RELATIVE,
 		.Param2 = 360.0f * turns - 180.0f,
 		.Smooth = true
 	};
@@ -149,8 +157,14 @@ void scaleOdometryCorrectionParam(int turns) {
 		vTaskDelay(10/portTICK_RATE_MS);
 	}
 
-	safePrint(85, "Scaling done!\nOdometry correction param will be: %.6g/(%d + dO)\n",
-		(360.0f*turns-180.0f)*globalOdometryCorrectionGain, 360*turns-180);
+	if (penen == OFF)
+		enablePen(DISABLE);
+#ifdef USE_IMU_TELEMETRY
+	globalUseIMUUpdates = imuupd;
+#endif
+
+	safePrint(85, "Scaling done!\nOdometry correction param will be: (%d + dO)/%.6g\n",
+			360*turns-180, (360.0f*turns-180.0f)/globalOdometryCorrectionGain);
 }
 
 void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style) {

@@ -141,7 +141,7 @@ void drivePoint(const DriveCommand_Struct* command, const bool smooth) {
 
 		/* Finish up if target is really close or robot's missing the target */
 		float d = hypotf(telemetryData.X - command->Param1, telemetryData.Y - command->Param2);
-		if (d < 1.0f || fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) > 60.0f * DEGREES_TO_RAD)
+		if (d < 1.0f / globalPositionScale || fabsf(normalizeOrientation(atan2f(command->Param2 - telemetryData.Y, command->Param1 - telemetryData.X) - telemetryData.O)) > 60.0f * DEGREES_TO_RAD)
 			break;
 
 		/*
@@ -159,7 +159,7 @@ void drivePoint(const DriveCommand_Struct* command, const bool smooth) {
 		float w = k * command->Speed * ey;				/*<< Rotational speed - depending on ey; the bigger turn to make the bigger the speed is */
 
 		/* Slow down based on smoothness */
-		if (smooth && d < 50.0f) { // smooth ending - more important than beginning
+		if (smooth && d < smoothDistance) { // smooth ending - more important than beginning
 			v = v * (0.7f * d / smoothDistance + 0.3f);
 		}
 

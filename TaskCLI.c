@@ -178,7 +178,9 @@ static const CLI_Command_Definition_t telemetryComDef = {
     (const int8_t*)"telemetry",
     (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
     		 "\todometry <<scale #turns>|<correction [#param]>>\n"
-    		 "\timu <enable|disable>\n"
+#ifdef USE_IMU_TELEMETRY
+    		 "\timu <enable|disable|<tconst #T>>\n"
+#endif
     		 "\tscale [#value]\n",
     telemetryCommand,
     -1
@@ -471,15 +473,26 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 		}
 #ifdef USE_IMU_TELEMETRY
 		else if (cmatch("imu", param[0], 1)) { // i
-			if (nOfParams == 2) {
-				if (cmatch("enable", param[1], 1)) { // e
+			if (cmatch("enable", param[1], 1)) { // e
+				if (nOfParams == 2) {
 					globalUseIMUUpdates = true;
 					strncpy((char*)outBuffer, "IMU enabled\n", outBufferLen);
 					ok = true;
 				}
-				else if (cmatch("disable", param[1], 1)) { // d
+			}
+			else if (cmatch("disable", param[1], 1)) { // d
+				if (nOfParams == 2) {
 					globalUseIMUUpdates = false;
 					strncpy((char*)outBuffer, "IMU disabled\n", outBufferLen);
+					ok = true;
+				}
+			}
+			else if (cmatch("tconst", param[1], 1)) { // t
+				if (nOfParams == 2 || nOfParams == 3) {
+					if (nOfParams == 3)
+						globalIMUComplementaryFilterTimeConstant = strtof(param[2], NULL);
+					snprintf((char*)outBuffer, outBufferLen, "IMU complementary time constant: %.6g\n",
+							globalIMUComplementaryFilterTimeConstant);
 					ok = true;
 				}
 			}

@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 
+extern float globalIMUComplementaryFilterTimeConstant; /*!< Export IMU time constant for complementary filter */
 extern float globalOdometryCorrectionGain;	/*!< Export the parameter that corrects odometry while turning */
 extern float globalPositionScale;			/*!< Scale for position */
 extern bool globalUseIMUUpdates;			/*!< Export flag wheather to use IMU updates or not */

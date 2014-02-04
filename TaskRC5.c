@@ -100,7 +100,7 @@ void TaskRC5(void * p) {
 				}
 			}
 
-			if (globalLogEvents) safePrint(10, "RC5: %d\n", frame.Command);
+			if (globalLogEvents) safePrint(23, "[Remote] Received %d\n", frame.Command);
 			/* Light LED and reset software timer; when it expires the LED will be turned off */
 			lightLED(2, ON);
 			xTimerReset(rc5LEDTimer, 0);

@@ -202,6 +202,8 @@ bool readInitTelemetry(FIL* file) {
 		f_gets(buffer, 50, file);
 		switch(line) {
 		case 0: globalOdometryCorrectionGain = strtof(buffer, NULL); break;
+		case 1: globalIMUComplementaryFilterTimeConstant = strtof(buffer, NULL); break;
+		case 2: globalUseIMUUpdates = strtod(buffer, NULL);
 		default: return false;
 		}
 	}
@@ -212,10 +214,14 @@ bool readInitTelemetry(FIL* file) {
 bool saveInitTelemetry(FIL* file) {
 	if (file == NULL) return false;
 
-	char buffer[20];
-	snprintf(buffer, 20, "%.8g", globalOdometryCorrectionGain);
+	char buffer[25];
 
-	f_puts(buffer, file); f_puts(" correction gain\n", file);
+	snprintf(buffer, 25, "%.8g corr gain\n", globalOdometryCorrectionGain);
+	f_puts(buffer, file);
+	snprintf(buffer, 25, "%.8g imu t const\n", globalIMUComplementaryFilterTimeConstant);
+	f_puts(buffer, file);
+	snprintf(buffer, 25, "%d use imu updates\n", globalUseIMUUpdates);
+	f_puts(buffer, file);
 
 	return true;
 }
@@ -345,8 +351,6 @@ bool readInitIMU(FIL* file) {
 	char buffer[25];
 
 	f_gets(buffer, 25, file);
-	globalUseIMUUpdates = strtod(buffer, NULL);
-	f_gets(buffer, 25, file);
 	if (strtod(buffer, NULL) != MAG_IMPROV_DATA_POINTS) return false;
 
 	uint8_t line;
@@ -362,8 +366,6 @@ bool saveInitIMU(FIL* file) {
 	if (file == NULL) return false;
 	char buffer[25];
 
-	snprintf(buffer, 25, "%d useIMUUpdates\n", globalUseIMUUpdates);
-	f_puts(buffer, file);
 	snprintf(buffer, 25, "%d n\n", MAG_IMPROV_DATA_POINTS);
 	f_puts(buffer, file);
 
