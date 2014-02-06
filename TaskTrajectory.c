@@ -39,15 +39,6 @@ void TaskTrajectory(void *p) {
 	TrajectoryPoint_Struct nextPoint;
 	bool taken = false;
 
-	GPIO_InitTypeDef g = {
-		.GPIO_Pin = GPIO_Pin_0,
-		.GPIO_Mode = GPIO_Mode_OUT,
-		.GPIO_Speed = GPIO_Speed_50MHz,
-		.GPIO_OType = GPIO_OType_PP,
-		.GPIO_PuPd = GPIO_PuPd_NOPULL
-	};
-	GPIO_Init(GPIOD, &g);
-
 	if (!globalUsingCLI) {
 		bool send1 = true, send2 = false;
 
@@ -128,11 +119,9 @@ void TaskTrajectory(void *p) {
 					ok = TBgetNextPoint(&nextPoint);
 				}
 				else if (request.source == TrajectorySource_File) {
-					GPIO_SetBits(GPIOD, GPIO_Pin_0);
 					UINT numBytes;
 					FRESULT res = f_read(file, (void*)&nextPoint, sizeof(TrajectoryPoint_Struct), &numBytes);
 					ok = (res == FR_OK && numBytes == sizeof(TrajectoryPoint_Struct));
-					GPIO_ResetBits(GPIOD, GPIO_Pin_0);
 				}
 				else
 					break;
