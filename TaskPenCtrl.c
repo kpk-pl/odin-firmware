@@ -12,8 +12,8 @@
 xTaskHandle penCtrlTask;
 xQueueHandle penCommandQueue;
 
-PenLine_Type globalCurrentPen = PenLine_Continuous;
-bool globalPenIsDown = false;
+volatile bool globalPenIsDown = false;
+volatile PenLine_Type globalCurrentPen = PenLine_Continuous;
 
 void TaskPenCtrl(void *p) {
 	portTickType wakeTime = xTaskGetTickCount();

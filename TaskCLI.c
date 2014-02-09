@@ -1284,7 +1284,7 @@ portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* 
 
 	/* Indicate ongoing transmission */
 	safePrint(18, "Send data now...\n");
-
+//TODO: loop here to load continuously to buffer of length 512, handle errors when timing fails
 	char* writeBuffer = pvPortMalloc(len*sizeof(char));
 	streamAcquire(portMAX_DELAY);
 	streamStartTransmission(writeBuffer, len, fileTransferHandle, NULL);
