@@ -123,8 +123,9 @@ char* receiveResponseLine(uint32_t waitTime, uint8_t ignoreLines) {
 }
 
 bool wifiTransaction(const char *command, const char *response, uint8_t ignoreLinesResp, uint32_t waitTime) {
-	if (pdPASS != xQueueReset(WiFiActionsInputQueue))
-		return false;
+	char *msg;
+	while (pdTRUE == xQueueReceive(WiFiActionsInputQueue, &msg, 0))
+		vPortFree(msg);
 
 	/* Length is set to big number to print all what is in the 'command' */
 	printInterfaceBlocking(command, 10000, Interface_WiFi_Active);
