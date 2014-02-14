@@ -915,19 +915,19 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 	if (nOfParams == 0) {
 		strncpy((char*)outBuffer, "Logging settings:\nall: ?\nevents: ?\nlog: ?\nerror: ?\ndebug: ?\nrc5: ?\n"
 				"speed: ?\ntelemetry: ?\nimu: ?\ndrive: ?\n", outBufferLen);
-		outBuffer[24] = globalLogSettings.enableAll ? '1' : '0';
-		outBuffer[34] = globalLogSettings.enableEvents ? '1' : '0';
-		outBuffer[41] = globalLogSettings.enableLog ? '1' : '0';
-		outBuffer[50] = globalLogSettings.enableError ? '1' : '0';
-		outBuffer[59] = globalLogSettings.enableDebug ? '1' : '0';
-		outBuffer[66] = globalLogSettings.enableRC5 ? '1' : '0';
-		outBuffer[75] = globalLogSettings.enableSpeed ? '1' : '0';
-		outBuffer[88] = globalLogSettings.enableTelemetry ? '1' : '0';
-		outBuffer[95] = globalLogSettings.enableIMU ? '1' : '0';
-		outBuffer[104] = globalLogSettings.enableDrive ? '1' : '0';
+		outBuffer[23] = globalLogSettings.enableAll ? '1' : '0';
+		outBuffer[33] = globalLogSettings.enableEvents ? '1' : '0';
+		outBuffer[40] = globalLogSettings.enableLog ? '1' : '0';
+		outBuffer[49] = globalLogSettings.enableError ? '1' : '0';
+		outBuffer[58] = globalLogSettings.enableDebug ? '1' : '0';
+		outBuffer[65] = globalLogSettings.enableRC5 ? '1' : '0';
+		outBuffer[74] = globalLogSettings.enableSpeed ? '1' : '0';
+		outBuffer[87] = globalLogSettings.enableTelemetry ? '1' : '0';
+		outBuffer[94] = globalLogSettings.enableIMU ? '1' : '0';
+		outBuffer[103] = globalLogSettings.enableDrive ? '1' : '0';
 		ok = true;
 
-#if configCOMMAND_INT_MAX_OUTPUT_SIZE < 104
+#if configCOMMAND_INT_MAX_OUTPUT_SIZE < 103
 #error ERROR_IN_CLI
 #endif
 	}
