@@ -83,12 +83,12 @@ void TaskTelemetry(void * p) {
 #endif
 			break;
 		default:
-			safeLog(Log_Type_Telemetry, 37, "Invalid telemetry update type: %d\n", update.Source);
+			safeLog(Log_Type_Error, 37, "Invalid telemetry update type: %d\n", update.Source);
 			break;
 		}
 
 		if (fabsf(update.dX) > 0.1f || fabsf(update.dY) > 0.1f || fabsf(update.dO) > 0.001f) {
-			safeLog(Log_Type_Error, 37, "X:%.2f Y:%.2f O:%.1f\n", tempData.X, tempData.Y, tempData.O / DEGREES_TO_RAD);
+			safeLog(Log_Type_Telemetry, 37, "X:%.2f Y:%.2f O:%.1f\n", tempData.X, tempData.Y, tempData.O / DEGREES_TO_RAD);
 		}
 
 		if (!globalMovedSinceReset) {
