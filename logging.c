@@ -18,9 +18,11 @@ static const Prefix_Info_Struct logPrefix[] = {
 	{"Drive", 5}
 };
 
-#define EVENT_LOGS_MASK ((1<<3) | (1<<6))
+#define EVENT_LOGS_MASK ((1<<3) | (1<<6) | (1<<7))
 
 bool isLogEnabled(const volatile Log_Settings_Struct *settings, const Log_Type type) {
+	if ((uint8_t)type > 31)
+		return false;
 	/* If all logs disabled */
 	if (settings->enableAll == false)
 		return false;
@@ -42,10 +44,14 @@ bool isLogEnabled(const volatile Log_Settings_Struct *settings, const Log_Type t
  * and space ' '
  */
 size_t getLogPrefixLength(Log_Type type) {
+	if ((uint8_t)type > 31)
+		return 0;
 	return logPrefix[(uint8_t)type].length + 3;
 }
 
 char* prepareLogMessage(char *msg, Log_Type type) {
+	if ((uint8_t)type > 31)
+		return NULL;
 	*msg = '[';
 	msg++;
 	memcpy(msg, logPrefix[(uint8_t)type].prefix, logPrefix[(uint8_t)type].length);
