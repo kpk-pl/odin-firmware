@@ -209,11 +209,7 @@ static const CLI_Command_Definition_t wifiComDef = {
 };
 static const CLI_Command_Definition_t logComDef = {
     (const int8_t*)"log",
-    (const int8_t*)"log\n"
-    		 "\toff\n"
-    		 "\tall\n"
-    		 "\t <events|telemetry|speed|imu> [off]\n"
-    		 "\t motor something here\n",
+    (const int8_t*)"log <<all|events|log|error|debug|rc5|speed|telemetry|imu|drive> [off]>\n",
     logCommand,
     -1
 };
@@ -916,74 +912,59 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 	size_t nOfParams = sliceCommand((char*)command, param, 3);
 
-	if (nOfParams > 0) {
-		if (cmatch("all", param[0], 1)) { // a
-			if (nOfParams == 1) {
-				globalLogSettings.enableAll = true;
-				strncpy((char*)outBuffer, "Logging all\n", outBufferLen);
-				ok = true;
-			}
-		}
-		else if (cmatch("off", param[0], 1)) { // o
-			if (nOfParams == 1) {
-				globalLogSettings.enableAll = false;
-				strncpy((char*)outBuffer, "Logging off\n", outBufferLen);
-				ok = true;
-			}
-		}
-		else if (cmatch("motor", param[0], 1)) { // m
-			strncpy((char*)outBuffer, "Not implemented\n", outBufferLen);
-			ok = true;
-		}
-		else { // events, speed, telemetry, imu
-			if (nOfParams <= 2) {
-				bool state = true;
-				bool error = false;
-				if (nOfParams == 2) {
-					if (cmatch("off", param[1], 1)) { // must be equal 'off' and nothing follows
-						state = false;
-					}
-					else {
-						error = true;
-					}
-				}
-				if (!error) {
-					if (cmatch("events", param[0], 1)) { // e
-						globalLogSettings.enableEvents = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "events", (state ? "enabled" : "disabled"));
-						ok = true;
-					}
-					else if (cmatch("speed", param[0], 1)) { // s
-						taskENTER_CRITICAL();
-						{
-							globalLogSettings.enableSpeed = state;
-							globalLogSpeedCounter = 1<<31;
-						}
-						taskEXIT_CRITICAL();
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "speed", (state ? "enabled" : "disabled"));
-						ok = true;
-					}
-					else if (cmatch("telemetry", param[0], 1)) { // t
-						globalLogSettings.enableTelemetry = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "telemetry", (state ? "enabled" : "disabled"));
-						ok = true;
-					}
-					else if (cmatch("imu", param[0], 1)) { // i
-						globalLogSettings.enableIMU = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "imu", (state ? "enabled" : "disabled"));
-						ok = true;
-					}
-				}
-			}
-		}
-	}
-	else { // nOfParams == 0
-		snprintf((char*)outBuffer, outBufferLen, "Logging settings:\n"
-				"\tEvents: %d\n\tTelemetry: %d\n"
-				"\tSpeed: %d\n\tIMU: %d\n",
-				globalLogSettings.enableEvents, globalLogSettings.enableTelemetry,
-				globalLogSettings.enableSpeed, globalLogSettings.enableIMU);
+	if (nOfParams == 0) {
+		strncpy((char*)outBuffer, "Logging settings:\nall: ?\nevents: ?\nlog: ?\nerror: ?\ndebug: ?\nrc5: ?\n"
+				"speed: ?\ntelemetry: ?\nimu: ?\ndrive: ?\n", outBufferLen);
+		outBuffer[24] = globalLogSettings.enableAll ? '1' : '0';
+		outBuffer[34] = globalLogSettings.enableEvents ? '1' : '0';
+		outBuffer[41] = globalLogSettings.enableLog ? '1' : '0';
+		outBuffer[50] = globalLogSettings.enableError ? '1' : '0';
+		outBuffer[59] = globalLogSettings.enableDebug ? '1' : '0';
+		outBuffer[66] = globalLogSettings.enableRC5 ? '1' : '0';
+		outBuffer[75] = globalLogSettings.enableSpeed ? '1' : '0';
+		outBuffer[88] = globalLogSettings.enableTelemetry ? '1' : '0';
+		outBuffer[95] = globalLogSettings.enableIMU ? '1' : '0';
+		outBuffer[104] = globalLogSettings.enableDrive ? '1' : '0';
 		ok = true;
+
+#if configCOMMAND_INT_MAX_OUTPUT_SIZE < 104
+#error ERROR_IN_CLI
+#endif
+	}
+	else if (nOfParams <= 2) {
+		bool off = false;
+		if (nOfParams == 2) {
+			if (cmatch("off", param[1], 1)) {
+				off = true;
+			}
+		}
+		if (nOfParams == 1 || off) {
+			ok = true;
+			if (cmatch("all", param[0], 1))				// a
+				globalLogSettings.enableAll = !off;
+			else if (cmatch("events", param[0], 2))		// ev
+				globalLogSettings.enableEvents = !off;
+			else if (cmatch("log", param[0], 1))		// l
+				globalLogSettings.enableLog = !off;
+			else if (cmatch("error", param[0], 2))		// er
+				globalLogSettings.enableError = !off;
+			else if (cmatch("debug", param[0], 2))		// de
+				globalLogSettings.enableDebug = !off;
+			else if (cmatch("rc5", param[0], 1))		// r
+				globalLogSettings.enableRC5 = !off;
+			else if (cmatch("speed", param[0], 1))		// s
+				globalLogSettings.enableSpeed = !off;
+			else if (cmatch("telemetry", param[0], 1))	// t
+				globalLogSettings.enableTelemetry = !off;
+			else if (cmatch("imu", param[0], 1))		// i
+				globalLogSettings.enableIMU = !off;
+			else if (cmatch("drive", param[0], 2))		// dr
+				globalLogSettings.enableDrive = !off;
+			else
+				ok = false;
+			if (ok)
+				strncpy((char*)outBuffer, "Logging set\n", outBufferLen);
+		}
 	}
 
 	if (!ok) {
