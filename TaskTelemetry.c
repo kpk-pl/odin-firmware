@@ -83,13 +83,12 @@ void TaskTelemetry(void * p) {
 #endif
 			break;
 		default:
-			if (globalLogEvents)
-				safePrint(49, "[Telemetry] Invalid telemetry update type: %d\n", update.Source);
+			safeLog(Log_Type_Telemetry, 37, "Invalid telemetry update type: %d\n", update.Source);
 			break;
 		}
 
-		if (globalLogTelemetry && (fabsf(update.dX) > 0.1f || fabsf(update.dY) > 0.1f || fabsf(update.dO) > 0.001f)) {
-			safePrint(52, "[TelemetryLog] X:%.2f Y:%.2f O:%.1f\n", tempData.X, tempData.Y, tempData.O / DEGREES_TO_RAD);
+		if (fabsf(update.dX) > 0.1f || fabsf(update.dY) > 0.1f || fabsf(update.dO) > 0.001f) {
+			safeLog(Log_Type_Telemetry, 37, "X:%.2f Y:%.2f O:%.1f\n", tempData.X, tempData.Y, tempData.O / DEGREES_TO_RAD);
 		}
 
 		if (!globalMovedSinceReset) {
@@ -163,7 +162,7 @@ void scaleOdometryCorrectionParam(int turns) {
 	globalUseIMUUpdates = imuupd;
 #endif
 
-	safePrint(85, "Scaling done!\nOdometry correction param will be: (%d + dO)/%.6g\n",
+	safeLog(Log_Type_Log, 85, "Scaling done!\nOdometry correction param will be: (%d + dO)/%.6g\n",
 			360*turns-180, (360.0f*turns-180.0f)/globalOdometryCorrectionGain);
 }
 

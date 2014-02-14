@@ -919,14 +919,14 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 	if (nOfParams > 0) {
 		if (cmatch("all", param[0], 1)) { // a
 			if (nOfParams == 1) {
-				globalLogEvents = globalLogTelemetry = globalLogSpeed = globalLogIMU = ENABLE;
+				globalLogSettings.enableAll = true;
 				strncpy((char*)outBuffer, "Logging all\n", outBufferLen);
 				ok = true;
 			}
 		}
 		else if (cmatch("off", param[0], 1)) { // o
 			if (nOfParams == 1) {
-				globalLogEvents = globalLogTelemetry = globalLogSpeed = globalLogIMU = DISABLE;
+				globalLogSettings.enableAll = false;
 				strncpy((char*)outBuffer, "Logging off\n", outBufferLen);
 				ok = true;
 			}
@@ -937,11 +937,11 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		}
 		else { // events, speed, telemetry, imu
 			if (nOfParams <= 2) {
-				FunctionalState state = ENABLE;
+				bool state = true;
 				bool error = false;
 				if (nOfParams == 2) {
 					if (cmatch("off", param[1], 1)) { // must be equal 'off' and nothing follows
-						state = DISABLE;
+						state = false;
 					}
 					else {
 						error = true;
@@ -949,23 +949,28 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 				}
 				if (!error) {
 					if (cmatch("events", param[0], 1)) { // e
-						globalLogEvents = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "events", (state == ENABLE ? "enabled" : "disabled"));
+						globalLogSettings.enableEvents = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "events", (state ? "enabled" : "disabled"));
 						ok = true;
 					}
 					else if (cmatch("speed", param[0], 1)) { // s
-						globalLogSpeed = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "speed", (state == ENABLE ? "enabled" : "disabled"));
+						taskENTER_CRITICAL();
+						{
+							globalLogSettings.enableSpeed = state;
+							globalLogSpeedCounter = 1<<31;
+						}
+						taskEXIT_CRITICAL();
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "speed", (state ? "enabled" : "disabled"));
 						ok = true;
 					}
 					else if (cmatch("telemetry", param[0], 1)) { // t
-						globalLogTelemetry = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "telemetry", (state == ENABLE ? "enabled" : "disabled"));
+						globalLogSettings.enableTelemetry = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "telemetry", (state ? "enabled" : "disabled"));
 						ok = true;
 					}
 					else if (cmatch("imu", param[0], 1)) { // i
-						globalLogIMU = state;
-						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "imu", (state == ENABLE ? "enabled" : "disabled"));
+						globalLogSettings.enableIMU = state;
+						snprintf((char*)outBuffer, outBufferLen, "Logging %s: %s\n", "imu", (state ? "enabled" : "disabled"));
 						ok = true;
 					}
 				}
@@ -976,7 +981,8 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		snprintf((char*)outBuffer, outBufferLen, "Logging settings:\n"
 				"\tEvents: %d\n\tTelemetry: %d\n"
 				"\tSpeed: %d\n\tIMU: %d\n",
-				globalLogEvents == ENABLE, globalLogTelemetry == ENABLE, globalLogSpeed == ENABLE, globalLogIMU = ENABLE);
+				globalLogSettings.enableEvents, globalLogSettings.enableTelemetry,
+				globalLogSettings.enableSpeed, globalLogSettings.enableIMU);
 		ok = true;
 	}
 

@@ -54,7 +54,7 @@ void COMHandle(const char * command) {
 
 	bool commandCheck(const bool p) {
 		if (p != true) {
-			if (globalLogEvents) safePrint(20, "%s", wrongComm);
+			safeLog(Log_Type_Error, 20, "%s", wrongComm);
 		}
 		return p;
 	}
@@ -89,11 +89,11 @@ void COMHandle(const char * command) {
 		break;
 	case PEN_DOWN:
 		setPenDown();
-		if (globalLogEvents) safePrint(10, "Pen down\n");
+		safeLog(Log_Type_Log, 10, "Pen down\n");
 		break;
 	case PEN_UP:
 		setPenUp();
-		if (globalLogEvents) safePrint(8, "Pen up\n");
+		safeLog(Log_Type_Log, 8, "Pen up\n");
 		break;
 	case MOTOR_LEFT_SPEED:
 		if (commandCheck( strlen(command) >= 3 )) {
@@ -108,22 +108,22 @@ void COMHandle(const char * command) {
 		}
 		break;
 	case MOTOR_LEFT_ENCODER:
-		safePrint(22, "Encoder left: %ld\n", getEncoderL());
+		safeLog(Log_Type_Log, 22, "Encoder left: %ld\n", getEncoderL());
 		break;
 	case MOTOR_RIGHT_ENCODER:
-		safePrint(23, "Encoder right: %ld\n", getEncoderR());
+		safeLog(Log_Type_Log, 23, "Encoder right: %ld\n", getEncoderR());
 		break;
 	case MOTORS_ENABLE:
 		if (commandCheck( strlen(command) >= 3 )) {
 			if (command[2] == '0') {
 				globalSpeedRegulatorOn = DISABLE;
 				enableMotors(DISABLE);
-				if (globalLogEvents) safePrint(19, "Motors disabled\n");
+				safeLog(Log_Type_Log, 19, "Motors disabled\n");
 			}
 			else {
 				enableMotors(ENABLE);
 				globalSpeedRegulatorOn = ENABLE;
-				if (globalLogEvents) safePrint(18, "Motors enabled\n");
+				safeLog(Log_Type_Log, 18, "Motors enabled\n");
 			}
 		}
 		break;
@@ -145,27 +145,27 @@ void COMHandle(const char * command) {
 	case WIFI_MODE:
 		if (commandCheck( strlen(command) >= 3 )) {
 			setWiFiMode(command[2] == 'c' ? WiFiMode_Command : WiFiMode_Data);
-			if (globalLogEvents) safePrint(20, "WiFi mode set to %d\n", getWiFiMode());
+			safeLog(Log_Type_Log, 20, "WiFi mode set to %d\n", getWiFiMode());
 		}
 		break;
 	case WIFI_RESET:
 		if (commandCheck( strlen(command) >= 3 )) {
 			setWiFiReset(command[2] == '1' ? ENABLE : DISABLE);
-			if (globalLogEvents) safePrint(24, "WiFi reset changed to %d\n", getWiFiReset());
+			safeLog(Log_Type_Log, 24, "WiFi reset changed to %d\n", getWiFiReset());
 		}
 		break;
 #ifdef USE_IMU_TELEMETRY
 	case USE_IMU_UPDATES:
 		if (commandCheck( strlen(command) >= 3 )) {
 			globalUseIMUUpdates = command[2] == '1';
-			if (globalLogEvents) safePrint(26, "IMU updates changed to %d\n", globalUseIMUUpdates);
+			safeLog(Log_Type_Log, 26, "IMU updates changed to %d\n", globalUseIMUUpdates);
 		}
 		break;
 #endif
 	case LANTERN_ENABLE:
 		if (commandCheck( strlen(command) >= 3 )) {
 			enableLantern(command[2] == '1' ? ENABLE : DISABLE);
-			if (globalLogEvents) safePrint(28, "Lantern changed state to %d\n", getLanternState());
+			safeLog(Log_Type_Log, 28, "Lantern changed state to %d\n", getLanternState());
 		}
 		break;
 	case CPU_USAGE:
@@ -182,7 +182,7 @@ void COMHandle(const char * command) {
 	case SPEED_REGULATOR_ENABLE:
 		if (commandCheck( strlen(command) >= 3 )) {
 			globalSpeedRegulatorOn = (command[2] != '0');
-			if (globalLogEvents) safePrint(36, "Speed regulator state changed to %d\n", globalSpeedRegulatorOn);
+			safeLog(Log_Type_Log, 36, "Speed regulator state changed to %d\n", globalSpeedRegulatorOn);
 		}
 		break;
 	case MOTORS_CHARACTERISTIC:
@@ -190,7 +190,7 @@ void COMHandle(const char * command) {
 			taskENTER_CRITICAL();
 			{
 				globalSpeedRegulatorOn = DISABLE;
-				globalLogSpeed = ENABLE;
+				globalLogSettings.enableSpeed = ENABLE;
 				temp_float = strtof((char*)&command[4], &last) / 100.0f;
 				globalLogSpeedCounter = strtol(last+1, NULL, 10);
 				command[2] == 'l' ? setMotorLSpeed(temp_float) : setMotorRSpeed(temp_float);
@@ -203,7 +203,7 @@ void COMHandle(const char * command) {
 			taskENTER_CRITICAL();
 			{
 				globalSpeedRegulatorOn = DISABLE;
-				globalLogSpeed = ENABLE;
+				globalLogSettings.enableSpeed = ENABLE;
 				setMotorLSpeed(strtof((char*)&command[4], &last) / 100.0f);
 				setMotorRSpeed(strtof(last+1, &last) / 100.0f);
 				globalLogSpeedCounter = strtol(last+1, NULL, 10);
@@ -213,20 +213,20 @@ void COMHandle(const char * command) {
 		break;
 	case DELAY_COMMANDS:
 		if (commandCheck( strlen(command) >= 3) ) {
-			if (globalLogEvents) safePrint(9, "Pausing\n");
+			safeLog(Log_Type_Log, 9, "Pausing\n");
 			vTaskDelay(strtol((char*)&command[2], NULL, 10) / portTICK_RATE_MS);
-			if (globalLogEvents) safePrint(14, "Done waiting\n");
+			safeLog(Log_Type_Log, 14, "Done waiting\n");
 		}
 		break;
 	case SET_POSITION_SCALE:
 		if (commandCheck( strlen(command) >= 3) ) {
 			globalPositionScale = strtof((char*)&command[2], NULL);
-			if (globalLogEvents) safePrint(31, "Position scale set to %.3f\n", globalPositionScale);
+			safeLog(Log_Type_Log, 31, "Position scale set to %.3f\n", globalPositionScale);
 		}
 		break;
 #ifdef DRIVE_COMMANDS
 	case WAIT_FOR_DRIVE_COMPLETE:
-		if (globalLogEvents) safePrint(31, "Waiting for driving to finish\n");
+		safeLog(Log_Type_Log, 31, "Waiting for driving to finish\n");
 		waitForDrivingEnd();
 		break;
 #endif
@@ -235,7 +235,7 @@ void COMHandle(const char * command) {
 			temp_float = strtof((char*)&command[2], NULL);
 			if (temp_float > 0.0f) {
 				globalOdometryCorrectionGain = temp_float;
-				if (globalLogEvents) safePrint(29, "Correction set to %.6f\n", globalOdometryCorrectionGain);
+				safeLog(Log_Type_Log, 29, "Correction set to %.6f\n", globalOdometryCorrectionGain);
 			}
 		}
 		break;
@@ -243,30 +243,30 @@ void COMHandle(const char * command) {
 		if (commandCheck( strlen(command) >= 5 )) {
 			switch(command[2]) {
 			case Logging_Type_Telemetry:
-				globalLogTelemetry = (command[4] == '1');
-				if (globalLogEvents) safePrint(28, "Logging telemetry set to %d\n", globalLogTelemetry);
+				globalLogSettings.enableTelemetry = (command[4] == '1');
+				safeLog(Log_Type_Log, 28, "Logging telemetry set to %d\n", globalLogSettings.enableTelemetry);
 				break;
 			case Logging_Type_Speed:
 				if (command[4] == '1') {
 					taskENTER_CRITICAL();
 					{
-						globalLogSpeed = ENABLE;
+						globalLogSettings.enableSpeed = ENABLE;
 						globalLogSpeedCounter = 1<<31;
 					}
 					taskEXIT_CRITICAL();
 				}
 				else {
-					globalLogSpeed = DISABLE;
+					globalLogSettings.enableSpeed = DISABLE;
 				}
-				if (globalLogEvents) safePrint(24, "Logging speed set to %d\n", globalLogSpeed);
+				safeLog(Log_Type_Log, 24, "Logging speed set to %d\n", globalLogSettings.enableSpeed);
 				break;
 			case Logging_Type_Events:
-				globalLogEvents = (command[4] == '1');
-				if (globalLogEvents) safePrint(25, "Logging events set to %d\n", globalLogEvents);
+				globalLogSettings.enableEvents = (command[4] == '1');
+				safeLog(Log_Type_Log, 25, "Logging events set to %d\n", globalLogSettings.enableEvents);
 				break;
 			case Logging_Type_IMU:
-				globalLogIMU = (command[4] == '1');
-				if (globalLogEvents) safePrint(23, "Logging IMU set to %d\n", globalLogIMU);
+				globalLogSettings.enableIMU = (command[4] == '1');
+				safeLog(Log_Type_Log, 23, "Logging IMU set to %d\n", globalLogSettings.enableIMU);
 				break;
 			default:
 				safePrint(17, wrongComm);
@@ -283,7 +283,7 @@ void COMHandle(const char * command) {
 				globalMotorPidKd = strtof(last+1, NULL);
 			}
 			taskEXIT_CRITICAL();
-			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
+			safeLog(Log_Type_Log, 26, "Regulator params changed\n");
 		}
 		break;
 #else
@@ -312,7 +312,7 @@ void COMHandle(const char * command) {
 				globalTrajectoryControlGains.k_s = strtof(last+1, NULL);
 			}
 			taskEXIT_CRITICAL();
-			if (globalLogEvents) safePrint(26, "Regulator params changed\n");
+			safeLog(Log_Type_Log, 26, "Regulator params changed\n");
 		}
 		break;
 #endif
@@ -334,7 +334,7 @@ void COMHandle(const char * command) {
 		break;
 #endif
 	default:
-		if (globalLogEvents) safePrint(18, "No such command\n");
+		safeLog(Log_Type_Error, 18, "No such command\n");
 		break;
 	}
 }

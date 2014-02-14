@@ -93,14 +93,15 @@ void TaskRC5(void * p) {
 					setWiFiReset(ENABLE);
 					vTaskDelay(200/portTICK_RATE_MS);
 					setWiFiReset(DISABLE);
-					safePrint(12, "WiFi reset\n");
+					safeLog(Log_Type_RC5, 12, "WiFi reset\n");
 					break;
 				default:
 					break;
 				}
 			}
 
-			if (globalLogEvents) safePrint(23, "[Remote] Received %d\n", frame.Command);
+			safeLog(Log_Type_RC5, 14, "Received %d\n", frame.Command);
+			//if (globalLogEvents) safePrint(23, "[Remote] Received %d\n", frame.Command);
 			/* Light LED and reset software timer; when it expires the LED will be turned off */
 			lightLED(2, ON);
 			xTimerReset(rc5LEDTimer, 0);

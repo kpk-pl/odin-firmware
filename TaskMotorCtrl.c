@@ -131,7 +131,7 @@ void TaskMotorCtrl(void * p) {
 				motorSpeed.LeftSpeed  *= maxSpeedAllowed / max;
 				motorSpeed.RightSpeed *= maxSpeedAllowed / max;
 			}
-			if (globalLogSpeed) safePrint(34, "Ordered speeds: L:%.2f R:%.2f\n", motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
+			safeLog(Log_Type_Speed, 34, "Ordered speeds: L:%.2f R:%.2f\n", motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 		}
 
 #ifndef USE_CUSTOM_MOTOR_CONTROLLER
@@ -172,15 +172,15 @@ void TaskMotorCtrl(void * p) {
 		telemetryUpdate.dY = deltaS * sinf(telemetryData.O);
 
 		if (xQueueSendToBack(telemetryQueue, &telemetryUpdate, 0) == errQUEUE_FULL) {
-			if (globalLogEvents) safePrint(25, "Telemetry queue full!\n");
+			safeLog(Log_Type_Error, 25, "Telemetry queue full!\n");
 		}
 
 		/* Compute speeds in rad/s */
 		speedLeft *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
 		speedRight *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
 
-		if (globalLogSpeed && globalLogSpeedCounter > 0) { // mod sth to allow changing log period
-			safePrint(42, "Speeds: L:%.4frad/s R:%.4frad/s\n", speedLeft, speedRight);
+		if (globalLogSpeedCounter > 0) { // mod sth to allow changing log period
+			safeLog(Log_Type_Speed, 42, "Speeds: L:%.4frad/s R:%.4frad/s\n", speedLeft, speedRight);
 			globalLogSpeedCounter--;
 		}
 

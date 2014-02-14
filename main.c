@@ -31,10 +31,6 @@
 #include "TaskDrive.h"
 #endif
 
-volatile FunctionalState globalLogTelemetry = DISABLE;
-volatile FunctionalState globalLogSpeed = DISABLE;
-volatile FunctionalState globalLogEvents = ENABLE;
-volatile FunctionalState globalLogIMU = DISABLE;
 volatile float globalCPUUsage = 0.0f;
 volatile bool globalUsingCLI = false;
 volatile bool globalSDMounted = false;
@@ -58,47 +54,45 @@ int main(void)
 
 	Initialize();
 
-	if (globalLogEvents) {
-		printf("Reset!\nCompilation settings:\n");
+	printf("Reset!\nCompilation settings:\n");
 #ifndef USE_FULL_ASSERT
 #ifndef USE_SHORT_ASSERT
-		printf("WARNING! Assertion disabled\n");
+	printf("WARNING! Assertion disabled\n");
 #else
-		printf("WARNING! Only short assertion enabled\n");
+	printf("WARNING! Only short assertion enabled\n");
 #endif
 #endif
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-		printf("\tCustom motor controller\n");
+	printf("\tCustom motor controller\n");
 #else
-		printf("\tPID motor controller\n");
+	printf("\tPID motor controller\n");
 #endif
 #ifdef USE_IMU_TELEMETRY
 #ifdef USE_GYRO_FOR_IMU
-		printf("\tUsing IMU with Gyro\n");
+	printf("\tUsing IMU with Gyro\n");
 #else
-		printf("\tUsing IMU without Gyro\n");
+	printf("\tUsing IMU without Gyro\n");
 #endif
 #else
-		printf("\tIMU not used\n");
+	printf("\tIMU not used\n");
 #endif
 #ifdef FOLLOW_TRAJECTORY
-		printf("\tFollowing trajectory enabled\n");
+	printf("\tFollowing trajectory enabled\n");
 #ifndef COMPILE_CIRCULAR_BUFFER
-		printf("\tCircular buffer DISABLED\n");
+	printf("\tCircular buffer DISABLED\n");
 #endif
 #else
-		printf("\tFollowing trajectory DISABLED\n");
+	printf("\tFollowing trajectory DISABLED\n");
 #endif
 #ifdef DRIVE_COMMANDS
-		printf("\tDrive commands enabled\n");
+	printf("\tDrive commands enabled\n");
 #else
-		printf("\tDrive commands DISABLED\n");
+	printf("\tDrive commands DISABLED\n");
 #endif
-		if (globalUsingCLI)
-			printf("\tUsing CLI\n");
-		else
-			printf("\tUsing command handler\n");
-	}
+	if (globalUsingCLI)
+		printf("\tUsing CLI\n");
+	else
+		printf("\tUsing command handler\n");
 
 	// start normal tasks - these should not really fire up because boot task is a DOMINATOR
 	TaskInputMngrConstructor();
@@ -147,8 +141,7 @@ void TaskBootIdle(void *p) {
 }
 
 void TaskBoot(void *p) {
-	if (globalLogEvents)
-		printf("Booting...\n");
+	printf("Booting...\n");
 
 	// create semaphore for SD SPI DMA transfer
 	sdDMATCSemaphore = xSemaphoreCreateBinary();

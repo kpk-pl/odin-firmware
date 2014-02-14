@@ -15,6 +15,11 @@ xSemaphoreHandle wifiUSARTTCSemaphore;	/*!< Transmission complete from WiFi modu
 xSemaphoreHandle wifiDMATCSemaphore;	/*!< DMA transfer complete from WiFi module UART */
 xSemaphoreHandle printfMutex;			/*!< Mutex that needs to be acquired to control printing on all interfaces */
 
+volatile Log_Settings_Struct globalLogSettings = {
+	.smallFlags = 0xFFFFFFFF,
+	.bigFlags = 0xFFFFFFFF
+};
+
 void TaskPrintfConsumer(void * p) {
 	char *msg;
 
@@ -100,7 +105,8 @@ void TaskPrintfConsumerConstructor() {
 }
 
 int safePrint(const size_t length, const char *format, ...) {
-	if (length <= 0) return 0;
+	if (length <= 0)
+		return 0;
 	va_list arglist;
 	va_start(arglist, format);
 	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
@@ -118,18 +124,24 @@ int safePrint(const size_t length, const char *format, ...) {
 	return ret;
 }
 
-int safePrintFromISR(const size_t length, const char *format, ...) {
+int safeLog(const Log_Type type, const size_t length, const char *format, ...) {
+	if (length <= 0 || !isLogEnabled(&globalLogSettings, type))
+		return 0;
 	va_list arglist;
 	va_start(arglist, format);
-	char *pbuf = (char*)pvPortMalloc(length*sizeof(char));
-	int ret = vsnprintf(pbuf, length, format, arglist);
-	portBASE_TYPE contextSwitch = pdFALSE;
-	if (xQueueSendToBackFromISR(printfQueue, &pbuf, &contextSwitch) == errQUEUE_FULL) {
-		lightLED(5, ON);
+	char *pbuf = (char*)pvPortMalloc((length+getLogPrefixLength(type))*sizeof(char));
+	char *lbuf = prepareLogMessage(pbuf, type);
+	int ret = vsnprintf(lbuf, length, format, arglist);
+	if (ret > 0) {
+		if (xQueueSendToBack(printfQueue, &pbuf, 0) == errQUEUE_FULL) {
+			vPortFree(pbuf);
+			lightLED(5, ON);
+		}
+	}
+	else {
 		vPortFree(pbuf);
 	}
 	va_end(arglist);
-	portEND_SWITCHING_ISR(contextSwitch);
 	return ret;
 }
 

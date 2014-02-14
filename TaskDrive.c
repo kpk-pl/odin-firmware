@@ -75,7 +75,7 @@ void TaskDrive(void * p) {
 			bool smooth = !isThereMoreDrivingCommands() || command->Smooth;
 
 			if (command->Type == DriveCommand_Type_Line) {
-				if (globalLogEvents) safePrint(20, "Driving %.0fmm\n", command->Param1);
+				safeLog(Log_Type_Drive, 20, "Driving %.0fmm\n", command->Param1);
 
 				/* Change to driving to point */
 				command->Type = DriveCommand_Type_Point;
@@ -86,23 +86,21 @@ void TaskDrive(void * p) {
 				drivePoint(command, smooth);
 			}
 			else if (command->Type == DriveCommand_Type_Angle || command->Type == DriveCommand_Type_Arc) {
-				if (globalLogEvents) {
-					if (command->Type == DriveCommand_Type_Angle) {
-						safePrint(30, "Turning by %.2f %s\n", command->Param2, (command->Param1 < 0.5f ? "relative" : "absolute"));
-					}
-					else {
-						safePrint(58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
-					}
+				if (command->Type == DriveCommand_Type_Angle) {
+					safeLog(Log_Type_Drive, 30, "Turning by %.2f %s\n", command->Param2, (command->Param1 < 0.5f ? "relative" : "absolute"));
+				}
+				else {
+					safeLog(Log_Type_Drive, 58, "Turning with radius %.2fmm and %.1f degrees length\n", command->Param1, command->Param2);
 				}
 				driveAngleArc(command, smooth);
 			}
 			else if (command->Type == DriveCommand_Type_Point) {
-				if (globalLogEvents) safePrint(44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
+				safeLog(Log_Type_Drive, 44, "Driving to point X:%.1fmm Y:%.1fmm\n", command->Param1, command->Param2);
 				drivePoint(command, smooth);
 			}
 		}
 		else { /* command->Speed < 0.0f */
-			if (globalLogEvents) safePrint(34, "Speed cannot be less than zero!\n");
+			safeLog(Log_Type_Error, 34, "Speed cannot be less than zero!\n");
 		}
 
 		/* Free space where the command was held */
