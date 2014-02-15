@@ -35,14 +35,14 @@ typedef struct {
 			bool enableIMU		: 1;
 			bool enableDrive	: 1;
 		};
-		uint32_t smallFlags		:32;
+		uint32_t smallFlags;
 	};
 	union {
 		struct { 						/*!< This struct contains flags that enable specific masks */
 			bool enableAll		: 1;	/*!< Enable flag for all logging */
 			bool enableEvents	: 1;	/*!< Enable flag for events logs */
 		};
-		uint32_t bigFlags		:32;
+		uint32_t bigFlags;
 	};
 } Log_Settings_Struct;
 

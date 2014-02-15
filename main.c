@@ -179,6 +179,10 @@ void TaskBoot(void *p) {
 			printf("\nErrors while reading %s", INIT_TELEMETRY_PATH);
 			allOK = false;
 		}
+		if (!readInit(InitTarget_Logging)) {
+			printf("\nErrors while reading %s", INIT_LOGGING_PATH);
+			allOK = false;
+		}
 #ifdef USE_IMU_TELEMETRY
 		if (!readInit(InitTarget_IMU)) {
 			printf("\nErrors while reading %s", INIT_IMU_PATH);
@@ -212,9 +216,6 @@ void TaskBoot(void *p) {
 #endif
 
 	printf("Booting completed\n");
-
-	/* Issue immediate setting WiFi speed to higher */
-	//TaskWiFiMngrConstructor(WiFiMngr_Command_SetHighSpeed);
 
 	// delete TaskBootIdle and itself
 	vTaskDelete(taskBootIdleHandle);

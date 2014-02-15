@@ -1,6 +1,7 @@
 #include <stm32f4xx.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "memory.h"
 #include "compilation.h"
@@ -10,12 +11,27 @@
 #include "TaskTrajectory.h"
 #include "TaskTelemetry.h"
 #include "TaskIMU.h"
+#include "TaskPrintfConsumer.h"
 
-static bool readInitTelemetry(FIL* file);
-static bool saveInitTelemetry(FIL* file);
+typedef enum {
+	Config_Item_Type_Float = 0,
+	Config_Item_Type_Uint32,
+	Config_Item_Type_Hex32
+} Config_Item_Type;
+
+typedef struct {
+	Config_Item_Type type;
+	volatile void* content;
+	const char* name;
+	const char* format;
+} Config_Item_Struct;
+
+typedef enum {
+	IO_Type_Save = 0,
+	IO_Type_Read
+} IO_Type;
+
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-static bool readInitCustomMotorController(FIL* file);
-static bool saveInitCustomMotorController(FIL* file);
 #else
 static bool readInitPIDMotorController(FIL* file);
 static bool saveInitPIDMotorController(FIL* file);
@@ -24,52 +40,150 @@ static bool saveInitPIDMotorController(FIL* file);
 static bool readInitIMU(FIL* file);
 static bool saveInitIMU(FIL* file);
 #endif
-#ifdef FOLLOW_TRAJECTORY
-static bool readInitTrajectory(FIL* file);
-static bool saveInitTrajectory(FIL* file);
-#endif
 
 static bool readInitAll();
 static bool saveInitAll();
 static FRESULT openInitFile(InitTarget_Type target, FIL* file, BYTE mode);
 
-bool readInit(const InitTarget_Type target) {
-	FIL file;
-	bool (*initFun)(FIL *);
+static void readConfigItem(const char *buffer, const Config_Item_Struct *item);
+static void saveConfigItem(char *buffer, const Config_Item_Struct *item);
+static bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target);
 
-	switch (target) {
-	case InitTarget_All:
-		return readInitAll();
-	case InitTarget_Telemetry:
-		initFun = readInitTelemetry;
-		break;
+const Config_Item_Struct telemetryConfig[] = {
+	{.content = &globalOdometryCorrectionGain, .type = Config_Item_Type_Float, .name = "corr gain", .format = "%.8g"},
+	{.content = &globalIMUComplementaryFilterTimeConstant, .type = Config_Item_Type_Float, .name = "imu t const",.format = "%.8g"},
+	{.content = &globalUseIMUUpdates, .type = Config_Item_Type_Hex32, .name = "use imu updates", .format = "%lx"}
+};
+
+const Config_Item_Struct loggingConfig[] = {
+	{.content = &globalLogSettings.bigFlags, .type = Config_Item_Type_Hex32, .name = "big flags", .format = "%lx"},
+	{.content = &globalLogSettings.smallFlags, .type = Config_Item_Type_Hex32, .name = "small flags", .format = "%lx"}
+};
+
+#ifdef FOLLOW_TRAJECTORY
+const Config_Item_Struct trajectoryConfig[] = {
+	{.content = &globalTrajectoryControlGains.k_x, .type = Config_Item_Type_Float, .name = "k_x", .format = "%.8g"},
+	{.content = &globalTrajectoryControlGains.k, .type = Config_Item_Type_Float, .name = "k", .format = "%.8g"},
+	{.content = &globalTrajectoryControlGains.k_s, .type = Config_Item_Type_Float, .name = "k_s", .format = "%.8g"}
+};
+#endif
+
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	case InitTarget_Custom_Motor_Controler:
-		initFun = readInitCustomMotorController;
+const Config_Item_Struct customMotorControllerConfig[] = {
+	{.content = &globalLeftMotorParams.forward.K, .type = Config_Item_Type_Float, .name = "K lf", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.forward.B, .type = Config_Item_Type_Float, .name = "B lf", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.pid2.forward.Kp, .type = Config_Item_Type_Float, .name = "Kp lf", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.pid2.forward.Ki, .type = Config_Item_Type_Float, .name = "Ki lf", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.pid2.forward.Kd, .type = Config_Item_Type_Float, .name = "Kd lf", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.backward.K, .type = Config_Item_Type_Float, .name = "K lb", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.backward.B, .type = Config_Item_Type_Float, .name = "B lb", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.pid2.backward.Kp, .type = Config_Item_Type_Float, .name = "Kp lb", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.pid2.backward.Ki, .type = Config_Item_Type_Float, .name = "Ki lb", .format = "%.8g"},
+	{.content = &globalLeftMotorParams.pid2.backward.Kd, .type = Config_Item_Type_Float, .name = "Kd lb", .format = "%.8g"},
+	{.content = &globalRightMotorParams.forward.K, .type = Config_Item_Type_Float, .name = "K rf", .format = "%.8g"},
+	{.content = &globalRightMotorParams.forward.B, .type = Config_Item_Type_Float, .name = "B rf", .format = "%.8g"},
+	{.content = &globalRightMotorParams.pid2.forward.Kp, .type = Config_Item_Type_Float, .name = "Kp rf", .format = "%.8g"},
+	{.content = &globalRightMotorParams.pid2.forward.Ki, .type = Config_Item_Type_Float, .name = "Ki rf", .format = "%.8g"},
+	{.content = &globalRightMotorParams.pid2.forward.Kd, .type = Config_Item_Type_Float, .name = "Kd rf", .format = "%.8g"},
+	{.content = &globalRightMotorParams.backward.K, .type = Config_Item_Type_Float, .name = "K rb", .format = "%.8g"},
+	{.content = &globalRightMotorParams.backward.B, .type = Config_Item_Type_Float, .name = "B rb", .format = "%.8g"},
+	{.content = &globalRightMotorParams.pid2.backward.Kp, .type = Config_Item_Type_Float, .name = "Kp rb", .format = "%.8g"},
+	{.content = &globalRightMotorParams.pid2.backward.Ki, .type = Config_Item_Type_Float, .name = "Ki rb", .format = "%.8g"},
+	{.content = &globalRightMotorParams.pid2.backward.Kd, .type = Config_Item_Type_Float, .name = "d rb", .format = "%.8g"},
+};
+#else /* USE_CUSTOM_MOTOR_CONTROLLER */
+
+#endif /* USE_CUSTOM_MOTOR_CONTROLLER */
+
+void readConfigItem(const char *buffer, const Config_Item_Struct *item) {
+	switch(item->type) {
+	case Config_Item_Type_Float:
+		*(float*)(item->content) = strtof(buffer, NULL);
 		break;
-#else
-	case InitTarget_PID_Motor_Controler:
-		initFun = readInitPIDMotorController;
+	case Config_Item_Type_Uint32:
+		*(uint32_t*)(item->content) = strtoul(buffer, NULL, 10);
 		break;
-#endif
-#ifdef USE_IMU_TELEMETRY
-	case InitTarget_IMU:
-		initFun = readInitIMU;
+	case Config_Item_Type_Hex32:
+		*(uint32_t*)(item->content) = strtoul(buffer, NULL, 16);
 		break;
-#endif
+	}
+}
+
+void saveConfigItem(char *buffer, const Config_Item_Struct *item) {
+	size_t pos = 0;
+	switch(item->type) {
+	case Config_Item_Type_Float:
+		pos = sprintf(buffer, item->format, *(float*)(item->content));
+		break;
+	case Config_Item_Type_Uint32:
+	case Config_Item_Type_Hex32:
+		pos = sprintf(buffer, item->format, *(uint32_t*)(item->content));
+		break;
+	}
+	buffer[pos++] = ' ';
+	strcpy(buffer+pos, item->name);
+}
+
+bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target) {
+	if (file == NULL) return false;
+
+	const Config_Item_Struct *config;
+	uint8_t items;
+	switch (target) {
+	case InitTarget_Telemetry:
+		config = telemetryConfig;
+		items = sizeof(telemetryConfig)/sizeof(Config_Item_Struct);
+		break;
+	case InitTarget_Logging:
+		config = loggingConfig;
+		items = sizeof(loggingConfig)/sizeof(Config_Item_Struct);
+		break;
 #ifdef FOLLOW_TRAJECTORY
 	case InitTarget_Trajectory:
-		initFun = readInitTrajectory;
+		config = trajectoryConfig;
+		items = sizeof(trajectoryConfig)/sizeof(Config_Item_Struct);
+		break;
+#endif
+#ifdef USE_CUSTOM_MOTOR_CONTROLLER
+	case InitTarget_Custom_Motor_Controler:
+		config = customMotorControllerConfig;
+		items = sizeof(customMotorControllerConfig)/sizeof(Config_Item_Struct);
 		break;
 #endif
 	default:
 		return false;
 	}
 
+	uint8_t param;
+	char buffer[50];
+
+	if (type == IO_Type_Save) {
+		for (param = 0; param < items; ++param) {
+			saveConfigItem(buffer, &config[param]);
+			f_puts(buffer, file);
+			f_puts("\n", file);
+		}
+	}
+	else {
+		for (param = 0; param < items && !f_eof(file); ++param) {
+			f_gets(buffer, 50, file);
+			readConfigItem(buffer, &config[param]);
+		}
+	}
+
+	return (param == items);
+}
+
+bool readInit(const InitTarget_Type target) {
+	FIL file;
+
+	if (target == InitTarget_All)
+		return readInitAll();
+
 	if (FR_OK != openInitFile(target, &file, FA_OPEN_EXISTING | FA_READ))
 		return false;
 
-	bool ret = initFun(&file);
+	bool ret = IOInitOp(&file, IO_Type_Read, target);
 
 	f_close(&file);
 	return ret;
@@ -77,41 +191,14 @@ bool readInit(const InitTarget_Type target) {
 
 bool saveConfig(const InitTarget_Type target) {
 	FIL file;
-	bool (*saveFun)(FIL *);
 
-	switch (target) {
-	case InitTarget_All:
+	if (target == InitTarget_All)
 		return saveInitAll();
-	case InitTarget_Telemetry:
-		saveFun = saveInitTelemetry;
-		break;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	case InitTarget_Custom_Motor_Controler:
-		saveFun = saveInitCustomMotorController;
-		break;
-#else
-	case InitTarget_PID_Motor_Controler:
-		saveFun = saveInitPIDMotorController;
-		break;
-#endif
-#ifdef USE_IMU_TELEMETRY
-	case InitTarget_IMU:
-		saveFun = saveInitIMU;
-		break;
-#endif
-#ifdef FOLLOW_TRAJECTORY
-	case InitTarget_Trajectory:
-		saveFun = saveInitTrajectory;
-		break;
-#endif
-	default:
-		return false;
-	}
 
 	if (FR_OK != openInitFile(target, &file, FA_CREATE_ALWAYS | FA_WRITE))
 		return false;
 
-	bool ret = saveFun(&file);
+	bool ret = IOInitOp(&file, IO_Type_Save, target);
 
 	f_close(&file);
 	return ret;
@@ -136,6 +223,8 @@ FRESULT openInitFile(InitTarget_Type target, FIL* file, BYTE mode) {
 	case InitTarget_Trajectory:
 		return f_open(file, INIT_TRAJECTORY_PATH, mode);
 #endif
+	case InitTarget_Logging:
+		return f_open(file, INIT_LOGGING_PATH, mode);
 	default:
 		file = NULL;
 		return FR_INVALID_OBJECT;
@@ -163,7 +252,8 @@ bool readInitAll() {
 	if (!readInit(InitTarget_IMU))
 		ret = false;
 #endif
-
+	if (!readInit(InitTarget_Logging))
+		ret = false;
 	return ret;
 }
 
@@ -188,126 +278,13 @@ bool saveInitAll() {
 	if (!saveConfig(InitTarget_IMU))
 		ret = false;
 #endif
-
+	if (!saveConfig(InitTarget_Logging))
+		ret = false;
 	return ret;
 }
 
-bool readInitTelemetry(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[50];
-	uint8_t line;
-
-	for (line = 0; line < 1 && !f_eof(file); ++line) {
-		f_gets(buffer, 50, file);
-		switch(line) {
-		case 0: globalOdometryCorrectionGain = strtof(buffer, NULL); break;
-		case 1: globalIMUComplementaryFilterTimeConstant = strtof(buffer, NULL); break;
-		case 2: globalUseIMUUpdates = strtod(buffer, NULL);
-		default: return false;
-		}
-	}
-
-	return (line == 1);
-}
-
-bool saveInitTelemetry(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[25];
-
-	snprintf(buffer, 25, "%.8g corr gain\n", globalOdometryCorrectionGain);
-	f_puts(buffer, file);
-	snprintf(buffer, 25, "%.8g imu t const\n", globalIMUComplementaryFilterTimeConstant);
-	f_puts(buffer, file);
-	snprintf(buffer, 25, "%d use imu updates\n", globalUseIMUUpdates);
-	f_puts(buffer, file);
-
-	return true;
-}
-
 #ifdef USE_CUSTOM_MOTOR_CONTROLLER
-bool readInitCustomMotorController(FIL* file) {
-	if (file == NULL) return false;
 
-	char buffer[50];
-	uint8_t line;
-
-	for (line = 0; line < 20 && !f_eof(file); ++line) {
-		f_gets(buffer, 50, file);
-		switch(line) {
-			case 0: globalLeftMotorParams.forward.K = strtof(buffer, NULL); break;
-			case 1: globalLeftMotorParams.forward.B = strtof(buffer, NULL); break;
-			case 2: globalLeftMotorParams.pid2.forward.Kp = strtof(buffer, NULL); break;
-			case 3: globalLeftMotorParams.pid2.forward.Ki = strtof(buffer, NULL); break;
-			case 4: globalLeftMotorParams.pid2.forward.Kd = strtof(buffer, NULL); break;
-			case 5: globalLeftMotorParams.backward.K = strtof(buffer, NULL); break;
-			case 6: globalLeftMotorParams.backward.B = strtof(buffer, NULL); break;
-			case 7: globalLeftMotorParams.pid2.backward.Kp = strtof(buffer, NULL); break;
-			case 8: globalLeftMotorParams.pid2.backward.Ki = strtof(buffer, NULL); break;
-			case 9: globalLeftMotorParams.pid2.backward.Kd = strtof(buffer, NULL); break;
-			case 10: globalRightMotorParams.forward.K = strtof(buffer, NULL); break;
-			case 11: globalRightMotorParams.forward.B = strtof(buffer, NULL); break;
-			case 12: globalRightMotorParams.pid2.forward.Kp = strtof(buffer, NULL); break;
-			case 13: globalRightMotorParams.pid2.forward.Ki = strtof(buffer, NULL); break;
-			case 14: globalRightMotorParams.pid2.forward.Kd = strtof(buffer, NULL); break;
-			case 15: globalRightMotorParams.backward.K = strtof(buffer, NULL); break;
-			case 16: globalRightMotorParams.backward.B = strtof(buffer, NULL); break;
-			case 17: globalRightMotorParams.pid2.backward.Kp = strtof(buffer, NULL); break;
-			case 18: globalRightMotorParams.pid2.backward.Ki = strtof(buffer, NULL); break;
-			case 19: globalRightMotorParams.pid2.backward.Kd = strtof(buffer, NULL); break;
-			default: return false;
-		}
-	}
-
-	return (line == 20);
-}
-
-bool saveInitCustomMotorController(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[20];
-
-	for (uint8_t line = 0; line < 20; ++line) {
-		switch (line) {
-			case 0:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.forward.K); break;
-			case 1:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.forward.B); break;
-			case 2:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.pid2.forward.Kp); break;
-			case 3:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.pid2.forward.Ki); break;
-			case 4:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.pid2.forward.Kd); break;
-			case 5:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.backward.K); break;
-			case 6:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.backward.B); break;
-			case 7:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.pid2.backward.Kp); break;
-			case 8:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.pid2.backward.Ki); break;
-			case 9:  snprintf(buffer, 20, "%.8g", globalLeftMotorParams.pid2.backward.Kd); break;
-			case 10: snprintf(buffer, 20, "%.8g", globalRightMotorParams.forward.K); break;
-			case 11: snprintf(buffer, 20, "%.8g", globalRightMotorParams.forward.B); break;
-			case 12: snprintf(buffer, 20, "%.8g", globalRightMotorParams.pid2.forward.Kp); break;
-			case 13: snprintf(buffer, 20, "%.8g", globalRightMotorParams.pid2.forward.Ki); break;
-			case 14: snprintf(buffer, 20, "%.8g", globalRightMotorParams.pid2.forward.Kd); break;
-			case 15: snprintf(buffer, 20, "%.8g", globalRightMotorParams.backward.K); break;
-			case 16: snprintf(buffer, 20, "%.8g", globalRightMotorParams.backward.B); break;
-			case 17: snprintf(buffer, 20, "%.8g", globalRightMotorParams.pid2.backward.Kp); break;
-			case 18: snprintf(buffer, 20, "%.8g", globalRightMotorParams.pid2.backward.Ki); break;
-			case 19: snprintf(buffer, 20, "%.8g", globalRightMotorParams.pid2.backward.Kd); break;
-			default: return false;
-		}
-
-		f_puts(buffer, file);
-		f_puts(line < 10 ? " left" : " right", file);
-		f_puts((line/5) % 2 ? " backward" : " forward", file);
-		switch (line%5) {
-			case 0: f_puts(" K\n", file); break;
-			case 1: f_puts(" B\n", file); break;
-			case 2: f_puts(" Kp\n", file); break;
-			case 3: f_puts(" Ki\n", file); break;
-			case 4: f_puts(" Kd\n", file); break;
-			default: break;
-		}
-	}
-
-	return true;
-}
 #else
 bool readInitPIDMotorController(FIL* file) {
 	if (file == NULL) return false;
@@ -373,42 +350,6 @@ bool saveInitIMU(FIL* file) {
 		snprintf(buffer, 25, "%.8g\n", globalMagnetometerImprovData[i]);
 		f_puts(buffer, file);
 	}
-
-	return true;
-}
-#endif
-
-#ifdef FOLLOW_TRAJECTORY
-bool readInitTrajectory(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[50];
-	uint8_t line;
-
-	for (line = 0; line < 3 && !f_eof(file); ++line) {
-		f_gets(buffer, 50, file);
-		switch(line) {
-		case 0: globalTrajectoryControlGains.k_x = strtof(buffer, NULL); break;
-		case 1: globalTrajectoryControlGains.k = strtof(buffer, NULL); break;
-		case 2: globalTrajectoryControlGains.k_s = strtof(buffer, NULL); break;
-		default: return false;
-		}
-	}
-
-	return (line == 3);
-}
-
-bool saveInitTrajectory(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[25];
-
-	snprintf(buffer, 20, "%.8g k_x\n", globalTrajectoryControlGains.k_x);
-	f_puts(buffer, file);
-	snprintf(buffer, 20, "%.8g k\n", globalTrajectoryControlGains.k);
-	f_puts(buffer, file);
-	snprintf(buffer, 20, "%.8g k_s\n", globalTrajectoryControlGains.k_s);
-	f_puts(buffer, file);
 
 	return true;
 }
