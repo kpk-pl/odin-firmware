@@ -25,6 +25,9 @@ void Initialize() {
 	/* Disable all interrupts, will be reenabled when scheduler starts successfully */
 	__asm volatile ("cpsid i  \n");
 
+	/* Enable clock for CCM memory */
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_CCMDATARAMEN, ENABLE);
+
 	/* COM UART configuration */
 	/* Enabling clock for GPIO */
 	RCC_AHB1PeriphClockCmd(COM_GPIO_CLOCK, ENABLE);
