@@ -31,11 +31,6 @@ typedef enum {
 	IO_Type_Read
 } IO_Type;
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-#else
-static bool readInitPIDMotorController(FIL* file);
-static bool saveInitPIDMotorController(FIL* file);
-#endif
 #ifdef USE_IMU_TELEMETRY
 static bool readInitIMU(FIL* file);
 static bool saveInitIMU(FIL* file);
@@ -92,7 +87,11 @@ const Config_Item_Struct customMotorControllerConfig[] = {
 	{.content = &globalRightMotorParams.pid2.backward.Kd, .type = Config_Item_Type_Float, .name = "d rb", .format = "%.8g"},
 };
 #else /* USE_CUSTOM_MOTOR_CONTROLLER */
-
+const Config_Item_Struct pidMotorControllerConfig[] = {
+	{.content = &globalMotorPidKp, .type = Config_Item_Type_Float, .name = "Kp", .format = "%.8g"},
+	{.content = &globalMotorPidKi, .type = Config_Item_Type_Float, .name = "Ki", .format = "%.8g"},
+	{.content = &globalMotorPidKd, .type = Config_Item_Type_Float, .name = "Kd", .format = "%.8g"}
+};
 #endif /* USE_CUSTOM_MOTOR_CONTROLLER */
 
 void readConfigItem(const char *buffer, const Config_Item_Struct *item) {
@@ -149,6 +148,15 @@ bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target) {
 		config = customMotorControllerConfig;
 		items = sizeof(customMotorControllerConfig)/sizeof(Config_Item_Struct);
 		break;
+#else
+	case InitTarget_PID_Motor_Controler:
+		config = pidMotorControllerConfig;
+		items = sizeof(pidMotorControllerConfig)/sizeof(Config_Item_Struct);
+		break;
+#endif
+#ifdef USE_IMU_TELEMETRY
+	case InitTarget_IMU:
+		return (type == IO_Type_Save) ? saveInitIMU(file) : readInitIMU(file);
 #endif
 	default:
 		return false;
@@ -282,44 +290,6 @@ bool saveInitAll() {
 		ret = false;
 	return ret;
 }
-
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-
-#else
-bool readInitPIDMotorController(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[50];
-	uint8_t line;
-
-	for (line = 0; line < 3 && !f_eof(file); ++line) {
-		f_gets(buffer, 50, file);
-		switch(line) {
-		case 0: globalMotorPidKp = strtof(buffer, NULL); break;
-		case 1: globalMotorPidKi = strtof(buffer, NULL); break;
-		case 2: globalMotorPidKd = strtof(buffer, NULL); break;
-		default: return false;
-		}
-	}
-
-	return (line == 3);
-}
-
-bool saveInitPIDMotorController(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[20];
-
-	snprintf(buffer, 20, "%.8g Kp\n", globalMotorPidKp);
-	f_puts(buffer, file);
-	snprintf(buffer, 20, "%.8g Ki\n", globalMotorPidKi);
-	f_puts(buffer, file);
-	snprintf(buffer, 20, "%.8g Kd\n", globalMotorPidKd);
-	f_puts(buffer, file);
-
-	return true;
-}
-#endif
 
 #ifdef USE_IMU_TELEMETRY
 bool readInitIMU(FIL* file) {
