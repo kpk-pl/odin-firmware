@@ -511,7 +511,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
 				getTelemetry(&tl, TelemetryStyle_Raw);
-				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
+				snprintf((char*)outBuffer, outBufferLen, "[Tel] X: %.2f Y: %.2f O: %.1f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 				ok = true;
 			}
 		}
@@ -519,14 +519,14 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 			if (nOfParams == 1) {
 				TelemetryData_Struct tl;
 				getTelemetry(&tl, TelemetryStyle_Common);
-				snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
+				snprintf((char*)outBuffer, outBufferLen, "[Tel] X: %.2f Y: %.2f O: %.1f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 				ok = true;
 			}
 			else if (nOfParams == 2) {
 				if (cmatch("raw", param[1], 1)) { // r
 					TelemetryData_Struct tl;
 					getTelemetry(&tl, TelemetryStyle_Scaled);
-					snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
+					snprintf((char*)outBuffer, outBufferLen, "[Tel] X: %.2f Y: %.2f O: %.1f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 					ok = true;
 				}
 			}
@@ -535,7 +535,7 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 	else {
 		TelemetryData_Struct tl;
 		getTelemetry(&tl, TelemetryStyle_Normalized);
-		snprintf((char*)outBuffer, outBufferLen, "X: %.2f\nY: %.2f\nO: %.2f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
+		snprintf((char*)outBuffer, outBufferLen, "[Tel] X: %.2f Y: %.2f O: %.1f\n", tl.X, tl.Y, tl.O/DEGREES_TO_RAD);
 		ok = true;
 	}
 
@@ -553,8 +553,8 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 
 	if (nOfParams > 0) {
 		if (cmatch("speed", param[0], 1)) { // s
-			if (nOfParams == 2) {
-				snprintf((char*)outBuffer, outBufferLen, "Speeds: L:%.3g R:%.3g\n",
+			if (nOfParams == 1) {
+				snprintf((char*)outBuffer, outBufferLen, "[Speed] L: %.2f R: %.2f\n",
 						globalCurrentMotorSpeed.LeftSpeed,
 						globalCurrentMotorSpeed.RightSpeed);
 				ok = true;
@@ -701,41 +701,39 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 							else if (nOfParams == curParr+2) {
 								if (all) {
 									float newVal = strtof(param[4], NULL);
+									ok = true;
 									if (strcmp(param[3], "K") == 0) {
 										globalLeftMotorParams.forward.K = newVal;
 										globalLeftMotorParams.backward.K = newVal;
 										globalRightMotorParams.forward.K = newVal;
 										globalRightMotorParams.backward.K = newVal;
-										ok = true;
 									}
 									else if (strcmp(param[3], "B") == 0) {
 										globalLeftMotorParams.forward.B = newVal;
 										globalLeftMotorParams.backward.B = newVal;
 										globalRightMotorParams.forward.B = newVal;
 										globalRightMotorParams.backward.B = newVal;
-										ok = true;
 									}
 									else if (strcmp(param[3], "Kp") == 0) {
 										globalLeftMotorParams.pid2.forward.Kp = newVal;
 										globalLeftMotorParams.pid2.backward.Kp = newVal;
 										globalRightMotorParams.pid2.forward.Kp = newVal;
 										globalRightMotorParams.pid2.backward.Kp = newVal;
-										ok = true;
 									}
 									else if (strcmp(param[3], "Ki") == 0) {
 										globalLeftMotorParams.pid2.forward.Ki = newVal;
 										globalLeftMotorParams.pid2.backward.Ki = newVal;
 										globalRightMotorParams.pid2.forward.Ki = newVal;
 										globalRightMotorParams.pid2.backward.Ki = newVal;
-										ok = true;
 									}
 									else if (strcmp(param[3], "Kd") == 0) {
 										globalLeftMotorParams.pid2.forward.Kd = newVal;
 										globalLeftMotorParams.pid2.backward.Kd = newVal;
 										globalRightMotorParams.pid2.forward.Kd = newVal;
 										globalRightMotorParams.pid2.backward.Kd = newVal;
-										ok = true;
 									}
+									else
+										ok = false;
 
 									if (ok)
 										strncpy((char*)outBuffer, "New params set\n", outBufferLen);
@@ -768,12 +766,11 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 									pidp->Ki = strtof(param[7], NULL);
 									pidp->Kd = strtof(param[8], NULL);
 									strncpy((char*)outBuffer, "New params set\n", outBufferLen);
-									ok = true;
 								}
 								else {
 									strncpy((char*)outBuffer, "Cannot change all params that way!\n", outBufferLen);
-									ok = true;
 								}
+								ok = true;
 							}
 						}
 					}
@@ -792,18 +789,16 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 		else if (cmatch("encoder", param[0], 3)) { // enc
 			if (nOfParams == 1) {
 				snprintf((char*)outBuffer, outBufferLen, "Encoder left: %ld\nEncoder right: %ld\n", getEncoderL(), getEncoderR());
-				ok = true;
 			}
 			else if (nOfParams == 2) {
 				if (cmatch("left", param[1], 1)) { // l
 					snprintf((char*)outBuffer, outBufferLen, "Encoder left: %ld\n", getEncoderL());
-					ok = true;
 				}
 				else if (cmatch("right", param[1], 1)) { // r
 					snprintf((char*)outBuffer, outBufferLen, "Encoder right: %ld\n", getEncoderR());
-					ok = true;
 				}
 			}
+			ok = true;
 		}
 		else if (cmatch("disable", param[0], 1)) { // d
 			if (nOfParams == 1) {
@@ -909,7 +904,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		outBuffer[91] = globalLogSettings.enableSpeedOrdered ? '1' : '0';
 		outBuffer[104] = globalLogSettings.enableTelemetry ? '1' : '0';
 		outBuffer[111] = globalLogSettings.enableIMU ? '1' : '0';
-		outBuffer[130] = globalLogSettings.enableDrive ? '1' : '0';
+		outBuffer[120] = globalLogSettings.enableDrive ? '1' : '0';
 		ok = true;
 
 #if configCOMMAND_INT_MAX_OUTPUT_SIZE < 103

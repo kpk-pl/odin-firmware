@@ -79,7 +79,7 @@ void TaskMotorCtrl(void * p) {
 
 	float errorLeft, errorRight;
 	float outLeft, outRight;
-	float speedLeft, speedRight;
+	MotorSpeed_Struct currSpeed, prevSpeed = {0.0f, 0.0f};
 	int32_t prevPosLeft = getEncoderL(), prevPosRight = getEncoderR();
 	int32_t posLeft, posRight;
 	FunctionalState regulatorOn = globalSpeedRegulatorOn;
@@ -112,7 +112,7 @@ void TaskMotorCtrl(void * p) {
 				motorSpeed.LeftSpeed  *= maxSpeedAllowed / max;
 				motorSpeed.RightSpeed *= maxSpeedAllowed / max;
 			}
-			safeLog(log_Type_SpeedOrdered, 18, "L:%.2f R:%.2f\n", motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
+			safeLog(log_Type_SpeedOrdered, 21, "L: %.2f R: %.2f\n", motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 		}
 
 		/* Handle turning regulator on or off */
@@ -127,13 +127,13 @@ void TaskMotorCtrl(void * p) {
 		/* Read encoders and compute difference in readings. Speeds will be calculated after odometry part */
 		posLeft = getEncoderL();
 		posRight = getEncoderR();
-		speedLeft = (float)(posLeft - prevPosLeft);
-		speedRight = (float)(posRight - prevPosRight);
+		currSpeed.LeftSpeed = (float)(posLeft - prevPosLeft);
+		currSpeed.RightSpeed = (float)(posRight - prevPosRight);
 
 		/* Compute telemetry update */
 		getTelemetry(&telemetryData, TelemetryStyle_Raw);
-		float deltaS = (speedRight + speedLeft) * IMPS_TO_MM_TRAVELED / 2.0f;
-		telemetryUpdate.dO = (speedRight - speedLeft) * IMPS_TO_MM_TRAVELED / ROBOT_DIAM;
+		float deltaS = (currSpeed.RightSpeed + currSpeed.LeftSpeed) * IMPS_TO_MM_TRAVELED / 2.0f;
+		telemetryUpdate.dO = (currSpeed.RightSpeed - currSpeed.LeftSpeed) * IMPS_TO_MM_TRAVELED / ROBOT_DIAM;
 		telemetryUpdate.dX = deltaS * cosf(telemetryData.O);
 		telemetryUpdate.dY = deltaS * sinf(telemetryData.O);
 
@@ -142,25 +142,30 @@ void TaskMotorCtrl(void * p) {
 		}
 
 		/* Compute speeds in rad/s */
-		speedLeft *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
-		speedRight *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
+		currSpeed.LeftSpeed *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
+		currSpeed.RightSpeed *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
 
 		taskENTER_CRITICAL();
 		{
-			globalCurrentMotorSpeed.LeftSpeed = speedLeft;
-			globalCurrentMotorSpeed.RightSpeed = speedRight;
+			globalCurrentMotorSpeed = currSpeed;
 		}
 		taskEXIT_CRITICAL();
 
-		safeLog(Log_Type_Speed, 36, "L:%.4frad/s R:%.4frad/s\n", speedLeft, speedRight);
+		if (fabsf(currSpeed.LeftSpeed-prevSpeed.LeftSpeed) > 0.01f ||
+				fabsf(currSpeed.RightSpeed-prevSpeed.RightSpeed) > 0.01f)
+		{
+			safeLog(Log_Type_Speed, 21, "L: %.2f R: %.2f\n", currSpeed.LeftSpeed, currSpeed.RightSpeed);
+		}
+
+		prevSpeed = currSpeed;
 
 		/* If regulator is on; critical section is to ensure that regulator is not switched after global... is checked */
 		taskENTER_CRITICAL();
 		{
 			if (globalSpeedRegulatorOn) {
 				/* Compute error by simple substraction */
-				errorLeft = -(speedLeft - motorSpeed.LeftSpeed);
-				errorRight = -(speedRight - motorSpeed.RightSpeed);
+				errorLeft = -(currSpeed.LeftSpeed - motorSpeed.LeftSpeed);
+				errorRight = -(currSpeed.RightSpeed - motorSpeed.RightSpeed);
 
 				/* Calculate control values */
 				outLeft = motorController(motorSpeed.LeftSpeed, errorLeft, &globalLeftMotorParams);

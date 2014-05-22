@@ -13,13 +13,13 @@ static const Prefix_Info_Struct logPrefix[] = {
 	{"Debug", 5},
 	{"RC5", 3},
 	{"Speed", 5},
-	{"SpOrd", 8},
+	{"SpeedOrd", 7},
 	{"Tel", 3},
 	{"IMU", 3},
 	{"Drive", 5}
 };
 
-#define EVENT_LOGS_MASK ((1<<3) | (1<<6) | (1<<7))
+#define EVENT_LOGS_MASK ((1<<3) | (1<<7) | (1<<8))
 
 bool isLogEnabled(const volatile Log_Settings_Struct *settings, const Log_Type type) {
 	if ((uint8_t)type > 31)

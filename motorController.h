@@ -28,7 +28,7 @@ typedef struct {
 // returns PWM for motor
 // overall controller structure:
 // 
-// PWM = K * speed - B  +  Kp * error
+// PWM = K * speed - B  +  PID(error)
 // 
 //
 float motorController(float speed, float error, volatile MotorControllerState_Struct *state);

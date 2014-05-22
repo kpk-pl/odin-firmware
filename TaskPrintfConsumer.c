@@ -16,7 +16,7 @@ xSemaphoreHandle wifiDMATCSemaphore;	/*!< DMA transfer complete from WiFi module
 xSemaphoreHandle printfMutex;			/*!< Mutex that needs to be acquired to control printing on all interfaces */
 
 volatile Log_Settings_Struct globalLogSettings = {
-	.smallFlags = 0xFFFFFFFF,
+	.smallFlags = 0xFFFFFFEF,
 	.bigFlags = 0xFFFFFFFF
 };
 
