@@ -6,7 +6,6 @@
 #include "wifiactions.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskUSB2WiFiBridge.h"
-#include "TaskCommandHandler.h"
 #include "TaskCLI.h"
 
 #define BUF_RX_LEN 100				/*!< Maximum length of UART command */
@@ -20,7 +19,6 @@ xQueueHandle commInputMngrQueue;	/*!< Queue for incoming data that was received 
 void TaskInputMngr(void * p) {
 	PrintInput_Struct newInput;
 
-	bool incoming[2] = {false, false}; // state machine
 	char RXBUF[2][BUF_RX_LEN+1];
 	uint8_t RXBUFPOS[2] = {0, 0};
 	uint8_t i;
@@ -43,41 +41,28 @@ void TaskInputMngr(void * p) {
 		default: break;
 		}
 
-		if (!globalUsingCLI && newInput.Input == '<') {  // msg begin character
+		if (newInput.Input == '\n') {
+			RXBUF[i][RXBUFPOS[i]++] = '\0';
+
+			char * ptr = (char *)pvPortMalloc(RXBUFPOS[i]*sizeof(char));
+			strcpy(ptr, (const char*)RXBUF[i]);
+
 			RXBUFPOS[i] = 0;
-			incoming[i] = true;
-		}
-		else if ((!globalUsingCLI && newInput.Input == '>') || (globalUsingCLI && newInput.Input == '\n')) {
-			if (incoming[i] || globalUsingCLI) { // if not using CLI then do this only in in the right state
-				RXBUF[i][RXBUFPOS[i]++] = '\0';
-				incoming[i] = false;
 
-				char * ptr = (char *)pvPortMalloc(RXBUFPOS[i]*sizeof(char));
-				strcpy(ptr, (const char*)RXBUF[i]);
+			portBASE_TYPE send;
+			if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiActionsInputQueue != NULL) {
+				send = xQueueSendToBack(WiFiActionsInputQueue, &ptr, 0);
+			}
+			else {
+				send = xQueueSendToBack(CLIInputQueue, &ptr, 0);
+			}
 
-				RXBUFPOS[i] = 0;
-
-				portBASE_TYPE send;
-				if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiActionsInputQueue != NULL) {
-					send = xQueueSendToBack(WiFiActionsInputQueue, &ptr, 0);
-				}
-				else if (globalUsingCLI) {
-					send = xQueueSendToBack(CLIInputQueue, &ptr, 0);
-				}
-				else {
-					send = xQueueSendToBack(commandQueue, &ptr, 0);
-				}
-
-				if (send == errQUEUE_FULL) {
-					vPortFree(ptr);
-				}
+			if (send == errQUEUE_FULL) {
+				vPortFree(ptr);
 			}
 		}
-		else {
-			if (incoming[i] || globalUsingCLI) {
-				if (RXBUFPOS[i] < BUF_RX_LEN)
-					RXBUF[i][RXBUFPOS[i]++] = newInput.Input;
-			}
+		else if (RXBUFPOS[i] < BUF_RX_LEN) {
+			RXBUF[i][RXBUFPOS[i]++] = newInput.Input;
 		}
 	}
 }

@@ -7,22 +7,7 @@
 #include "task.h"
 #include "semphr.h"
 
-extern xTaskHandle motorCtrlTask;						/*!< Export this task's handle */
-extern xSemaphoreHandle motorControllerMutex;			/*!< Export mutex for trajectory regulators */
-//extern xQueueHandle motorCtrlQueue;					/*!< Export queue's handle to which motor commands should be passed */
-extern volatile uint32_t globalLogSpeedCounter;			/*!< Export counter useful when logging only a few speed entries */
-extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regulator setting flag */
-
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 #include "motorController.h"
-	extern volatile MotorControllerState_Struct globalLeftMotorParams;		/*!< Export left wheel's custom regulator params */
-	extern volatile MotorControllerState_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
-#else
-#include "arm_math.h"
-	extern volatile float globalMotorPidKp;				/*!< Export Kp for the PID controller */
-	extern volatile float globalMotorPidKi;				/*!< Export Ki for the PID controller */
-	extern volatile float globalMotorPidKd;				/*!< Export Kd for the PID controller */
-#endif
 
 /**
  *  \brief Struct holding motors' speeds in rad/sec.
@@ -31,6 +16,15 @@ typedef struct {
 	float LeftSpeed;				/*<< Left motor's speed */
 	float RightSpeed;				/*<< Right motor's speed */
 } MotorSpeed_Struct;
+
+extern xTaskHandle motorCtrlTask;						/*!< Export this task's handle */
+extern xSemaphoreHandle motorControllerMutex;			/*!< Export mutex for trajectory regulators */
+extern volatile uint32_t globalLogSpeedCounter;			/*!< Export counter useful when logging only a few speed entries */
+extern volatile FunctionalState globalSpeedRegulatorOn;	/*!< Export on/off regulator setting flag */
+extern volatile MotorSpeed_Struct globalCurrentMotorSpeed; /*!< Export struct holding current motors speeds */
+
+extern volatile MotorControllerState_Struct globalLeftMotorParams;		/*!< Export left wheel's custom regulator params */
+extern volatile MotorControllerState_Struct globalRightMotorParams;		/*!< Export right wheel's custom regulator params */
 
 /**
  * \brief Controller for motors

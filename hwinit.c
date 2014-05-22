@@ -577,7 +577,6 @@ void Initialize() {
 	/* Switch 5 */
 	EXTI_InitStructure.EXTI_Line = SWITCHES_EXTI_5_LINE;
 	EXTI_Init(&EXTI_InitStructure);
-	if (getSwitchStatus(5) == ON) globalUsingCLI = true;
 	/* Switch 6 */
 	EXTI_InitStructure.EXTI_Line = SWITCHES_EXTI_6_LINE;
 	EXTI_Init(&EXTI_InitStructure);

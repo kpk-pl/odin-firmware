@@ -63,7 +63,6 @@ const Config_Item_Struct trajectoryConfig[] = {
 };
 #endif
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 const Config_Item_Struct customMotorControllerConfig[] = {
 	{.content = &globalLeftMotorParams.forward.K, .type = Config_Item_Type_Float, .name = "K lf", .format = "%.8g"},
 	{.content = &globalLeftMotorParams.forward.B, .type = Config_Item_Type_Float, .name = "B lf", .format = "%.8g"},
@@ -86,13 +85,6 @@ const Config_Item_Struct customMotorControllerConfig[] = {
 	{.content = &globalRightMotorParams.pid2.backward.Ki, .type = Config_Item_Type_Float, .name = "Ki rb", .format = "%.8g"},
 	{.content = &globalRightMotorParams.pid2.backward.Kd, .type = Config_Item_Type_Float, .name = "d rb", .format = "%.8g"},
 };
-#else /* USE_CUSTOM_MOTOR_CONTROLLER */
-const Config_Item_Struct pidMotorControllerConfig[] = {
-	{.content = &globalMotorPidKp, .type = Config_Item_Type_Float, .name = "Kp", .format = "%.8g"},
-	{.content = &globalMotorPidKi, .type = Config_Item_Type_Float, .name = "Ki", .format = "%.8g"},
-	{.content = &globalMotorPidKd, .type = Config_Item_Type_Float, .name = "Kd", .format = "%.8g"}
-};
-#endif /* USE_CUSTOM_MOTOR_CONTROLLER */
 
 void readConfigItem(const char *buffer, const Config_Item_Struct *item) {
 	switch(item->type) {
@@ -143,17 +135,10 @@ bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target) {
 		items = sizeof(trajectoryConfig)/sizeof(Config_Item_Struct);
 		break;
 #endif
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	case InitTarget_Custom_Motor_Controler:
 		config = customMotorControllerConfig;
 		items = sizeof(customMotorControllerConfig)/sizeof(Config_Item_Struct);
 		break;
-#else
-	case InitTarget_PID_Motor_Controler:
-		config = pidMotorControllerConfig;
-		items = sizeof(pidMotorControllerConfig)/sizeof(Config_Item_Struct);
-		break;
-#endif
 #ifdef USE_IMU_TELEMETRY
 	case InitTarget_IMU:
 		return (type == IO_Type_Save) ? saveInitIMU(file) : readInitIMU(file);
@@ -216,13 +201,8 @@ FRESULT openInitFile(InitTarget_Type target, FIL* file, BYTE mode) {
 	switch (target) {
 	case InitTarget_Telemetry:
 		return f_open(file, INIT_TELEMETRY_PATH, mode);
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	case InitTarget_Custom_Motor_Controler:
 		return f_open(file, INIT_MOTOR_CTRL_CUSTOM_PATH, mode);
-#else
-	case InitTarget_PID_Motor_Controler:
-		return f_open(file, INIT_MOTOR_CTRL_PID_PATH, mode);
-#endif
 #ifdef USE_IMU_TELEMETRY
 	case InitTarget_IMU:
 		return f_open(file, INIT_IMU_PATH, mode);
@@ -245,13 +225,8 @@ bool readInitAll() {
 	// forbidden to use InitTarget_All as this will cause infinite recursion loop and system crash
 	if (!readInit(InitTarget_Telemetry))
 		ret = false;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	if (!readInit(InitTarget_Custom_Motor_Controler))
 		ret = false;
-#else
-	if (!readInit(InitTarget_PID_Motor_Controler))
-		ret = false;
-#endif
 #ifdef FOLLOW_TRAJECTORY
 	if (!readInit(InitTarget_Trajectory))
 		ret = false;
@@ -271,13 +246,8 @@ bool saveInitAll() {
 	// forbidden to use InitTarget_All as this will cause infinite recursion loop and system crash
 	if (!saveConfig(InitTarget_Telemetry))
 		ret = false;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	if (!saveConfig(InitTarget_Custom_Motor_Controler))
 		ret = false;
-#else
-	if (!saveConfig(InitTarget_PID_Motor_Controler))
-		ret = false;
-#endif
 #ifdef FOLLOW_TRAJECTORY
 	if (!saveConfig(InitTarget_Trajectory))
 		ret = false;

@@ -13,7 +13,6 @@
 #include "TaskRC5.h"
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
-#include "TaskCommandHandler.h"
 #include "TaskCLI.h"
 #include "TaskLED.h"
 #include "TaskUSB2WiFiBridge.h"
@@ -32,7 +31,6 @@
 #endif
 
 volatile float globalCPUUsage = 0.0f;
-volatile bool globalUsingCLI = false;
 volatile bool globalSDMounted = false;
 xSemaphoreHandle sdDMATCSemaphore = NULL;
 xTaskHandle taskBootIdleHandle;
@@ -89,17 +87,10 @@ int main(void)
 #else
 	printf("\tDrive commands DISABLED\n");
 #endif
-	if (globalUsingCLI)
-		printf("\tUsing CLI\n");
-	else
-		printf("\tUsing command handler\n");
 
 	// start normal tasks - these should not really fire up because boot task is a DOMINATOR
 	TaskInputMngrConstructor();
-	if (globalUsingCLI)
-		TaskCLIConstructor();
-	else
-		TaskCommandHandlerConstructor();
+	TaskCLIConstructor();
 	TaskLEDConstructor();
 	TaskMotorCtrlConstructor();
 	TaskPrintfConsumerConstructor();
@@ -195,17 +186,10 @@ void TaskBoot(void *p) {
 			allOK = false;
 		}
 #endif
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 		if (!readInit(InitTarget_Custom_Motor_Controler)) {
 			printf("\nErrors while reading %s", INIT_MOTOR_CTRL_CUSTOM_PATH);
 			allOK = false;
 		}
-#else
-		if (!readInit(InitTarget_PID_Motor_Controler)) {
-			printf("\nErrors while reading %s", INIT_MOTOR_CTRL_PID_PATH);
-			allOK = false;
-		}
-#endif
 		if (allOK) printf(" done OK\n");
 		else printf("\nSD card: there were errors\n");
 	}
@@ -225,10 +209,7 @@ void TaskBoot(void *p) {
 void reportStackUsage() {
 	safePrint(45, "High water mark of stack usage (free space)\n");
 	safePrint(28, "printfConsumerTask: %d\n", uxTaskGetStackHighWaterMark(printfConsumerTask));
-	if (globalUsingCLI)
-		safePrint(28, "CLITask: %d\n", uxTaskGetStackHighWaterMark(CLITask));
-	else
-		safePrint(28, "commandHandlerTask: %d\n", uxTaskGetStackHighWaterMark(commandHandlerTask));
+	safePrint(28, "CLITask: %d\n", uxTaskGetStackHighWaterMark(CLITask));
 	safePrint(23, "motorCtrlTask: %d\n", uxTaskGetStackHighWaterMark(motorCtrlTask));
 	safePrint(17, "RC5Task: %d\n", uxTaskGetStackHighWaterMark(RC5Task));
 	safePrint(23, "telemetryTask: %d\n", uxTaskGetStackHighWaterMark(telemetryTask));

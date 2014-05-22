@@ -2,8 +2,8 @@
 #include "logging.h"
 
 typedef struct {
-	char *prefix;
-	size_t length;
+	const char *prefix;
+	const size_t length;
 } Prefix_Info_Struct;
 
 /* Prefix for all kinds of logs - numbering is strictly correlated with Log_Type numbering */
@@ -13,6 +13,7 @@ static const Prefix_Info_Struct logPrefix[] = {
 	{"Debug", 5},
 	{"RC5", 3},
 	{"Speed", 5},
+	{"SpOrd", 8},
 	{"Tel", 3},
 	{"IMU", 3},
 	{"Drive", 5}

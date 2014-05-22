@@ -15,6 +15,7 @@ typedef enum {
 	Log_Type_Debug,		/*!< Debug log of unspecified kind */
 	Log_Type_RC5, 		/*!< Log from RC5 task - EVENT */
 	Log_Type_Speed,		/*!< Speed logging */
+	log_Type_SpeedOrdered, /*!< Ordered speed logging */
 	Log_Type_Telemetry, /*!< Logging telemetry aka position */
 	Log_Type_IMU,		/*!< Logging IMU - EVENT*/
 	Log_Type_Drive,		/*!< Log from taskDrive - EVENT */
@@ -30,7 +31,8 @@ typedef struct {
 			bool enableError 	: 1;	/*!< Enable flag for error logs - Log_Type_Error */
 			bool enableDebug	: 1;	/*!< Enable flag for debug logs - Log_Type_Debug */
 			bool enableRC5		: 1;	/*!< Enable flag for RC5 logs - Log_Type_RC5 */
-			bool enableSpeed	: 1;
+			bool enableSpeed	: 1;	/*!< Enable flag for current speed logging - Log_Type_Speed */
+			bool enableSpeedOrdered :1; /*!< Enable flag for ordered speed logging - Log_Type_SpeedOrdered */
 			bool enableTelemetry :1;
 			bool enableIMU		: 1;
 			bool enableDrive	: 1;

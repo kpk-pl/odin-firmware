@@ -21,59 +21,54 @@ xSemaphoreHandle motorControllerMutex;	/*!< Mutex to allow many consecutive spee
 
 volatile uint32_t globalLogSpeedCounter = 0;				/*!< Counter to allow only a few logs from speed to be printed */
 volatile FunctionalState globalSpeedRegulatorOn = ENABLE;	/*!< On/Off setting for regulator */
+volatile MotorSpeed_Struct globalCurrentMotorSpeed;			/*!< Copy of current motors speeds in rad/s */
 
 static MotorSpeed_Struct motorSpeed = {0.0f, 0.0f}; 		/*!< Last ordered speed in rads / sec */
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-	volatile MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
+volatile MotorControllerState_Struct globalLeftMotorParams = {		/*!< Left motors custom regulator parameters */
+	.forward = {
+		.K = 0.08177f,
+		.B = 0.06878f
+	},
+	.backward = {
+		.K = 0.07598f,
+		.B = 0.05143f
+	},
+	.pid2 = {
 		.forward = {
-			.K = 0.08177f,
-			.B = 0.06878f
+			.Kp = 0.09f,
+			.Ki = 0.001f,
+			.Kd = 0.0f
 		},
 		.backward = {
-			.K = 0.07598f,
-			.B = 0.05143f
-		},
-		.pid2 = {
-			.forward = {
-				.Kp = 0.09f,
-				.Ki = 0.001f,
-				.Kd = 0.0f
-			},
-			.backward = {
-				.Kp = 0.09f,
-				.Ki = 0.001f,
-				.Kd = 0.0f
-			}
+			.Kp = 0.09f,
+			.Ki = 0.001f,
+			.Kd = 0.0f
 		}
-	};
-	volatile MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
+	}
+};
+volatile MotorControllerState_Struct globalRightMotorParams = {		/*!< Right motors custom regulator parameters */
+	.forward = {
+		.K = 0.07629f,
+		.B = 0.05824f
+	},
+	.backward = {
+		.K = 0.07882f,
+		.B = 0.05308f
+	},
+	.pid2 = {
 		.forward = {
-			.K = 0.07629f,
-			.B = 0.05824f
+			.Kp = 0.09f,
+			.Ki = 0.001f,
+			.Kd = 0.0f
 		},
 		.backward = {
-			.K = 0.07882f,
-			.B = 0.05308f
-		},
-		.pid2 = {
-			.forward = {
-				.Kp = 0.09f,
-				.Ki = 0.001f,
-				.Kd = 0.0f
-			},
-			.backward = {
-				.Kp = 0.09f,
-				.Ki = 0.001f,
-				.Kd = 0.0f
-			}
+			.Kp = 0.09f,
+			.Ki = 0.001f,
+			.Kd = 0.0f
 		}
-	};
-#else
-	volatile float globalMotorPidKp = 0.08f;
-	volatile float globalMotorPidKi = 0.005f;
-	volatile float globalMotorPidKd = 0.0f;
-#endif
+	}
+};
 
 void TaskMotorCtrl(void * p) {
 	portTickType wakeTime = xTaskGetTickCount();
@@ -92,7 +87,6 @@ void TaskMotorCtrl(void * p) {
 	TelemetryUpdate_Struct telemetryUpdate = {.Source = TelemetryUpdate_Source_Odometry};
 	TelemetryData_Struct telemetryData;
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 	/*
 	 * Custom controller
 	 * input - speed [rad/s]
@@ -100,19 +94,6 @@ void TaskMotorCtrl(void * p) {
 	 */
 	pid2_init(&globalLeftMotorParams.pid2);
 	pid2_init(&globalRightMotorParams.pid2);
-#else
-	/*
-	 * Input to PID controller is error of rotational velocity in rad/sec
-	 * Output is normalized speed scaled linearly to PWM
-	 */
-	arm_pid_instance_f32 pidLeft = {
-		.Kp = globalMotorPidKp,
-		.Ki = globalMotorPidKi,
-		.Kd = globalMotorPidKd
-	};
-	arm_pid_init_f32(&pidLeft, 1);
-	arm_pid_instance_f32 pidRight = pidLeft;
-#endif
 
 	enableMotors(ENABLE);
 
@@ -131,29 +112,14 @@ void TaskMotorCtrl(void * p) {
 				motorSpeed.LeftSpeed  *= maxSpeedAllowed / max;
 				motorSpeed.RightSpeed *= maxSpeedAllowed / max;
 			}
-			safeLog(Log_Type_Speed, 34, "Ordered speeds: L:%.2f R:%.2f\n", motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
+			safeLog(log_Type_SpeedOrdered, 18, "L:%.2f R:%.2f\n", motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
 		}
 
-#ifndef USE_CUSTOM_MOTOR_CONTROLLER
-		/* Update pid structures if something changed */
-		if (globalMotorPidKp != pidLeft.Kp || globalMotorPidKi != pidLeft.Ki || globalMotorPidKd != pidLeft.Kd) {
-			pidLeft.Kp = pidRight.Kp = globalMotorPidKp;
-			pidLeft.Ki = pidRight.Ki = globalMotorPidKi;
-			pidLeft.Kd = pidRight.Kd = globalMotorPidKd;
-			arm_pid_init_f32(&pidLeft, 0);
-			arm_pid_init_f32(&pidRight, 0);
-		}
-#endif
 		/* Handle turning regulator on or off */
 		if (regulatorOn != globalSpeedRegulatorOn) {
 			regulatorOn = globalSpeedRegulatorOn;
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 			pid2_init(&globalLeftMotorParams.pid2);
 			pid2_init(&globalRightMotorParams.pid2);
-#else
-			arm_pid_reset_f32(&pidLeft);
-			arm_pid_reset_f32(&pidRight);
-#endif
 			setMotorLSpeed(0.0f);
 			setMotorRSpeed(0.0f);
 		}
@@ -179,10 +145,14 @@ void TaskMotorCtrl(void * p) {
 		speedLeft *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
 		speedRight *= IMPS_TO_RAD*1000.0f/(float)(delayMsPerPeriod/portTICK_RATE_MS);
 
-		if (globalLogSpeedCounter > 0) { // mod sth to allow changing log period
-			safeLog(Log_Type_Speed, 42, "Speeds: L:%.4frad/s R:%.4frad/s\n", speedLeft, speedRight);
-			globalLogSpeedCounter--;
+		taskENTER_CRITICAL();
+		{
+			globalCurrentMotorSpeed.LeftSpeed = speedLeft;
+			globalCurrentMotorSpeed.RightSpeed = speedRight;
 		}
+		taskEXIT_CRITICAL();
+
+		safeLog(Log_Type_Speed, 36, "L:%.4frad/s R:%.4frad/s\n", speedLeft, speedRight);
 
 		/* If regulator is on; critical section is to ensure that regulator is not switched after global... is checked */
 		taskENTER_CRITICAL();
@@ -192,35 +162,21 @@ void TaskMotorCtrl(void * p) {
 				errorLeft = -(speedLeft - motorSpeed.LeftSpeed);
 				errorRight = -(speedRight - motorSpeed.RightSpeed);
 
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
-				/* Use Ferdek's controllers */
+				/* Calculate control values */
 				outLeft = motorController(motorSpeed.LeftSpeed, errorLeft, &globalLeftMotorParams);
 				outRight = motorController(motorSpeed.RightSpeed, errorRight, &globalRightMotorParams);
-#else
-				/* Invoke PID functions and compute output speed values, minus is necessary for PID */
-				outLeft = arm_pid_f32(&pidLeft, errorLeft);
-				outRight = arm_pid_f32(&pidRight, errorRight);
-#endif
 
 				/* Set motors speed; minus is necessary to drive in the right direction */
 				if (motorSpeed.LeftSpeed == 0.0f && fabsf(errorLeft) < 0.001f) {
 					setMotorLBrake();
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 					pid2_init(&globalLeftMotorParams.pid2);
-#else
-					arm_pid_reset_f32(&pidLeft);
-#endif
 				}
 				else setMotorLSpeed(outLeft);
 
 				//TODO: if motors' speeds are set to 0, change mode to servo-controller
 				if (motorSpeed.RightSpeed == 0.0f && fabsf(errorRight) < 0.001f) {
 					setMotorRBrake();
-#ifdef USE_CUSTOM_MOTOR_CONTROLLER
 					pid2_init(&globalRightMotorParams.pid2);
-#else
-					arm_pid_reset_f32(&pidRight);
-#endif
 				}
 				else setMotorRSpeed(outRight);
 			}

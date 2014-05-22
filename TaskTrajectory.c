@@ -39,22 +39,22 @@ void TaskTrajectory(void *p) {
 	TrajectoryPoint_Struct nextPoint;
 	bool taken = false;
 
-	if (!globalUsingCLI) {
-		bool send1 = true, send2 = false;
+//	if (!globalUsingCLI) {
+//		bool send1 = true, send2 = false;
 
-		while(1) {
+//		while(1) {
 			/* Wait for next sampling period */
-			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+//			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
 
-			if (TBgetUsedSpace() < 0.45f) {
-				if (!send1) {
-					safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2);
-					send1 = true;
-				}
-			}
-			else {send1 = false;}
+//			if (TBgetUsedSpace() < 0.45f) {
+//				if (!send1) {
+//					safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2);
+//					send1 = true;
+//				}
+//			}
+//			else {send1 = false;}
 
-			if (TBgetNextPoint(&nextPoint)) {
+/*			if (TBgetNextPoint(&nextPoint)) {
 				if (!taken) {
 					xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
 					taken = true;
@@ -77,7 +77,7 @@ void TaskTrajectory(void *p) {
 			}
 		}
 	}
-	else {
+	else {*/
 // TODO: Needs finish and testing
 // TODO: Implement immediate stop mechanism
 		TrajectoryRequest_Struct request;
@@ -154,7 +154,7 @@ void TaskTrajectory(void *p) {
 				file = NULL;
 			}
 		}
-	}
+	//}
 }
 
 void TaskTrajectoryConstructor() {

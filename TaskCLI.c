@@ -188,13 +188,9 @@ static const CLI_Command_Definition_t telemetryComDef = {
 static const CLI_Command_Definition_t motorComDef = {
     (const int8_t*)"motor",
     (const int8_t*)"motor ...\n"
-    		 "\tspeed <<left #val>|<right #val>|<#valL #valR>>\n"
+    		 "\tspeed [<left #val>|<right #val>|<#valL #valR>]\n"
     		 "\tpwm <<left #val>|<right #val>|<#valL #valR)>>\n"
-#ifndef USE_CUSTOM_MOTOR_CONTROLLER
-    		 "\tregulator [enable|disable|<params [#P #I #D]>]\n"
-#else
     		 "\tregulator [enable|disable|<params all|[left|right forward|backward] [<#K #B #Kp #Ki #Kd>|<K|B|Kp|Ki|Kd #val>]>]\n"
-#endif
     		 "\tencoder [left|right]\n"
     		 "\tenable|disable\n"
     		 "\tbrake\n",
@@ -209,7 +205,7 @@ static const CLI_Command_Definition_t wifiComDef = {
 };
 static const CLI_Command_Definition_t logComDef = {
     (const int8_t*)"log",
-    (const int8_t*)"log <<all|events|log|error|debug|rc5|speed|telemetry|imu|drive> [off]>\n",
+    (const int8_t*)"log <<all|events|log|error|debug|rc5|speed|ordered|telemetry|imu|drive> [off]>\n",
     logCommand,
     -1
 };
@@ -557,7 +553,13 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 
 	if (nOfParams > 0) {
 		if (cmatch("speed", param[0], 1)) { // s
-			if (nOfParams == 3) {
+			if (nOfParams == 2) {
+				snprintf((char*)outBuffer, outBufferLen, "Speeds: L:%.3g R:%.3g\n",
+						globalCurrentMotorSpeed.LeftSpeed,
+						globalCurrentMotorSpeed.RightSpeed);
+				ok = true;
+			}
+			else if (nOfParams == 3) {
 				float left = 0.0f, right = 0.0f;
 				if (cmatch("left", param[1], 1)) { // l
 					left = strtof(param[2], NULL);
@@ -615,23 +617,6 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 					}
 				}
 				else if (cmatch("params", param[1], 1)) { // p
-#ifndef USE_CUSTOM_MOTOR_CONTROLLER
-					if (nOfParams == 2) {
-						snprintf((char*)outBuffer, outBufferLen, "P %.3f\nI %.3f\nD %.3f\n", globalMotorPidKp, globalMotorPidKi, globalMotorPidKd);
-						ok = true;
-					}
-					else if (nOfParams == 5) {
-						taskENTER_CRITICAL();
-						{
-							globalMotorPidKp = strtof(param[2], NULL);
-							globalMotorPidKi = strtof(param[3], NULL);
-							globalMotorPidKd = strtof(param[4], NULL);
-						}
-						taskEXIT_CRITICAL();
-						strncpy((char*)outBuffer, "New params set\n", outBufferLen);
-						ok = true;
-					}
-#else
 					if (nOfParams >= 3) {
 						bool dirleft, dirfwd, error = false, all = false;
 						uint8_t curParr = 2;
@@ -792,7 +777,6 @@ portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 							}
 						}
 					}
-#endif
 				}
 			}
 			else { // nOfParams == 1
@@ -914,7 +898,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 	if (nOfParams == 0) {
 		strncpy((char*)outBuffer, "Logging settings:\nall: ?\nevents: ?\nlog: ?\nerror: ?\ndebug: ?\nrc5: ?\n"
-				"speed: ?\ntelemetry: ?\nimu: ?\ndrive: ?\n", outBufferLen);
+				"speed: ?\nspeed ordered: ?\ntelemetry: ?\nimu: ?\ndrive: ?\n", outBufferLen);
 		outBuffer[23] = globalLogSettings.enableAll ? '1' : '0';
 		outBuffer[33] = globalLogSettings.enableEvents ? '1' : '0';
 		outBuffer[40] = globalLogSettings.enableLog ? '1' : '0';
@@ -922,9 +906,10 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		outBuffer[58] = globalLogSettings.enableDebug ? '1' : '0';
 		outBuffer[65] = globalLogSettings.enableRC5 ? '1' : '0';
 		outBuffer[74] = globalLogSettings.enableSpeed ? '1' : '0';
-		outBuffer[87] = globalLogSettings.enableTelemetry ? '1' : '0';
-		outBuffer[94] = globalLogSettings.enableIMU ? '1' : '0';
-		outBuffer[103] = globalLogSettings.enableDrive ? '1' : '0';
+		outBuffer[91] = globalLogSettings.enableSpeedOrdered ? '1' : '0';
+		outBuffer[104] = globalLogSettings.enableTelemetry ? '1' : '0';
+		outBuffer[111] = globalLogSettings.enableIMU ? '1' : '0';
+		outBuffer[130] = globalLogSettings.enableDrive ? '1' : '0';
 		ok = true;
 
 #if configCOMMAND_INT_MAX_OUTPUT_SIZE < 103
@@ -954,6 +939,8 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 				globalLogSettings.enableRC5 = !off;
 			else if (cmatch("speed", param[0], 1))		// s
 				globalLogSettings.enableSpeed = !off;
+			else if (cmatch("ordered", param[0], 1))	// o
+				globalLogSettings.enableSpeedOrdered = !off;
 			else if (cmatch("telemetry", param[0], 1))	// t
 				globalLogSettings.enableTelemetry = !off;
 			else if (cmatch("imu", param[0], 1))		// i
