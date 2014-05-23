@@ -24,10 +24,8 @@
 #include "TaskPenCtrl.h"
 #include "TaskTelemetry.h"
 #include "TaskAsyncCallHandler.h"
-
-#ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
-#endif
+
 #ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
 #endif
@@ -139,9 +137,7 @@ static portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, co
 static portBASE_TYPE motorCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE wifiCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
-#ifdef FOLLOW_TRAJECTORY
 static portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
-#endif
 #ifdef DRIVE_COMMANDS
 static portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 #endif
@@ -209,7 +205,6 @@ static const CLI_Command_Definition_t logComDef = {
     logCommand,
     -1
 };
-#ifdef FOLLOW_TRAJECTORY
 static const CLI_Command_Definition_t trajectoryComDef = {
     (const int8_t*)"trajectory",
     (const int8_t*)"trajectory ...\n"
@@ -219,7 +214,6 @@ static const CLI_Command_Definition_t trajectoryComDef = {
     trajectoryCommand,
     -1
 };
-#endif
 #ifdef DRIVE_COMMANDS
 static const CLI_Command_Definition_t driveComDef = {
     (const int8_t*)"drive",
@@ -956,7 +950,6 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 	return pdFALSE;
 }
 
-#ifdef FOLLOW_TRAJECTORY
 portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
 	char *param[6];
 	bool ok = false;
@@ -1040,7 +1033,6 @@ portBASE_TYPE trajectoryCommand(int8_t* outBuffer, size_t outBufferLen, const in
 	}
 	return pdFALSE;
 }
-#endif
 
 #ifdef DRIVE_COMMANDS
 portBASE_TYPE driveCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
@@ -1384,9 +1376,7 @@ void registerAllCommands() {
 	FreeRTOS_CLIRegisterCommand(&motorComDef);
 	FreeRTOS_CLIRegisterCommand(&wifiComDef);
 	FreeRTOS_CLIRegisterCommand(&logComDef);
-#ifdef FOLLOW_TRAJECTORY
 	FreeRTOS_CLIRegisterCommand(&trajectoryComDef);
-#endif
 #ifdef DRIVE_COMMANDS
 	FreeRTOS_CLIRegisterCommand(&driveComDef);
 #endif

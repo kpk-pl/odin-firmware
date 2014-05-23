@@ -55,13 +55,11 @@ const Config_Item_Struct loggingConfig[] = {
 	{.content = &globalLogSettings.smallFlags, .type = Config_Item_Type_Hex32, .name = "small flags", .format = "%lx"}
 };
 
-#ifdef FOLLOW_TRAJECTORY
 const Config_Item_Struct trajectoryConfig[] = {
 	{.content = &globalTrajectoryControlGains.k_x, .type = Config_Item_Type_Float, .name = "k_x", .format = "%.8g"},
 	{.content = &globalTrajectoryControlGains.k, .type = Config_Item_Type_Float, .name = "k", .format = "%.8g"},
 	{.content = &globalTrajectoryControlGains.k_s, .type = Config_Item_Type_Float, .name = "k_s", .format = "%.8g"}
 };
-#endif
 
 const Config_Item_Struct customMotorControllerConfig[] = {
 	{.content = &globalLeftMotorParams.forward.K, .type = Config_Item_Type_Float, .name = "K lf", .format = "%.8g"},
@@ -129,12 +127,10 @@ bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target) {
 		config = loggingConfig;
 		items = sizeof(loggingConfig)/sizeof(Config_Item_Struct);
 		break;
-#ifdef FOLLOW_TRAJECTORY
 	case InitTarget_Trajectory:
 		config = trajectoryConfig;
 		items = sizeof(trajectoryConfig)/sizeof(Config_Item_Struct);
 		break;
-#endif
 	case InitTarget_Custom_Motor_Controler:
 		config = customMotorControllerConfig;
 		items = sizeof(customMotorControllerConfig)/sizeof(Config_Item_Struct);
@@ -207,10 +203,8 @@ FRESULT openInitFile(InitTarget_Type target, FIL* file, BYTE mode) {
 	case InitTarget_IMU:
 		return f_open(file, INIT_IMU_PATH, mode);
 #endif
-#ifdef FOLLOW_TRAJECTORY
 	case InitTarget_Trajectory:
 		return f_open(file, INIT_TRAJECTORY_PATH, mode);
-#endif
 	case InitTarget_Logging:
 		return f_open(file, INIT_LOGGING_PATH, mode);
 	default:
@@ -227,10 +221,8 @@ bool readInitAll() {
 		ret = false;
 	if (!readInit(InitTarget_Custom_Motor_Controler))
 		ret = false;
-#ifdef FOLLOW_TRAJECTORY
 	if (!readInit(InitTarget_Trajectory))
 		ret = false;
-#endif
 #ifdef USE_IMU_TELEMETRY
 	if (!readInit(InitTarget_IMU))
 		ret = false;
@@ -248,10 +240,8 @@ bool saveInitAll() {
 		ret = false;
 	if (!saveConfig(InitTarget_Custom_Motor_Controler))
 		ret = false;
-#ifdef FOLLOW_TRAJECTORY
 	if (!saveConfig(InitTarget_Trajectory))
 		ret = false;
-#endif
 #ifdef USE_IMU_TELEMETRY
 	if (!saveConfig(InitTarget_IMU))
 		ret = false;

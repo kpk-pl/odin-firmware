@@ -23,9 +23,7 @@
 #include "TaskIMU.h"
 #include "TaskIMUScaling.h"
 #endif
-#ifdef FOLLOW_TRAJECTORY
 #include "TaskTrajectory.h"
-#endif
 #ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
 #endif
@@ -74,14 +72,6 @@ int main(void)
 #else
 	printf("\tIMU not used\n");
 #endif
-#ifdef FOLLOW_TRAJECTORY
-	printf("\tFollowing trajectory enabled\n");
-#ifndef COMPILE_CIRCULAR_BUFFER
-	printf("\tCircular buffer DISABLED\n");
-#endif
-#else
-	printf("\tFollowing trajectory DISABLED\n");
-#endif
 #ifdef DRIVE_COMMANDS
 	printf("\tDrive commands enabled\n");
 #else
@@ -98,9 +88,7 @@ int main(void)
 	TaskTelemetryConstructor();
 	TaskPenCtrlConstructor();
 	AsyncCallHandlerTaskConstructor();
-#ifdef FOLLOW_TRAJECTORY
 	TaskTrajectoryConstructor();
-#endif
 #ifdef DRIVE_COMMANDS
 	TaskDriveConstructor();
 #endif
@@ -180,12 +168,10 @@ void TaskBoot(void *p) {
 			allOK = false;
 		}
 #endif
-#ifdef FOLLOW_TRAJECTORY
 		if (!readInit(InitTarget_Trajectory)) {
 			printf("\nErrors while reading %s", INIT_TRAJECTORY_PATH);
 			allOK = false;
 		}
-#endif
 		if (!readInit(InitTarget_Custom_Motor_Controler)) {
 			printf("\nErrors while reading %s", INIT_MOTOR_CTRL_CUSTOM_PATH);
 			allOK = false;
@@ -219,9 +205,7 @@ void reportStackUsage() {
 #ifdef USE_IMU_TELEMETRY
 	safePrint(17, "imuTask: %d\n", uxTaskGetStackHighWaterMark(imuTask));
 #endif
-#ifdef FOLLOW_TRAJECTORY
 	safePrint(24, "trajectoryTask: %d\n", uxTaskGetStackHighWaterMark(trajectoryTask));
-#endif
 #ifdef DRIVE_COMMANDS
 	safePrint(19, "driveTask: %d\n", uxTaskGetStackHighWaterMark(driveTask));
 #endif
