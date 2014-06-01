@@ -143,13 +143,11 @@ void WIFI_TX_DMA_IRQHANDLER(void) {
 	WiFiDMANotify();
 }
 
-#ifdef FOLLOW_TRAJECTORY
 void WIFI_RX_DMA_IRQHANDLER(void) {
 	extern void StreamDMAWifiFinish(void);
 	if (DMA_GetFlagStatus(WIFI_RX_DMA_STREAM, WIFI_RX_DMA_FLAG_TCIF) == SET)
 		StreamDMAWifiFinish();
 }
-#endif
 
 #ifdef USE_IMU_TELEMETRY
 void IMU_GINT_IRQHANDLER(void) {

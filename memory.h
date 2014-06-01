@@ -15,9 +15,7 @@
 typedef enum {
 	InitTarget_All = 0,
 	InitTarget_Custom_Motor_Controler = 1,
-#ifdef FOLLOW_TRAJECTORY
 	InitTarget_Trajectory = 2,
-#endif
 #ifdef USE_IMU_TELEMETRY
 	InitTarget_IMU = 3,
 #endif

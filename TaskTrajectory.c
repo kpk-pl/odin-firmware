@@ -1,5 +1,4 @@
 #include "compilation.h"
-#ifdef FOLLOW_TRAJECTORY
 
 #include "TaskTrajectory.h"
 #include "main.h"
@@ -35,26 +34,74 @@ TrajectoryControlerGains_Struct globalTrajectoryControlGains = {	/*!< Controller
 void TaskTrajectory(void *p) {
 	TelemetryData_Struct telemetry;
 	MotorSpeed_Struct motorSpeed;
-	portTickType wakeTime = xTaskGetTickCount();
+	portTickType wakeTime;
 	TrajectoryPoint_Struct nextPoint;
-	bool taken = false;
+	TrajectoryRequest_Struct request;
+	bool taken = false, notified;
+	FIL *file = NULL;
 
-//	if (!globalUsingCLI) {
-//		bool send1 = true, send2 = false;
+	while(1) {
+		/* Wait for any request */
+		xQueueReceive(trajectoryRequestQueue, &request, portMAX_DELAY);
 
-//		while(1) {
-			/* Wait for next sampling period */
-//			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+		/* Handle file streaming */
+		if (request.source == TrajectorySource_File) {
+			/* Try to open the file */
+			file = pvPortMalloc(sizeof(FIL));
+			FRESULT res = f_open(file, request.fileName, FA_READ | FA_OPEN_EXISTING);
+			if (res != FR_OK) {
+				vPortFree(file);
+				file = NULL;
+				safePrint(90, "[Trajectory] Cannot open file %s for reading\n", request.fileName);
+			}
+			else {
+				safePrint(90, "[Trajectory] Reading trajectory from file %s\n", request.fileName);
+			}
 
-//			if (TBgetUsedSpace() < 0.45f) {
-//				if (!send1) {
-//					safePrint(35, "<#Please send %d more points#>\n", TBgetSize()/2);
-//					send1 = true;
-//				}
-//			}
-//			else {send1 = false;}
+			/* Free allocated space for name buffer */
+			vPortFree(request.fileName);
 
-/*			if (TBgetNextPoint(&nextPoint)) {
+			/* If file cannot be opened, continue from the top */
+			if (res != FR_OK)
+				continue;
+		}
+		else if (request.source == TrajectorySource_Streaming) {
+			notified = false;
+		}
+		else {
+			continue;
+		}
+
+		/* Reset wake time */
+		wakeTime = xTaskGetTickCount();
+
+		/* Execute request */
+		while(1) {
+			/* Get next point */
+			bool ok;
+			if (request.source == TrajectorySource_Streaming) {
+				/* handle buffer near empty */
+				if (TBgetUsedSpace() < 0.45f) {
+					if (!notified) {
+						safePrint(35, "[Trajectory] Streaming buffer near empty\n");
+						notified = true;
+					}
+				}
+				else {
+					notified = false;
+				}
+				ok = TBgetNextPoint(&nextPoint);
+			}
+			else /* File */ {
+				UINT numBytes;
+				FRESULT res = f_read(file, (void*)&nextPoint, sizeof(TrajectoryPoint_Struct), &numBytes);
+				ok = (res == FR_OK && numBytes == sizeof(TrajectoryPoint_Struct));
+			}
+
+			/* Wait for next sampling period; here because f_read is non-deterministic */
+			vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
+
+			if (ok) {
 				if (!taken) {
 					xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
 					taken = true;
@@ -62,99 +109,23 @@ void TaskTrajectory(void *p) {
 				getTelemetry(&telemetry, TelemetryStyle_Common);
 				calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
 				sendSpeeds(motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
-				send2 = false;
 			}
 			else {
 				if (taken) {
+					sendSpeeds(0.0f, 0.0f);
 					xSemaphoreGive(motorControllerMutex);
 					taken = false;
 				}
-				if (!send2) {
-					safePrint(25, "Trajectory buffer empty\n");
-					sendSpeeds(.0f, .0f);
-					send2 = true;
-				}
+				break;
 			}
+		}
+
+		if (request.source == TrajectorySource_File) {
+			f_close(file);
+			vPortFree(file);
+			file = NULL;
 		}
 	}
-	else {*/
-// TODO: Needs finish and testing
-// TODO: Implement immediate stop mechanism
-		TrajectoryRequest_Struct request;
-		FIL *file = NULL;
-		while(1) {
-			/* Wait for any request */
-			xQueueReceive(trajectoryRequestQueue, &request, portMAX_DELAY);
-
-			/* Handle file streaming */
-			if (request.source == TrajectorySource_File) {
-				/* Try to open the file */
-				file = pvPortMalloc(sizeof(FIL));
-				FRESULT res = f_open(file, request.fileName, FA_READ | FA_OPEN_EXISTING);
-				if (res != FR_OK) {
-					vPortFree(file);
-					file = NULL;
-					safePrint(90, "[Trajectory] Cannot open file %s for reading\n", request.fileName);
-				}
-				else {
-					safePrint(90, "[Trajectory] Reading trajectory from file %s\n", request.fileName);
-				}
-
-				/* Free allocated space for name buffer */
-				vPortFree(request.fileName);
-
-				/* If file cannot be opened, continue from the top */
-				if (res != FR_OK)
-					continue;
-			}
-
-			/* Reset wake time */
-			wakeTime = xTaskGetTickCount();
-
-			/* Execute request */
-			while(1) {
-				/* Get next point */
-				bool ok;
-				if (request.source == TrajectorySource_Streaming) {
-					ok = TBgetNextPoint(&nextPoint);
-				}
-				else if (request.source == TrajectorySource_File) {
-					UINT numBytes;
-					FRESULT res = f_read(file, (void*)&nextPoint, sizeof(TrajectoryPoint_Struct), &numBytes);
-					ok = (res == FR_OK && numBytes == sizeof(TrajectoryPoint_Struct));
-				}
-				else
-					break;
-
-				/* Wait for next sampling period; here because f_read is non-deterministic */
-				vTaskDelayUntil(&wakeTime, 10/portTICK_RATE_MS);
-
-				if (ok) {
-					if (!taken) {
-						xSemaphoreTake(motorControllerMutex, portMAX_DELAY);
-						taken = true;
-					}
-					getTelemetry(&telemetry, TelemetryStyle_Common);
-					calculateTrajectoryControll(&telemetry, &nextPoint, &motorSpeed);
-					sendSpeeds(motorSpeed.LeftSpeed, motorSpeed.RightSpeed);
-				}
-				else {
-					if (taken) {
-						sendSpeeds(0.0f, 0.0f);
-						xSemaphoreGive(motorControllerMutex);
-						taken = false;
-					}
-					break;
-				}
-			}
-
-			if (request.source == TrajectorySource_File) {
-				f_close(file);
-				vPortFree(file);
-				file = NULL;
-			}
-		}
-	//}
 }
 
 void TaskTrajectoryConstructor() {
@@ -207,5 +178,3 @@ void calculateTrajectoryControll(const TelemetryData_Struct * currentPosition,
 	outputSpeeds->LeftSpeed = v * 1000.0f / RAD_TO_MM_TRAVELED - w;
 	outputSpeeds->RightSpeed = v * 1000.0f / RAD_TO_MM_TRAVELED + w;
 }
-
-#endif /* FOLLOW_TRAJECTORY */
