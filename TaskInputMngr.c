@@ -50,7 +50,11 @@ void TaskInputMngr(void * p) {
 			RXBUFPOS[i] = 0;
 
 			portBASE_TYPE send;
-			if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiActionsInputQueue != NULL) {
+			if (ptr[0] == '#') {
+				GPIO_ToggleBits(GP_GPIO1_GPIO, GP_GPIO1_PIN);
+				send = errQUEUE_FULL;
+			}
+			else if (i == INDEX_WIFI && getWiFiMode() == WiFiMode_Command && WiFiActionsInputQueue != NULL) {
 				send = xQueueSendToBack(WiFiActionsInputQueue, &ptr, 0);
 			}
 			else {
