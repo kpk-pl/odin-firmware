@@ -20,6 +20,7 @@ xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent 
 xTaskHandle telemetryTask;						/*!< This task's handle */
 
 static bool globalMovedSinceReset = false;
+static volatile portTickType globalVSYNCTimestamp = 0;
 
 /**
  * \brief Global variable that holds current up-to-date telemetry data.
@@ -182,4 +183,9 @@ void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style) {
 	if (style & TelemetryStyle_Normalized) {
 		data->O = normalizeOrientation(data->O);
 	}
+}
+
+/* Called from ISR */
+void radioCameraVSYNCHandler() {
+	globalVSYNCTimestamp = xTaskGetTickCountFromISR();
 }

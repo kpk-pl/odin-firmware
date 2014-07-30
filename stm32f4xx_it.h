@@ -67,6 +67,8 @@ void ADC_IRQHandler(void);
 void SWITCHES_TIM_IRQ_HANDLER(void);
 void CPUUSAGE_BASE_TIM_IRQHANDLER(void);
 void IMU_I2C_EVENT_IRQHANDLER(void);
+void RADIO_RX_DMA_IRQHANDLER(void);
+void RADIO_SPI_IRQHANDLER(void);
 
 #ifdef __cplusplus
 }

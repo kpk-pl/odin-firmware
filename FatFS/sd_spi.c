@@ -170,6 +170,9 @@ void stm32_dma_transfer(bool receive, uint8_t *buff, uint32_t length) {
 	while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_RX) != DISABLE);
 	while (DMA_GetCmdStatus(SD_SPI_DMA_STREAM_TX) != DISABLE);
 
+	// wait until SPI is not busy anymore
+	while (SPI_I2S_GetFlagStatus(SD_SPI, SPI_I2S_FLAG_BSY) == SET);
+
 	// disable transaction request
 	SPI_I2S_DMACmd(SD_SPI, SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx, DISABLE);
 

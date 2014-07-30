@@ -17,6 +17,7 @@
 #include "memory.h"
 #include "streaming.h"
 #include "wifiactions.h"
+#include "radioRcvr.h"
 
 #include "TaskCLI.h"
 #include "TaskPrintfConsumer.h"
@@ -145,6 +146,7 @@ static portBASE_TYPE loadCommand(int8_t* outBuffer, size_t outBufferLen, const i
 static portBASE_TYPE catCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 static portBASE_TYPE execCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
+static portBASE_TYPE radioCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command);
 
 static const CLI_Command_Definition_t systemComDef = {
     (const int8_t*)"system",
@@ -249,6 +251,12 @@ static const CLI_Command_Definition_t execComDef = {
 	(const int8_t*)"exec",
 	(const int8_t*)"exec filename\n",
 	execCommand,
+	1
+};
+static const CLI_Command_Definition_t radioComDef = {
+	(const int8_t*)"radio",
+	(const int8_t*)"radio <on|off>\n",
+	radioCommand,
 	1
 };
 
@@ -1365,6 +1373,20 @@ portBASE_TYPE lsCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* co
 	return pdFALSE;
 }
 
+portBASE_TYPE radioCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* command) {
+	char *param[1]; // oOfParams is checked by OS - must be 1
+	sliceCommand((char*)command, param, 1);
+
+	if (cmatch("on", param[0], 2)) { // on
+		radioEnable();
+	} else if (cmatch("off", param[0], 2)) { // of
+		radioDisable();
+	}
+
+	strncpy((char*)outBuffer, "\n", outBufferLen);
+	return pdFALSE;
+}
+
 ///////////////////////////////////// END COMMAND HANDLERS ///////////////////////////////////////
 
 void registerAllCommands() {
@@ -1384,6 +1406,7 @@ void registerAllCommands() {
 	FreeRTOS_CLIRegisterCommand(&catComDef);
 	FreeRTOS_CLIRegisterCommand(&lsComDef);
 	FreeRTOS_CLIRegisterCommand(&execComDef);
+	FreeRTOS_CLIRegisterCommand(&radioComDef);
 }
 
 size_t cmatch(const char *command, const char *input, const size_t shortest) {

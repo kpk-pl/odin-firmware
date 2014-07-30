@@ -251,17 +251,14 @@ void Switch3Changed() {
 	portEND_SWITCHING_ISR(contextSwitch);
 }
 
-/* Called from ISR */
 void Switch4Changed() {
 	safePrint(16, "Four changed\n");
 }
 
-/* Called from ISR */
 void Switch5Changed() {
 	safePrint(16, "Five changed\n");
 }
 
-/* Called from ISR */
 void Switch6Changed() {
 	if (getSwitchStatus(6) == ON) {
 		enableLantern(ENABLE);

@@ -22,12 +22,18 @@
  * DMA1
  * 		- CH4ST4	UART-to-USB transfer using safePrint
  * 		- CH4ST2	UART-to-USB transfer, reading huge blocks of data
+ * 		- CH0ST3	radio SPI2 receive
  * DMA2
+ *      - CH3ST2	SPI SD card
+ *      - CH3ST3	SPI SD card
  * 		- CH4ST7	UART-to-WiFi transfer using safePrint
  *		- CH4ST5	UART-to-WiFi transfer, reading huge blocks of data
  * EXTI
  * 		- Line0		IMU gyroscope data ready
- * 		- Line8-13	switches
+ * 		- Line1		IMU
+ * 		- Line2		IMU
+ * 		- Line8-10	switches
+ * 		- Line11-12 radio interrupts
  * 		- Line14	used by RC5 decoder
  *
  *
@@ -328,5 +334,37 @@
 #define GP_GPIO1_CLOCK_FUN				RCC_AHB1PeriphClockCmd
 #define GP_GPIO1_GPIO					GPIOB
 #define GP_GPIO1_PIN					GPIO_Pin_12
+
+#define RADIO_GPIO						GPIOB
+#define RADIO_GPIO_CLOCK				RCC_AHB1Periph_GPIOB
+#define RADIO_GPIO_MOSI_PIN				GPIO_Pin_15
+#define RADIO_GPIO_MISO_PIN				GPIO_Pin_14
+#define RADIO_GPIO_SCK_PIN				GPIO_Pin_13
+#define RADIO_GPIO_CS_PIN				GPIO_Pin_10
+#define RADIO_GPIO_VSYNC_PIN			GPIO_Pin_12
+#define RADIO_GPIO_DRDY_PIN				GPIO_Pin_11
+#define RADIO_GPIO_MOSI_PINSOURCE		GPIO_PinSource15
+#define RADIO_GPIO_MISO_PINSOURCE		GPIO_PinSource14
+#define RADIO_GPIO_SCK_PINSOURCE		GPIO_PinSource13
+#define RADIO_GPIO_AF					GPIO_AF_SPI2
+#define RADIO_SPI						SPI2
+#define RADIO_SPI_CLOCK					RCC_APB1Periph_SPI2
+#define RADIO_SPI_CLOCK_FUN				RCC_APB1PeriphClockCmd
+#define RADIO_SPI_IRQn					SPI2_IRQn
+#define RADIO_SPI_IRQHANDLER			SPI2_IRQHandler
+#define RADIO_EXTI_PORTSOURCE			EXTI_PortSourceGPIOB
+#define RADIO_EXTI_VSYNC_PINSOURCE		EXTI_PinSource12
+#define RADIO_EXTI_DRDY_PINSOURCE		EXTI_PinSource11
+#define RADIO_EXTI_VSYNC_LINE			EXTI_Line12
+#define RADIO_EXTI_DRDY_LINE			EXTI_Line11
+#define RADIO_NVIC_CHANNEL				EXTI15_10_IRQn
+#define RADIO_RX_DMA					DMA1
+#define RADIO_RX_DMA_CLOCK				RCC_AHB1Periph_DMA1
+#define RADIO_RX_DMA_CHANNEL			DMA_Channel_0
+#define RADIO_RX_DMA_STREAM				DMA1_Stream3
+#define RADIO_RX_DMA_FLAG_TCIF			DMA_FLAG_TCIF3
+#define RADIO_RX_DMA_NVIC_IRQn			DMA1_Stream3_IRQn
+#define RADIO_RX_DMA_IRQHANDLER			DMA1_Stream3_IRQHandler
+
 
 #endif /* __HARDWARE_H__ */

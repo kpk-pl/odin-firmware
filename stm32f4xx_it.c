@@ -33,6 +33,7 @@
 #include "hwinterface.h"
 #include "rc5_tim_exti.h"
 #include "compilation.h"
+#include "radioRcvr.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -184,7 +185,7 @@ void EXTI15_10_IRQHandler(void) {
 	if (EXTI_GetFlagStatus(RC5_EXTI_LINE) == SET) {
 		RC5_MeasureFirstLowDuration();
 	}
-	else if (EXTI_GetFlagStatus(SWITCHES_EXTI_6_LINE) == SET) {
+	/*else if (EXTI_GetFlagStatus(SWITCHES_EXTI_6_LINE) == SET) {
 		SWITCH_LAST_CHANGE = 6;
 		SWITCH_TIM_RESTART();
 		EXTI_ClearITPendingBit(SWITCHES_EXTI_6_LINE);
@@ -198,6 +199,15 @@ void EXTI15_10_IRQHandler(void) {
 		SWITCH_LAST_CHANGE = 4;
 		SWITCH_TIM_RESTART();
 		EXTI_ClearITPendingBit(SWITCHES_EXTI_4_LINE);
+	}*/
+	else if (EXTI_GetFlagStatus(RADIO_EXTI_VSYNC_LINE) == SET) {
+		extern void radioCameraVSYNCHandler(void);
+		radioCameraVSYNCHandler();
+		EXTI_ClearITPendingBit(RADIO_EXTI_VSYNC_LINE);
+	}
+	else if (EXTI_GetFlagStatus(RADIO_EXTI_DRDY_LINE) == SET) {
+		radioTransactionTelemetryFromISR();
+		EXTI_ClearITPendingBit(RADIO_EXTI_DRDY_LINE);
 	}
 	else if (EXTI_GetFlagStatus(SWITCHES_EXTI_3_LINE) == SET) {
 		SWITCH_LAST_CHANGE = 3;
@@ -261,7 +271,7 @@ void SWITCHES_TIM_IRQ_HANDLER(void) {
 	case 3:
 		Switch3Changed();
 		break;
-	case 4:
+/*	case 4:
 		Switch4Changed();
 		break;
 	case 5:
@@ -269,7 +279,7 @@ void SWITCHES_TIM_IRQ_HANDLER(void) {
 		break;
 	case 6:
 		Switch6Changed();
-		break;
+		break;*/
 	default:
 		break;
 	}
@@ -293,3 +303,16 @@ void IMU_I2C_EVENT_IRQHANDLER(void) {
 	IMUI2CEVHandler();
 }
 #endif
+
+void RADIO_RX_DMA_IRQHANDLER(void) {
+	DMA_ClearFlag(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_FLAG_TCIF);
+	radioSPI_RXDMA_TCIF_FromISR();
+}
+
+void RADIO_SPI_IRQHANDLER(void) {
+	if (SPI_I2S_GetFlagStatus(RADIO_SPI, SPI_I2S_FLAG_TXE) == SET) {
+		radioSPI_TXE_FromISR();
+	} else {
+		while (1);
+	}
+}

@@ -89,4 +89,10 @@ float normalizeOrientation(float in);
  */
 void scaleOdometryCorrectionParam(int turns);
 
+/**
+ * \brief ISR handler for VSYNC interrupt arrival
+ * Called from interrupt context
+ */
+void radioCameraVSYNCHandler();
+
 #endif /* _TASKTELEMETRY_H_ */
