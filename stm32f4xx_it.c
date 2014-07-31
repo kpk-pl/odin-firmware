@@ -169,14 +169,14 @@ void IMU_MINT_IRQHANDLER(void) {
 
 void EXTI9_5_IRQHandler(void) {
 	if (EXTI_GetFlagStatus(SWITCHES_EXTI_2_LINE) == SET) {
+		EXTI_ClearITPendingBit(SWITCHES_EXTI_2_LINE);
 		SWITCH_LAST_CHANGE = 2;
 		SWITCH_TIM_RESTART();
-		EXTI_ClearITPendingBit(SWITCHES_EXTI_2_LINE);
 	}
 	else if (EXTI_GetFlagStatus(SWITCHES_EXTI_1_LINE) == SET) {
+		EXTI_ClearITPendingBit(SWITCHES_EXTI_1_LINE);
 		SWITCH_LAST_CHANGE = 1;
 		SWITCH_TIM_RESTART();
-		EXTI_ClearITPendingBit(SWITCHES_EXTI_1_LINE);
 	}
 }
 
@@ -201,18 +201,18 @@ void EXTI15_10_IRQHandler(void) {
 		EXTI_ClearITPendingBit(SWITCHES_EXTI_4_LINE);
 	}*/
 	else if (EXTI_GetFlagStatus(RADIO_EXTI_VSYNC_LINE) == SET) {
-		extern void radioCameraVSYNCHandler(void);
-		radioCameraVSYNCHandler();
 		EXTI_ClearITPendingBit(RADIO_EXTI_VSYNC_LINE);
+		extern void radioCameraVSYNCHandlerFromISR(void);
+		radioCameraVSYNCHandlerFromISR();
 	}
 	else if (EXTI_GetFlagStatus(RADIO_EXTI_DRDY_LINE) == SET) {
-		radioTransactionTelemetryFromISR();
 		EXTI_ClearITPendingBit(RADIO_EXTI_DRDY_LINE);
+		radioTransactionTelemetryFromISR();
 	}
 	else if (EXTI_GetFlagStatus(SWITCHES_EXTI_3_LINE) == SET) {
+		EXTI_ClearITPendingBit(SWITCHES_EXTI_3_LINE);
 		SWITCH_LAST_CHANGE = 3;
 		SWITCH_TIM_RESTART();
-		EXTI_ClearITPendingBit(SWITCHES_EXTI_3_LINE);
 	}
 }
 

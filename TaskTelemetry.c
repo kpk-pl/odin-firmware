@@ -188,7 +188,6 @@ void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style) {
 	}
 }
 
-/* Called from ISR */
-void radioCameraVSYNCHandler() {
+void radioCameraVSYNCHandlerFromISR() {
 	globalVSYNCTimestamp = xTaskGetTickCountFromISR();
 }
