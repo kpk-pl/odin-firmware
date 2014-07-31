@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <stm32f4xx.h>
+
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"

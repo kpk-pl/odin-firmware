@@ -7,6 +7,7 @@
 #include "stackSpace.h"
 #include "complementary.h"
 #include "hwinterface.h"
+#include "radioRcvr.h"
 
 #include "TaskPrintfConsumer.h"
 #include "TaskMotorCtrl.h"
