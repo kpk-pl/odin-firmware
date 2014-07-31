@@ -2,7 +2,8 @@
 #include <string.h>
 
 #include "FreeRTOS.h"
-#include "queue.h"
+#include "semphr.h"
+#include "task.h"
 
 #include "hardware.h"
 #include "radioRcvr.h"
@@ -16,13 +17,36 @@
 
 static volatile uint8_t radioPositionBuffer[RADIO_BUFFER_LEN];
 static volatile uint8_t radioOutgoingBuffer[RADIO_BUFFER_LEN];
-static volatile uint8_t radioReceiveCounter = 0;
+static volatile uint8_t radioTransmitCounter = 0;
 static volatile uint8_t radioTransactionLength = 0;
-static volatile bool radioIsBlocking = false;
+static volatile bool isBlockingTransaction = false;
+
+static xSemaphoreHandle radioSPIMutex = NULL;
+static xSemaphoreHandle radioDMADoneSemaphore = NULL;
+static xSemaphoreHandle radioTelemetryReceivedSemaphore = NULL;
 
 static void radioConfigureHardwareAndStart();
+static void radioFinishTransmission();
 static void radioSetupTransaction(const uint8_t length, const uint8_t type);
-static void radioConfigureHardwareAndStartBlocking();
+static void radioPerformBlockingTransaction();
+
+void radioSetup() {
+	if (!radioSPIMutex) {
+		radioSPIMutex = xSemaphoreCreateMutex();
+	}
+	if (!radioDMADoneSemaphore) {
+		radioDMADoneSemaphore = xSemaphoreCreateBinary();
+	}
+	if (!radioTelemetryReceivedSemaphore) {
+		radioTelemetryReceivedSemaphore = xSemaphoreCreateBinary();
+	}
+}
+
+void radioSetupTransaction(const uint8_t length, const uint8_t type) {
+	radioTransmitCounter = 0;
+	radioTransactionLength = length;
+	radioOutgoingBuffer[0] = type;
+}
 
 void radioConfigureHardwareAndStart() {
 	GPIO_ResetBits(RADIO_GPIO, RADIO_GPIO_CS_PIN);
@@ -38,12 +62,7 @@ void radioConfigureHardwareAndStart() {
 	SPI_I2S_ITConfig(RADIO_SPI, SPI_I2S_IT_TXE, ENABLE); 		// enable SPI transmission interrupt, should fire up
 }
 
-void radioConfigureHardwareAndStartBlocking() {
-	radioIsBlocking = true;
-	radioConfigureHardwareAndStart();
-
-	// block for semaphore
-
+void radioFinishTransmission() {
 	while (DMA_GetCmdStatus(RADIO_RX_DMA_STREAM) != DISABLE);
 	SPI_I2S_DMACmd(RADIO_SPI, SPI_I2S_DMAReq_Rx, DISABLE);
 	DMA_ClearFlag(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_FLAG_TCIF);
@@ -51,38 +70,58 @@ void radioConfigureHardwareAndStartBlocking() {
 	GPIO_SetBits(RADIO_GPIO, RADIO_GPIO_CS_PIN);
 }
 
-void radioSetupTransaction(const uint8_t length, const uint8_t type) {
-	radioReceiveCounter = 0;
-	radioIsBlocking = false;
-	radioTransactionLength = length;
-	radioOutgoingBuffer[0] = type;
+void radioPerformBlockingTransaction() {
+	taskENTER_CRITICAL();
+		xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
+		isBlockingTransaction = true;
+	taskEXIT_CRITICAL();
+
+	radioConfigureHardwareAndStart();
+	xSemaphoreTake(radioDMADoneSemaphore, portMAX_DELAY);
+	radioFinishTransmission();
+
+	taskENTER_CRITICAL();
+		isBlockingTransaction = false;
+		xSemaphoreGive(radioSPIMutex);
+	taskEXIT_CRITICAL();
 }
 
 void radioTransactionTelemetryFromISR() {
-	radioSetupTransaction(14, RADIO_MSG_TYPE_READ_RADIO_BUFFER);
-	radioConfigureHardwareAndStart();
+	if (!isBlockingTransaction) {
+		radioSetupTransaction(14, RADIO_MSG_TYPE_READ_RADIO_BUFFER);
+		radioConfigureHardwareAndStart();
+	}
 }
 
 void radioSPI_TXE_FromISR() {
-	if (radioReceiveCounter >= radioTransactionLength) {
-		/* Finish transmission */
+	if (radioTransmitCounter >= radioTransactionLength) {
 		SPI_I2S_ITConfig(RADIO_SPI, SPI_I2S_IT_TXE, DISABLE);
 	} else {
-		SPI_I2S_SendData(RADIO_SPI, radioOutgoingBuffer[radioReceiveCounter++]);
+		SPI_I2S_SendData(RADIO_SPI, radioOutgoingBuffer[radioTransmitCounter++]);
 	}
 }
 
 void radioSPI_RXDMA_TCIF_FromISR() {
-	/* Set semaphore, to queue */
-
+	portBASE_TYPE contextSwitch = pdFALSE;
+	DMA_ITConfig(RADIO_RX_DMA_STREAM, DMA_IT_TC, DISABLE);
+	if (isBlockingTransaction) {
+		xSemaphoreGiveFromISR(radioDMADoneSemaphore, &contextSwitch);
+	} else {
+		xSemaphoreGiveFromISR(radioTelemetryReceivedSemaphore, &contextSwitch);
+	}
+	portEND_SWITCHING_ISR(contextSwitch);
 }
 
+///////////
+
 void radioDisable() {
+	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
 	radioSetupTransaction(1, RADIO_MSG_TYPE_RADIO_OFF);
-	radioConfigureHardwareAndStartBlocking();
+	radioPerformBlockingTransaction();
+	xSemaphoreGive(radioSPIMutex);
 }
 
 void radioEnable() {
 	radioSetupTransaction(1, RADIO_MSG_TYPE_RADIO_ON);
-	radioConfigureHardwareAndStartBlocking();
+	radioPerformBlockingTransaction();
 }

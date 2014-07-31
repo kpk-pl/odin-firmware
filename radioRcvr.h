@@ -3,6 +3,8 @@
 
 #include "hardware.h"
 
+void radioSetup();
+
 void radioTransactionTelemetryFromISR();
 void radioSPI_TXE_FromISR();
 void radioSPI_RXDMA_TCIF_FromISR();

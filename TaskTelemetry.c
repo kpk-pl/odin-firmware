@@ -38,6 +38,8 @@ void TaskTelemetry(void * p) {
 	Complementary_State filter;
 #endif
 
+	radioSetup();
+
 	while(1) {
 #ifdef USE_IMU_TELEMETRY
 		ComplementaryInit(&filter, globalIMUComplementaryFilterTimeConstant);
