@@ -11,6 +11,7 @@
 #include "radioRcvr.h"
 
 #include "TaskPrintfConsumer.h"
+#include "TaskTelemetry.h"
 
 #define RADIO_BUFFER_LEN 20
 
@@ -65,7 +66,12 @@ void radioTestCommand() {
 	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
 	radioSetupTransaction(3, RADIO_MSG_TYPE_CONST_0xE5);
 	radioPerformBlockingTransaction();
-	safePrint(14, "Radio: 0x%02x\n", radioIncommingBuffer[1]);
+	if (radioIncommingBuffer[1] == 0xE5 && radioIncommingBuffer[2] == 0x5D) {
+		safeLog(Log_Type_Debug, 19, "Radio test passed\n");
+	} else {
+		safeLog(Log_Type_Debug, 31, "Radio test failed 0x%02x 0x%02x\n", radioIncommingBuffer[1], radioIncommingBuffer[2]);
+	}
+
 	xSemaphoreGive(radioSPIMutex);
 }
 
@@ -135,7 +141,22 @@ void radioTransactionTelemetryStartDeferred(void *ptrParam, uint32_t intParam) {
 }
 
 void radioTransactionTelemetryEndDeferred(void *ptrParam, uint32_t intParam) {
+	static TelemetryUpdate_Struct telemetryUpdate = {.Source = TelemetryUpdate_Source_Camera};
+	uint8_t checksum = 0x55;
+
 	radioFinishTransmission();
-	// parse output and send to telemetry queue!
+
+	for (uint8_t i = 1; i<13; ++i)
+		checksum ^= radioIncommingBuffer[i];
+
+	if (checksum == radioIncommingBuffer[13]) {
+		memcpy(&telemetryUpdate.Data, (void*)radioIncommingBuffer+1, 12);
+		if (xQueueSendToBack(telemetryQueue, &telemetryUpdate, 0) == errQUEUE_FULL) {
+			safeLog(Log_Type_Error, 25, "Telemetry queue full!\n");
+		}
+	} else {
+		safeLog(Log_Type_Error, 57, "Radio incorrect checksum, received 0x%02x calculated 0x%02x\n", radioIncommingBuffer[13], checksum);
+	}
+
 	xSemaphoreGive(radioSPIMutex);
 }

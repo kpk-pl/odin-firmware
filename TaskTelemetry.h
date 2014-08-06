@@ -19,17 +19,23 @@ extern xTaskHandle telemetryTask;			/*!< Export this task handle */
  */
 typedef enum {
 	TelemetryUpdate_Source_Odometry = 0,	/*!< Update from odometry - encoders */
-	TelemetryUpdate_Source_IMU				/*!< Update from IMU */
+	TelemetryUpdate_Source_IMU,				/*!< Update from IMU */
+	TelemetryUpdate_Source_Camera,			/*!< Update from radio camera */
 } TelemetryUpdate_Source;
 
 /**
  * \brief Struct to hold telemetry updates from various sources. Based on these updates, position and orientation is calculated
  */
 typedef struct {
+	union {
+		struct {
+			float dX;						/*!< Change in X position */
+			float dY;						/*!< Change in Y position */
+			float dO;						/*!< Change of orientation angle (radians) */
+		};
+		uint8_t Data;						/*!< Raw access to data */
+	};
 	TelemetryUpdate_Source Source;			/*!< Update source */
-	float dX;								/*!< Change in X position */
-	float dY;								/*!< Change in Y position */
-	float dO;								/*!< Change of orientation angle (radians) */
 } TelemetryUpdate_Struct;
 
 /**

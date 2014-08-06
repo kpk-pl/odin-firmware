@@ -86,6 +86,9 @@ void TaskTelemetry(void * p) {
 			}
 #endif
 			break;
+		case TelemetryUpdate_Source_Camera:
+			safePrint(60, "Radio position %.3f %.3f %.3f at %ld\n", update.dX, update.dY, update.dO, globalVSYNCTimestamp);
+			break;
 		default:
 			safeLog(Log_Type_Error, 37, "Invalid telemetry update type: %d\n", update.Source);
 			break;
