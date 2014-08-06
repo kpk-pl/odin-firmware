@@ -255,7 +255,7 @@ static const CLI_Command_Definition_t execComDef = {
 };
 static const CLI_Command_Definition_t radioComDef = {
 	(const int8_t*)"radio",
-	(const int8_t*)"radio <on|off>\n",
+	(const int8_t*)"radio <on|off|test>\n",
 	radioCommand,
 	1
 };
@@ -1381,6 +1381,8 @@ portBASE_TYPE radioCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 		radioEnable();
 	} else if (cmatch("off", param[0], 2)) { // of
 		radioDisable();
+	} else if (cmatch("test", param[0], 1)) { // t
+		radioTestCommand();
 	}
 
 	strncpy((char*)outBuffer, "\n", outBufferLen);

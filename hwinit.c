@@ -241,7 +241,7 @@ void Initialize() {
 		.GPIO_Mode = GPIO_Mode_AF,
 		.GPIO_OType = GPIO_OType_PP,
 		.GPIO_PuPd = GPIO_PuPd_DOWN,
-		.GPIO_Speed = GPIO_Speed_2MHz
+		.GPIO_Speed = GPIO_Speed_25MHz
 	};
 	GPIO_Init(RADIO_GPIO, &GPIO_InitStructure);
 	/* Redirecting port lines to SPI */
@@ -295,7 +295,7 @@ void Initialize() {
 		.SPI_CPOL = SPI_CPOL_Low,
 		.SPI_CPHA = SPI_CPHA_1Edge,
 		.SPI_NSS = SPI_NSS_Soft,
-		.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_256,
+		.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_32,
 		.SPI_FirstBit = SPI_FirstBit_MSB,
 		.SPI_CRCPolynomial = 7
 	};

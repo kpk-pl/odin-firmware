@@ -207,7 +207,7 @@ void EXTI15_10_IRQHandler(void) {
 	}
 	else if (EXTI_GetFlagStatus(RADIO_EXTI_DRDY_LINE) == SET) {
 		EXTI_ClearITPendingBit(RADIO_EXTI_DRDY_LINE);
-		radioTransactionTelemetryFromISR();
+		radioDRDYInterruptFromISR();
 	}
 	else if (EXTI_GetFlagStatus(SWITCHES_EXTI_3_LINE) == SET) {
 		EXTI_ClearITPendingBit(SWITCHES_EXTI_3_LINE);
@@ -305,16 +305,8 @@ void IMU_I2C_EVENT_IRQHANDLER(void) {
 #endif
 
 void RADIO_RX_DMA_IRQHANDLER(void) {
-	if (DMA_GetITStatus(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_FLAG_TCIF) == SET) {
+	if (DMA_GetITStatus(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_ITFLAG_TCIF) == SET) {
 		DMA_ClearFlag(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_FLAG_TCIF);
 		radioSPI_RXDMA_TCIF_FromISR();
-	}
-}
-
-void RADIO_SPI_IRQHANDLER(void) {
-	if (SPI_I2S_GetFlagStatus(RADIO_SPI, SPI_I2S_FLAG_TXE) == SET) {
-		radioSPI_TXE_FromISR();
-	} else {
-		while (1);
 	}
 }

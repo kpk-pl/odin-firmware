@@ -10,6 +10,8 @@
 #include "hardware.h"
 #include "radioRcvr.h"
 
+#include "TaskPrintfConsumer.h"
+
 #define RADIO_BUFFER_LEN 20
 
 #define RADIO_MSG_TYPE_READ_RADIO_BUFFER 	'R'
@@ -17,7 +19,7 @@
 #define RADIO_MSG_TYPE_RADIO_OFF 			'o'
 #define RADIO_MSG_TYPE_RADIO_ON 			'O'
 
-static volatile uint8_t radioPositionBuffer[RADIO_BUFFER_LEN];
+static volatile uint8_t radioIncommingBuffer[RADIO_BUFFER_LEN];
 static volatile uint8_t radioOutgoingBuffer[RADIO_BUFFER_LEN];
 static volatile uint8_t radioTransmitCounter = 0;
 static volatile uint8_t radioTransactionLength = 0;
@@ -59,17 +61,23 @@ void radioEnable() {
 	xSemaphoreGive(radioSPIMutex);
 }
 
-void radioTransactionTelemetryFromISR() {
-	BaseType_t contextSwitch = pdFALSE;
-	xTimerPendFunctionCallFromISR(radioTransactionTelemetryStartDeferred, NULL, 0, &contextSwitch);
-	portEND_SWITCHING_ISR(contextSwitch);
+void radioTestCommand() {
+	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
+	radioSetupTransaction(3, RADIO_MSG_TYPE_CONST_0xE5);
+	radioPerformBlockingTransaction();
+	safePrint(14, "Radio: 0x%02x\n", radioIncommingBuffer[1]);
+	xSemaphoreGive(radioSPIMutex);
 }
 
-void radioSPI_TXE_FromISR() {
-	if (radioTransmitCounter >= radioTransactionLength) {
-		SPI_I2S_ITConfig(RADIO_SPI, SPI_I2S_IT_TXE, DISABLE);
-	} else {
-		SPI_I2S_SendData(RADIO_SPI, radioOutgoingBuffer[radioTransmitCounter++]);
+void radioDRDYInterruptFromISR() {
+	if (GPIO_ReadOutputDataBit(RADIO_GPIO, RADIO_GPIO_CS_PIN) == Bit_SET) { // no SPI actions at the moment
+		BaseType_t contextSwitch = pdFALSE;
+		xTimerPendFunctionCallFromISR(radioTransactionTelemetryStartDeferred, NULL, 0, &contextSwitch);
+		portEND_SWITCHING_ISR(contextSwitch);
+	} else { // in the middle of transaction
+		if (radioTransmitCounter < radioTransactionLength) {
+			SPI_I2S_SendData(RADIO_SPI, radioOutgoingBuffer[radioTransmitCounter++]);
+		}
 	}
 }
 
@@ -96,14 +104,14 @@ void radioConfigureHardwareAndStart() {
 	GPIO_ResetBits(RADIO_GPIO, RADIO_GPIO_CS_PIN);
 
 	RADIO_RX_DMA_STREAM->NDTR = radioTransactionLength; 		// size of payload
-	RADIO_RX_DMA_STREAM->M0AR = (uint32_t)radioPositionBuffer; 	// base 0 memory address
+	RADIO_RX_DMA_STREAM->M0AR = (uint32_t)radioIncommingBuffer; // base 0 memory address
 	RADIO_RX_DMA_STREAM->CR |= DMA_MemoryInc_Enable;			// enable incrementing receive buffer
 	DMA_ITConfig(RADIO_RX_DMA_STREAM, DMA_IT_TC, ENABLE);		// enable interrupt after finished reception
 	DMA_Cmd(RADIO_RX_DMA_STREAM, ENABLE);						// enable stream
 	while (DMA_GetCmdStatus(RADIO_RX_DMA_STREAM) != ENABLE);
 
 	SPI_I2S_DMACmd(RADIO_SPI, SPI_I2S_DMAReq_Rx, ENABLE); 		// issue reception start
-	SPI_I2S_ITConfig(RADIO_SPI, SPI_I2S_IT_TXE, ENABLE); 		// enable SPI transmission interrupt, should fire up
+	SPI_I2S_SendData(RADIO_SPI, radioOutgoingBuffer[radioTransmitCounter++]); // send first byte
 }
 
 void radioFinishTransmission() {
