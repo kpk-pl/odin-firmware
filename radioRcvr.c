@@ -19,6 +19,7 @@
 #define RADIO_MSG_TYPE_CONST_0xE5 			'c'
 #define RADIO_MSG_TYPE_RADIO_OFF 			'o'
 #define RADIO_MSG_TYPE_RADIO_ON 			'O'
+#define RADIO_MSG_TYPE_RESET				'x'
 
 static volatile uint8_t radioIncommingBuffer[RADIO_BUFFER_LEN];
 static volatile uint8_t radioOutgoingBuffer[RADIO_BUFFER_LEN];
@@ -28,11 +29,13 @@ static volatile bool isBlockingTransaction = false;
 
 static xSemaphoreHandle radioSPIMutex = NULL;
 static xSemaphoreHandle radioDMADoneSemaphore = NULL;
+static xTimerHandle radioWatchdogTimer = NULL;
 
 static void radioConfigureHardwareAndStart();
 static void radioFinishTransmission();
 static void radioSetupTransaction(const uint8_t length, const uint8_t type);
 static void radioPerformBlockingTransaction();
+static void radioWatchdogOverrun(xTimerHandle xTimer);
 
 static void radioTransactionTelemetryStartDeferred(void *, uint32_t);
 static void radioTransactionTelemetryEndDeferred(void *, uint32_t);
@@ -45,6 +48,9 @@ void radioSetup() {
 	}
 	if (!radioDMADoneSemaphore) {
 		radioDMADoneSemaphore = xSemaphoreCreateBinary();
+	}
+	if (!radioWatchdogTimer) {
+		radioWatchdogTimer = xTimerCreate(NULL, 50/portTICK_RATE_MS, pdFALSE, NULL, radioWatchdogOverrun);
 	}
 }
 
@@ -72,6 +78,13 @@ void radioTestCommand() {
 		safeLog(Log_Type_Debug, 31, "Radio test failed 0x%02x 0x%02x\n", radioIncommingBuffer[1], radioIncommingBuffer[2]);
 	}
 
+	xSemaphoreGive(radioSPIMutex);
+}
+
+void radioResetCommand() {
+	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
+	radioSetupTransaction(1, RADIO_MSG_TYPE_RESET);
+	radioPerformBlockingTransaction();
 	xSemaphoreGive(radioSPIMutex);
 }
 
@@ -130,32 +143,54 @@ void radioFinishTransmission() {
 
 void radioPerformBlockingTransaction() {
 	radioConfigureHardwareAndStart();
+
+	xTimerReset(radioWatchdogTimer, 0);
 	xSemaphoreTake(radioDMADoneSemaphore, portMAX_DELAY);
+	xTimerStop(radioWatchdogTimer, 0);
+
 	radioFinishTransmission();
+}
+
+void radioWatchdogOverrun(xTimerHandle xTimer) {
+	/* Disable interrupt which is handled by default in radioSPI_RXDMA_TCIF_FromISR after transmission finish */
+	DMA_ITConfig(RADIO_RX_DMA_STREAM, DMA_IT_TC, DISABLE);
+	DMA_Cmd(RADIO_RX_DMA_STREAM, DISABLE);
+
+	safeLog(Log_Type_Error, 16, "Radio watchdog\n");
+
+	if (radioOutgoingBuffer[0] == RADIO_MSG_TYPE_READ_RADIO_BUFFER) {
+		radioTransactionTelemetryEndDeferred(NULL, 1);
+	} else {
+		xSemaphoreGive(radioDMADoneSemaphore);
+	}
 }
 
 void radioTransactionTelemetryStartDeferred(void *ptrParam, uint32_t intParam) {
 	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
 	radioSetupTransaction(14, RADIO_MSG_TYPE_READ_RADIO_BUFFER);
 	radioConfigureHardwareAndStart();
+	xTimerReset(radioWatchdogTimer, 0);
 }
 
 void radioTransactionTelemetryEndDeferred(void *ptrParam, uint32_t intParam) {
 	static TelemetryUpdate_Struct telemetryUpdate = {.Source = TelemetryUpdate_Source_Camera};
 	uint8_t checksum = 0x55;
 
+	xTimerStop(radioWatchdogTimer, 0);
 	radioFinishTransmission();
 
-	for (uint8_t i = 1; i<13; ++i)
-		checksum ^= radioIncommingBuffer[i];
+	if (intParam == 0) {
+		for (uint8_t i = 1; i<13; ++i)
+			checksum ^= radioIncommingBuffer[i];
 
-	if (checksum == radioIncommingBuffer[13]) {
-		memcpy(&telemetryUpdate.Data, (void*)radioIncommingBuffer+1, 12);
-		if (xQueueSendToBack(telemetryQueue, &telemetryUpdate, 0) == errQUEUE_FULL) {
-			safeLog(Log_Type_Error, 25, "Telemetry queue full!\n");
+		if (checksum == radioIncommingBuffer[13]) {
+			memcpy(&telemetryUpdate.Data, (void*)radioIncommingBuffer+1, 12);
+			if (xQueueSendToBack(telemetryQueue, &telemetryUpdate, 0) == errQUEUE_FULL) {
+				safeLog(Log_Type_Error, 25, "Telemetry queue full!\n");
+			}
+		} else {
+			safeLog(Log_Type_Error, 57, "Radio incorrect checksum, received 0x%02x calculated 0x%02x\n", radioIncommingBuffer[13], checksum);
 		}
-	} else {
-		safeLog(Log_Type_Error, 57, "Radio incorrect checksum, received 0x%02x calculated 0x%02x\n", radioIncommingBuffer[13], checksum);
 	}
 
 	xSemaphoreGive(radioSPIMutex);

@@ -255,7 +255,7 @@ static const CLI_Command_Definition_t execComDef = {
 };
 static const CLI_Command_Definition_t radioComDef = {
 	(const int8_t*)"radio",
-	(const int8_t*)"radio <on|off|test>\n",
+	(const int8_t*)"radio <on|off|test|reset>\n",
 	radioCommand,
 	1
 };
@@ -1377,15 +1377,25 @@ portBASE_TYPE radioCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 	char *param[1]; // oOfParams is checked by OS - must be 1
 	sliceCommand((char*)command, param, 1);
 
+	AsyncCall_Type call = {
+		.Type = AsyncCallProc_Void,
+	};
+
 	if (cmatch("on", param[0], 2)) { // on
-		radioEnable();
+		call.CallVoid = radioEnable;
 	} else if (cmatch("off", param[0], 2)) { // of
-		radioDisable();
+		call.CallVoid = radioDisable;
 	} else if (cmatch("test", param[0], 1)) { // t
-		radioTestCommand();
+		call.CallVoid = radioTestCommand;
+	} else if (cmatch("reset", param[0], 1)) { // r
+		call.CallVoid = radioResetCommand;
+	} else {
+		strncpy((char*)outBuffer, "Invalid option provided\n", outBufferLen);
+		return pdFALSE;
 	}
 
-	strncpy((char*)outBuffer, "\n", outBufferLen);
+	xQueueSendToBack(AsyncCallHandlerQueue, &call, portMAX_DELAY);
+	strncpy((char*)outBuffer, "Scheduled radio command\n", outBufferLen);
 	return pdFALSE;
 }
 
