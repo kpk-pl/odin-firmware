@@ -20,6 +20,7 @@
 #define RADIO_MSG_TYPE_RADIO_OFF 			'o'
 #define RADIO_MSG_TYPE_RADIO_ON 			'O'
 #define RADIO_MSG_TYPE_RESET				'x'
+#define RADIO_MSG_TYPE_RESET_INDICATOR		'i'
 
 static volatile uint8_t radioIncommingBuffer[RADIO_BUFFER_LEN];
 static volatile uint8_t radioOutgoingBuffer[RADIO_BUFFER_LEN];
@@ -78,6 +79,15 @@ void radioTestCommand() {
 		safeLog(Log_Type_Debug, 31, "Radio test failed 0x%02x 0x%02x\n", radioIncommingBuffer[1], radioIncommingBuffer[2]);
 	}
 
+	xSemaphoreGive(radioSPIMutex);
+}
+
+
+void radioResetIndicatorCommand() {
+	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
+	radioSetupTransaction(2, RADIO_MSG_TYPE_RESET_INDICATOR);
+	radioPerformBlockingTransaction();
+	safeLog(Log_Type_Debug, 26, "Radio reset indicator %d\n", radioIncommingBuffer[1]);
 	xSemaphoreGive(radioSPIMutex);
 }
 

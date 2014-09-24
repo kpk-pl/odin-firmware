@@ -1389,6 +1389,8 @@ portBASE_TYPE radioCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t*
 		call.CallVoid = radioTestCommand;
 	} else if (cmatch("reset", param[0], 1)) { // r
 		call.CallVoid = radioResetCommand;
+	} else if (cmatch("indicator", param[0], 1)) { // i
+		call.CallVoid = radioResetIndicatorCommand;
 	} else {
 		strncpy((char*)outBuffer, "Invalid option provided\n", outBufferLen);
 		return pdFALSE;

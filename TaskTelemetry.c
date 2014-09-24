@@ -112,14 +112,10 @@ void TaskTelemetryConstructor() {
 }
 
 bool movedSinceReset() {
-	return globalMovedSinceReset;
+	return s;
 }
 
 float normalizeOrientation(float in) {
-/*	while (in > M_PI) in -= TWOM_PI;
-	while (in <= -M_PI) in += TWOM_PI;
-	return in;
-*/
 	return in - floorf((in + M_PI)/TWOM_PI) * TWOM_PI;
 }
 

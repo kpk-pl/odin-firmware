@@ -13,5 +13,6 @@ void radioDisable();
 void radioEnable();
 void radioTestCommand();
 void radioResetCommand();
+void radioResetIndicatorCommand();
 
 #endif /* RADIO_RCVR_H */
