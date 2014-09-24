@@ -5,7 +5,7 @@
 #include "compilation.h"
 #include "priorities.h"
 #include "stackSpace.h"
-#include "complementary.h"
+//#include "complementary.h"
 #include "hwinterface.h"
 #include "radioRcvr.h"
 
@@ -13,10 +13,9 @@
 #include "TaskMotorCtrl.h"
 #include "TaskDrive.h"
 
-float globalIMUComplementaryFilterTimeConstant = 0.97f;	/*!< Used to initialize complementary filter */
+//float globalIMUComplementaryFilterTimeConstant = 0.97f;	/*!< Used to initialize complementary filter */
 float globalOdometryCorrectionGain = 1.0049f;	/*!< Gain that is used to correct odometry data (turning angle) */
 float globalPositionScale = 1.0f;				/*!< Scale for position; if set to 2 then robot will drive 80cm when told to drive 40cm */
-bool globalUseIMUUpdates = true;
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;						/*!< This task's handle */
 
@@ -35,17 +34,14 @@ void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
 	TelemetryData_Struct odometryData = {0.0f, 0.0f, 0.0f};
 	TelemetryData_Struct tempData;
-#ifdef USE_IMU_TELEMETRY
-	Complementary_State filter;
-#endif
+
+//	Complementary_State filter;
+	//		ComplementaryInit(&filter, globalIMUComplementaryFilterTimeConstant);
+	//			globalTelemetryData.O = ComplementaryGet(&filter, globalTelemetryData.O, update.dO);
 
 	radioSetup();
 
 	while(1) {
-#ifdef USE_IMU_TELEMETRY
-		ComplementaryInit(&filter, globalIMUComplementaryFilterTimeConstant);
-#endif
-
 		/* Wait indefinitely while there is no update */
 		xQueueReceive(telemetryQueue, &update, portMAX_DELAY);
 
@@ -58,33 +54,12 @@ void TaskTelemetry(void * p) {
 
 			taskENTER_CRITICAL();
 			{
-#ifdef USE_IMU_TELEMETRY
-				if (!globalUseIMUUpdates) {
-					globalTelemetryData = odometryData;
-				}
-				else {
-#endif
-					globalTelemetryData.X += update.dX;
-					globalTelemetryData.Y += update.dY;
-					globalTelemetryData.O += update.dO * globalOdometryCorrectionGain;
-#ifdef USE_IMU_TELEMETRY
-				}
-#endif
+				globalTelemetryData.X += update.dX;
+				globalTelemetryData.Y += update.dY;
+				globalTelemetryData.O += update.dO * globalOdometryCorrectionGain;
 				tempData = globalTelemetryData;
 			}
 			taskEXIT_CRITICAL();
-			break;
-		case TelemetryUpdate_Source_IMU:
-#ifdef USE_IMU_TELEMETRY
-			if (globalUseIMUUpdates) {
-				taskENTER_CRITICAL();
-				{
-					globalTelemetryData.O = ComplementaryGet(&filter, globalTelemetryData.O, update.dO);
-					tempData = globalTelemetryData;
-				}
-				taskEXIT_CRITICAL();
-			}
-#endif
 			break;
 		case TelemetryUpdate_Source_Camera:
 			safePrint(60, "Radio position %.3f %.3f %.3f at %ld\n", update.dX, update.dY, update.dO, globalVSYNCTimestamp);
@@ -112,7 +87,7 @@ void TaskTelemetryConstructor() {
 }
 
 bool movedSinceReset() {
-	return s;
+	return globalMovedSinceReset;
 }
 
 float normalizeOrientation(float in) {
@@ -122,10 +97,6 @@ float normalizeOrientation(float in) {
 void scaleOdometryCorrectionParam(int turns) {
 	if (isCurrentlyDriving()) return;
 
-#ifdef USE_IMU_TELEMETRY
-	bool imuupd = globalUseIMUUpdates;
-	globalUseIMUUpdates = false;
-#endif
 	OnOff penen = getPenState();
 	enablePen(ENABLE);
 
@@ -161,9 +132,6 @@ void scaleOdometryCorrectionParam(int turns) {
 
 	if (penen == OFF)
 		enablePen(DISABLE);
-#ifdef USE_IMU_TELEMETRY
-	globalUseIMUUpdates = imuupd;
-#endif
 
 	safeLog(Log_Type_Log, 85, "Scaling done!\nOdometry correction param will be: (%d + dO)/%.6g\n",
 			360*turns-180, (360.0f*turns-180.0f)/globalOdometryCorrectionGain);

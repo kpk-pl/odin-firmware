@@ -10,7 +10,6 @@
 #include "hwinterface.h"
 #include "memory.h"
 
-#include "TaskIMUScaling.h"
 #include "TaskMotorCtrl.h"
 #include "TaskPrintfConsumer.h"
 #include "TaskPenCtrl.h"
@@ -75,11 +74,6 @@ void TaskRC5(void * p) {
 					tempboolean = true;
 					xQueueOverwrite(penCommandQueue, &tempboolean);
 					break;
-#ifdef USE_IMU_TELEMETRY
-				case 42: /*<< clock button */
-					globalScaleMagnetometerRequest = true;
-					break;
-#endif
 				case 43: /*<< screen button above purple button */
 					setWiFiMode(getWiFiMode() == WiFiMode_Data ? WiFiMode_Command : WiFiMode_Data);
 					break;

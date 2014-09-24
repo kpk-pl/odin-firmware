@@ -19,10 +19,6 @@
 #include "TaskInputMngr.h"
 #include "TaskPenCtrl.h"
 #include "TaskAsyncCallHandler.h"
-#ifdef USE_IMU_TELEMETRY
-#include "TaskIMU.h"
-#include "TaskIMUScaling.h"
-#endif
 #include "TaskTrajectory.h"
 #ifdef DRIVE_COMMANDS
 #include "TaskDrive.h"
@@ -63,15 +59,6 @@ int main(void)
 #else
 	printf("\tPID motor controller\n");
 #endif
-#ifdef USE_IMU_TELEMETRY
-#ifdef USE_GYRO_FOR_IMU
-	printf("\tUsing IMU with Gyro\n");
-#else
-	printf("\tUsing IMU without Gyro\n");
-#endif
-#else
-	printf("\tIMU not used\n");
-#endif
 #ifdef DRIVE_COMMANDS
 	printf("\tDrive commands enabled\n");
 #else
@@ -91,10 +78,6 @@ int main(void)
 	TaskTrajectoryConstructor();
 #ifdef DRIVE_COMMANDS
 	TaskDriveConstructor();
-#endif
-#ifdef USE_IMU_TELEMETRY
-	TaskIMUConstructor();
-	TaskIMUScalingConstructor();
 #endif
 
 	// boot task with DOMINATOR priority
@@ -162,12 +145,6 @@ void TaskBoot(void *p) {
 			printf("\nErrors while reading %s", INIT_LOGGING_PATH);
 			allOK = false;
 		}
-#ifdef USE_IMU_TELEMETRY
-		if (!readInit(InitTarget_IMU)) {
-			printf("\nErrors while reading %s", INIT_IMU_PATH);
-			allOK = false;
-		}
-#endif
 		if (!readInit(InitTarget_Trajectory)) {
 			printf("\nErrors while reading %s", INIT_TRAJECTORY_PATH);
 			allOK = false;
@@ -202,9 +179,6 @@ void reportStackUsage() {
 	safePrint(23, "InputMngrTask: %d\n", uxTaskGetStackHighWaterMark(commInputMngrTask));
 	safePrint(21, "penCtrlTask: %d\n", uxTaskGetStackHighWaterMark(penCtrlTask));
 	safePrint(26, "asyncCallHandler: %d\n", uxTaskGetStackHighWaterMark(AsyncCallHandlerTask));
-#ifdef USE_IMU_TELEMETRY
-	safePrint(17, "imuTask: %d\n", uxTaskGetStackHighWaterMark(imuTask));
-#endif
 	safePrint(24, "trajectoryTask: %d\n", uxTaskGetStackHighWaterMark(trajectoryTask));
 #ifdef DRIVE_COMMANDS
 	safePrint(19, "driveTask: %d\n", uxTaskGetStackHighWaterMark(driveTask));

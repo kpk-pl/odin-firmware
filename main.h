@@ -71,12 +71,6 @@ void COMAction();
 void COMDMANotify();
 void WIFIAction();
 void WiFiDMANotify();
-#ifdef USE_IMU_TELEMETRY
-void IMUGyroReady();
-void IMUAccReady();
-void IMUMagReady();
-void IMUI2CEVHandler();
-#endif /* USE_IMU_TELEMETRY */
 void BatteryTooLow();
 void OSBusyTimerHandler();
 void SDTransferDoneHandler();

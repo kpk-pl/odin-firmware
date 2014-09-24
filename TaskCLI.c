@@ -175,10 +175,6 @@ static const CLI_Command_Definition_t penComDef = {
 static const CLI_Command_Definition_t telemetryComDef = {
     (const int8_t*)"telemetry",
     (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
-    		 "\todometry <<scale #turns>|<correction [#param]>>\n"
-#ifdef USE_IMU_TELEMETRY
-    		 "\timu <enable|disable|<tconst #T>>\n"
-#endif
     		 "\tscale [#value]\n",
     telemetryCommand,
     -1
@@ -465,33 +461,6 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 				}
 			}
 		}
-#ifdef USE_IMU_TELEMETRY
-		else if (cmatch("imu", param[0], 1)) { // i
-			if (cmatch("enable", param[1], 1)) { // e
-				if (nOfParams == 2) {
-					globalUseIMUUpdates = true;
-					strncpy((char*)outBuffer, "IMU enabled\n", outBufferLen);
-					ok = true;
-				}
-			}
-			else if (cmatch("disable", param[1], 1)) { // d
-				if (nOfParams == 2) {
-					globalUseIMUUpdates = false;
-					strncpy((char*)outBuffer, "IMU disabled\n", outBufferLen);
-					ok = true;
-				}
-			}
-			else if (cmatch("tconst", param[1], 1)) { // t
-				if (nOfParams == 2 || nOfParams == 3) {
-					if (nOfParams == 3)
-						globalIMUComplementaryFilterTimeConstant = strtof(param[2], NULL);
-					snprintf((char*)outBuffer, outBufferLen, "IMU complementary time constant: %.6g\n",
-							globalIMUComplementaryFilterTimeConstant);
-					ok = true;
-				}
-			}
-		}
-#endif
 		if (cmatch("scale", param[0], 5)) { // scale
 			if (nOfParams == 2) {
 				float s = strtof(param[1], NULL);
@@ -895,7 +864,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 	if (nOfParams == 0) {
 		strncpy((char*)outBuffer, "Logging settings:\nall: ?\nevents: ?\nlog: ?\nerror: ?\ndebug: ?\nrc5: ?\n"
-				"speed: ?\nspeed ordered: ?\ntelemetry: ?\nimu: ?\ndrive: ?\n", outBufferLen);
+				"speed: ?\nspeed ordered: ?\ntelemetry: ?\ndrive: ?\n", outBufferLen);
 		outBuffer[23] = globalLogSettings.enableAll ? '1' : '0';
 		outBuffer[33] = globalLogSettings.enableEvents ? '1' : '0';
 		outBuffer[40] = globalLogSettings.enableLog ? '1' : '0';
@@ -905,8 +874,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		outBuffer[74] = globalLogSettings.enableSpeed ? '1' : '0';
 		outBuffer[91] = globalLogSettings.enableSpeedOrdered ? '1' : '0';
 		outBuffer[104] = globalLogSettings.enableTelemetry ? '1' : '0';
-		outBuffer[111] = globalLogSettings.enableIMU ? '1' : '0';
-		outBuffer[120] = globalLogSettings.enableDrive ? '1' : '0';
+		outBuffer[113] = globalLogSettings.enableDrive ? '1' : '0';
 		ok = true;
 
 #if configCOMMAND_INT_MAX_OUTPUT_SIZE < 103
@@ -940,8 +908,6 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 				globalLogSettings.enableSpeedOrdered = !off;
 			else if (cmatch("telemetry", param[0], 1))	// t
 				globalLogSettings.enableTelemetry = !off;
-			else if (cmatch("imu", param[0], 1))		// i
-				globalLogSettings.enableIMU = !off;
 			else if (cmatch("drive", param[0], 2))		// dr
 				globalLogSettings.enableDrive = !off;
 			else

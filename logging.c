@@ -15,7 +15,6 @@ static const Prefix_Info_Struct logPrefix[] = {
 	{"Speed", 5},
 	{"SpeedOrd", 7},
 	{"Tel", 3},
-	{"IMU", 3},
 	{"Drive", 5}
 };
 

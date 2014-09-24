@@ -10,7 +10,6 @@
 #include "TaskMotorCtrl.h"
 #include "TaskTrajectory.h"
 #include "TaskTelemetry.h"
-#include "TaskIMU.h"
 #include "TaskPrintfConsumer.h"
 
 typedef enum {
@@ -31,11 +30,6 @@ typedef enum {
 	IO_Type_Read
 } IO_Type;
 
-#ifdef USE_IMU_TELEMETRY
-static bool readInitIMU(FIL* file);
-static bool saveInitIMU(FIL* file);
-#endif
-
 static bool readInitAll();
 static bool saveInitAll();
 static FRESULT openInitFile(InitTarget_Type target, FIL* file, BYTE mode);
@@ -46,8 +40,6 @@ static bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target);
 
 const Config_Item_Struct telemetryConfig[] = {
 	{.content = &globalOdometryCorrectionGain, .type = Config_Item_Type_Float, .name = "corr gain", .format = "%.8g"},
-	{.content = &globalIMUComplementaryFilterTimeConstant, .type = Config_Item_Type_Float, .name = "imu t const",.format = "%.8g"},
-	{.content = &globalUseIMUUpdates, .type = Config_Item_Type_Hex32, .name = "use imu updates", .format = "%lx"}
 };
 
 const Config_Item_Struct loggingConfig[] = {
@@ -135,10 +127,6 @@ bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target) {
 		config = customMotorControllerConfig;
 		items = sizeof(customMotorControllerConfig)/sizeof(Config_Item_Struct);
 		break;
-#ifdef USE_IMU_TELEMETRY
-	case InitTarget_IMU:
-		return (type == IO_Type_Save) ? saveInitIMU(file) : readInitIMU(file);
-#endif
 	default:
 		return false;
 	}
@@ -199,10 +187,6 @@ FRESULT openInitFile(InitTarget_Type target, FIL* file, BYTE mode) {
 		return f_open(file, INIT_TELEMETRY_PATH, mode);
 	case InitTarget_Custom_Motor_Controler:
 		return f_open(file, INIT_MOTOR_CTRL_CUSTOM_PATH, mode);
-#ifdef USE_IMU_TELEMETRY
-	case InitTarget_IMU:
-		return f_open(file, INIT_IMU_PATH, mode);
-#endif
 	case InitTarget_Trajectory:
 		return f_open(file, INIT_TRAJECTORY_PATH, mode);
 	case InitTarget_Logging:
@@ -223,10 +207,6 @@ bool readInitAll() {
 		ret = false;
 	if (!readInit(InitTarget_Trajectory))
 		ret = false;
-#ifdef USE_IMU_TELEMETRY
-	if (!readInit(InitTarget_IMU))
-		ret = false;
-#endif
 	if (!readInit(InitTarget_Logging))
 		ret = false;
 	return ret;
@@ -242,45 +222,7 @@ bool saveInitAll() {
 		ret = false;
 	if (!saveConfig(InitTarget_Trajectory))
 		ret = false;
-#ifdef USE_IMU_TELEMETRY
-	if (!saveConfig(InitTarget_IMU))
-		ret = false;
-#endif
 	if (!saveConfig(InitTarget_Logging))
 		ret = false;
 	return ret;
 }
-
-#ifdef USE_IMU_TELEMETRY
-bool readInitIMU(FIL* file) {
-	if (file == NULL) return false;
-
-	char buffer[25];
-
-	f_gets(buffer, 25, file);
-	if (strtod(buffer, NULL) != MAG_IMPROV_DATA_POINTS) return false;
-
-	uint8_t line;
-	for (line = 0; !f_eof(file) && line < MAG_IMPROV_DATA_POINTS+1; ++line) {
-		f_gets(buffer, 25, file);
-		globalMagnetometerImprovData[line] = strtod(buffer, NULL);
-	}
-
-	return line == MAG_IMPROV_DATA_POINTS+1;
-}
-
-bool saveInitIMU(FIL* file) {
-	if (file == NULL) return false;
-	char buffer[25];
-
-	snprintf(buffer, 25, "%d n\n", MAG_IMPROV_DATA_POINTS);
-	f_puts(buffer, file);
-
-	for (uint8_t i = 0; i<MAG_IMPROV_DATA_POINTS+1; ++i) {
-		snprintf(buffer, 25, "%.8g\n", globalMagnetometerImprovData[i]);
-		f_puts(buffer, file);
-	}
-
-	return true;
-}
-#endif
