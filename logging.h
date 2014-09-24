@@ -17,6 +17,7 @@ typedef enum {
 	Log_Type_Speed,		/*!< Speed logging */
 	log_Type_SpeedOrdered, /*!< Ordered speed logging */
 	Log_Type_Telemetry, /*!< Logging telemetry aka position */
+	Log_Type_Camera,    /*!< Logging camera events */
 	Log_Type_Drive,		/*!< Log from taskDrive - EVENT */
 } Log_Type;
 
@@ -33,7 +34,7 @@ typedef struct {
 			bool enableSpeed	: 1;	/*!< Enable flag for current speed logging - Log_Type_Speed */
 			bool enableSpeedOrdered :1; /*!< Enable flag for ordered speed logging - Log_Type_SpeedOrdered */
 			bool enableTelemetry :1;
-			bool empty: 1;
+			bool enableCamera   :1;
 			bool enableDrive	: 1;
 		};
 		uint32_t smallFlags;

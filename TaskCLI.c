@@ -199,7 +199,7 @@ static const CLI_Command_Definition_t wifiComDef = {
 };
 static const CLI_Command_Definition_t logComDef = {
     (const int8_t*)"log",
-    (const int8_t*)"log <<all|events|log|error|debug|rc5|speed|ordered|telemetry|imu|drive> [off]>\n",
+    (const int8_t*)"log <<all|events|log|error|debug|rc5|speed|ordered|telemetry|camera|drive> [off]>\n",
     logCommand,
     -1
 };
@@ -864,7 +864,7 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 
 	if (nOfParams == 0) {
 		strncpy((char*)outBuffer, "Logging settings:\nall: ?\nevents: ?\nlog: ?\nerror: ?\ndebug: ?\nrc5: ?\n"
-				"speed: ?\nspeed ordered: ?\ntelemetry: ?\ndrive: ?\n", outBufferLen);
+				"speed: ?\nspeed ordered: ?\ntelemetry: ?\ndrive: ?\ncamera: ?\n", outBufferLen);
 		outBuffer[23] = globalLogSettings.enableAll ? '1' : '0';
 		outBuffer[33] = globalLogSettings.enableEvents ? '1' : '0';
 		outBuffer[40] = globalLogSettings.enableLog ? '1' : '0';
@@ -875,9 +875,10 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 		outBuffer[91] = globalLogSettings.enableSpeedOrdered ? '1' : '0';
 		outBuffer[104] = globalLogSettings.enableTelemetry ? '1' : '0';
 		outBuffer[113] = globalLogSettings.enableDrive ? '1' : '0';
+		outBuffer[123] = globalLogSettings.enableCamera ? '1' : '0';
 		ok = true;
 
-#if configCOMMAND_INT_MAX_OUTPUT_SIZE < 103
+#if configCOMMAND_INT_MAX_OUTPUT_SIZE < 125
 #error ERROR_IN_CLI
 #endif
 	}
@@ -910,6 +911,8 @@ portBASE_TYPE logCommand(int8_t* outBuffer, size_t outBufferLen, const int8_t* c
 				globalLogSettings.enableTelemetry = !off;
 			else if (cmatch("drive", param[0], 2))		// dr
 				globalLogSettings.enableDrive = !off;
+			else if (cmatch("camera", param[0], 1))		// c
+				globalLogSettings.enableCamera = !off;
 			else
 				ok = false;
 			if (ok)

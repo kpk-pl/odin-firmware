@@ -15,7 +15,8 @@ static const Prefix_Info_Struct logPrefix[] = {
 	{"Speed", 5},
 	{"SpeedOrd", 7},
 	{"Tel", 3},
-	{"Drive", 5}
+	{"Camera", 6},
+	{"Drive", 5},
 };
 
 #define EVENT_LOGS_MASK ((1<<3) | (1<<7) | (1<<8))
