@@ -40,6 +40,8 @@ static bool IOInitOp(FIL *file, IO_Type type, InitTarget_Type target);
 
 const Config_Item_Struct telemetryConfig[] = {
 	{.content = &globalOdometryCorrectionGain, .type = Config_Item_Type_Float, .name = "corr gain", .format = "%.8g"},
+	{.content = &globalCameraTelemetryFilterConstant, .type = Config_Item_Type_Float, .name = "cam filt", .format = "%.8g"},
+	{.content = &globalCameraTransmissionDelayMs, .type = Config_Item_Type_Float, .name = "cam delay", .format = "%.8g"},
 };
 
 const Config_Item_Struct loggingConfig[] = {

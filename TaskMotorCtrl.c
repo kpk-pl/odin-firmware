@@ -136,6 +136,7 @@ void TaskMotorCtrl(void * p) {
 		telemetryUpdate.dO = (currSpeed.RightSpeed - currSpeed.LeftSpeed) * IMPS_TO_MM_TRAVELED / ROBOT_DIAM;
 		telemetryUpdate.dX = deltaS * cosf(telemetryData.O);
 		telemetryUpdate.dY = deltaS * sinf(telemetryData.O);
+		telemetryUpdate.Timestamp = xTaskGetTickCount();
 
 		if (xQueueSendToBack(telemetryQueue, &telemetryUpdate, 0) == errQUEUE_FULL) {
 			safeLog(Log_Type_Error, 25, "Telemetry queue full!\n");

@@ -175,7 +175,8 @@ static const CLI_Command_Definition_t penComDef = {
 static const CLI_Command_Definition_t telemetryComDef = {
     (const int8_t*)"telemetry",
     (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
-    		 "\tscale [#value]\n",
+    		 "\tscale [#value]\n"
+             "\tcamera <filter|delay> [#value]",
     telemetryCommand,
     -1
 };
@@ -461,7 +462,29 @@ portBASE_TYPE telemetryCommand(int8_t* outBuffer, size_t outBufferLen, const int
 				}
 			}
 		}
-		if (cmatch("scale", param[0], 5)) { // scale
+		else if (cmatch("camera", param[0], 1)) { // c
+			if (nOfParams > 1) {
+				if (cmatch("filter", param[1], 1)) { // f
+					if (nOfParams <= 3) {
+						if (nOfParams == 3) {
+							globalCameraTelemetryFilterConstant = strtof(param[2], NULL);
+						}
+						snprintf((char*)outBuffer, outBufferLen, "Camera complementary filter constant: %.6g\n", globalCameraTelemetryFilterConstant);
+						ok = true;
+					}
+				}
+				else if (cmatch("delay", param[1], 1)) { // d
+					if (nOfParams <= 3) {
+						if (nOfParams == 3) {
+							globalCameraTransmissionDelayMs = strtof(param[2], NULL);
+						}
+						snprintf((char*)outBuffer, outBufferLen, "Camera transmission delay constant: %.6g\n", globalCameraTransmissionDelayMs);
+						ok = true;
+					}
+				}
+			}
+		}
+		else if (cmatch("scale", param[0], 5)) { // scale
 			if (nOfParams == 2) {
 				float s = strtof(param[1], NULL);
 				if (s > 0.0f) {

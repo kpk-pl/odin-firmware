@@ -7,10 +7,10 @@
 
 #include <stdbool.h>
 
-extern float globalIMUComplementaryFilterTimeConstant; /*!< Export IMU time constant for complementary filter */
-extern float globalOdometryCorrectionGain;	/*!< Export the parameter that corrects odometry while turning */
-extern float globalPositionScale;			/*!< Scale for position */
-extern bool globalUseIMUUpdates;			/*!< Export flag wheather to use IMU updates or not */
+extern volatile float globalCameraTransmissionDelayMs; 		/*!< Export constant transmission delay for camera time calculations */
+extern volatile float globalCameraTelemetryFilterConstant; 	/*!< Export complementary time constant for camera odometry */
+extern volatile float globalOdometryCorrectionGain;			/*!< Export the parameter that corrects odometry while turning */
+extern volatile float globalPositionScale;					/*!< Scale for position */
 extern xQueueHandle telemetryQueue;			/*!< Export queue to which telemetry updates may be send */
 extern xTaskHandle telemetryTask;			/*!< Export this task handle */
 
@@ -19,7 +19,6 @@ extern xTaskHandle telemetryTask;			/*!< Export this task handle */
  */
 typedef enum {
 	TelemetryUpdate_Source_Odometry = 0,	/*!< Update from odometry - encoders */
-	TelemetryUpdate_Source_IMU,				/*!< Update from IMU */
 	TelemetryUpdate_Source_Camera,			/*!< Update from radio camera */
 } TelemetryUpdate_Source;
 
@@ -35,6 +34,7 @@ typedef struct {
 		};
 		uint8_t Data;						/*!< Raw access to data */
 	};
+	portTickType Timestamp;					/*!< Local timestamp of this update */
 	TelemetryUpdate_Source Source;			/*!< Update source */
 } TelemetryUpdate_Struct;
 
