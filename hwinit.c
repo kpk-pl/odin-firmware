@@ -21,13 +21,14 @@ void Initialize() {
 	EXTI_InitTypeDef EXTI_InitStructure;
 	ADC_InitTypeDef ADC_InitStructure;
 	ADC_CommonInitTypeDef ADC_CommonInitStructure;
-	SPI_InitTypeDef SPI_InitStructure;
 
 	/* Disable all interrupts, will be reenabled when scheduler starts successfully */
 	__asm volatile ("cpsid i  \n");
 
 	/* Enable clock for CCM memory */
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_CCMDATARAMEN, ENABLE);
+	/* Enable SYSCFG clock */
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
 
 	/* COM UART configuration */
 	/* Enabling clock for GPIO */
@@ -229,113 +230,104 @@ void Initialize() {
 	/* Configuring UART for radio card receiver */
 	/* Enabling clock for GPIO */
 	RCC_AHB1PeriphClockCmd(RADIO_GPIO_CLOCK, ENABLE);
-	/* Enabling clock for SPI */
-	RADIO_SPI_CLOCK_FUN(RADIO_SPI_CLOCK, ENABLE);
-	/* Enable SYSCFG clock */
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
-	/* Enable clock for DMA */
-	RCC_AHB1PeriphClockCmd(RADIO_RX_DMA_CLOCK, ENABLE);
-	/* Configuring SPI GPIO pins */
+	/* Enabling clock for UART */
+	RADIO_USART_CLOCK_FUN(RADIO_USART_CLOCK, ENABLE);
+	/* Configuring USART GPIO pins */
 	GPIO_InitStructure = (GPIO_InitTypeDef){
-		.GPIO_Pin = RADIO_GPIO_MOSI_PIN | RADIO_GPIO_MISO_PIN | RADIO_GPIO_SCK_PIN,
+		.GPIO_Pin = RADIO_GPIO_USART_TX_PIN | RADIO_GPIO_USART_RX_PIN,
 		.GPIO_Mode = GPIO_Mode_AF,
 		.GPIO_OType = GPIO_OType_PP,
-		.GPIO_PuPd = GPIO_PuPd_DOWN,
-		.GPIO_Speed = GPIO_Speed_25MHz
-	};
-	GPIO_Init(RADIO_GPIO, &GPIO_InitStructure);
-	/* Redirecting port lines to SPI */
-	GPIO_PinAFConfig(RADIO_GPIO, RADIO_GPIO_MOSI_PINSOURCE, RADIO_GPIO_AF);
-	GPIO_PinAFConfig(RADIO_GPIO, RADIO_GPIO_MISO_PINSOURCE, RADIO_GPIO_AF);
-	GPIO_PinAFConfig(RADIO_GPIO, RADIO_GPIO_SCK_PINSOURCE, RADIO_GPIO_AF);
-	/* Configuring CS pin */
-	GPIO_InitStructure = (GPIO_InitTypeDef){
-		.GPIO_Pin = RADIO_GPIO_CS_PIN,
-		.GPIO_Mode = GPIO_Mode_OUT,
-		.GPIO_OType = GPIO_OType_PP,
 		.GPIO_PuPd = GPIO_PuPd_NOPULL,
-		.GPIO_Speed = GPIO_Speed_2MHz
+		.GPIO_Speed = GPIO_Speed_100MHz
 	};
-	GPIO_SetBits(RADIO_GPIO, RADIO_GPIO_CS_PIN); // set it up by default
 	GPIO_Init(RADIO_GPIO, &GPIO_InitStructure);
-	/* Configure VSYNC and DRDY pins */
+	/* Redirecting port lines to USART */
+	GPIO_PinAFConfig(RADIO_GPIO, RADIO_GPIO_USART_RX_PINSOURCE, RADIO_GPIO_USART_AF);
+	GPIO_PinAFConfig(RADIO_GPIO, RADIO_GPIO_USART_TX_PINSOURCE, RADIO_GPIO_USART_AF);
+	/* Configure VSYNC pin */
 	GPIO_InitStructure = (GPIO_InitTypeDef){
-		.GPIO_Pin = RADIO_GPIO_VSYNC_PIN | RADIO_GPIO_DRDY_PIN,
+		.GPIO_Pin = RADIO_GPIO_VSYNC_PIN,
 		.GPIO_Mode = GPIO_Mode_IN,
 		.GPIO_OType = GPIO_OType_PP,
 		.GPIO_PuPd = GPIO_PuPd_UP,
 		.GPIO_Speed = GPIO_Speed_2MHz
 	};
 	GPIO_Init(RADIO_GPIO, &GPIO_InitStructure);
-	/* Configure EXTI interrupts on VSYNC and DRDY pins */
+	/* Configure EXTI interrupt on VSYNC pin */
 	/* Connect EXTI line to GPIO */
-	SYSCFG_EXTILineConfig(RADIO_EXTI_PORTSOURCE, RADIO_EXTI_VSYNC_PINSOURCE);
-	SYSCFG_EXTILineConfig(RADIO_EXTI_PORTSOURCE, RADIO_EXTI_DRDY_PINSOURCE);
+	SYSCFG_EXTILineConfig(RADIO_GPIO_EXTI_PORTSOURCE, RADIO_GPIO_EXTI_VSYNC_PINSOURCE);
 	/* EXTI config */
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-	EXTI_InitStructure.EXTI_Line = RADIO_EXTI_VSYNC_LINE;
-	EXTI_Init(&EXTI_InitStructure);
-	EXTI_InitStructure.EXTI_Line = RADIO_EXTI_DRDY_LINE;
+	EXTI_InitStructure.EXTI_Line = RADIO_GPIO_EXTI_VSYNC_LINE;
 	EXTI_Init(&EXTI_InitStructure);
 	/* NVIC config */
 	NVIC_InitStructure = (NVIC_InitTypeDef){
-		.NVIC_IRQChannel = RADIO_NVIC_CHANNEL,
+		.NVIC_IRQChannel = RADIO_GPIO_NVIC_CHANNEL,
 		.NVIC_IRQChannelCmd = ENABLE,
 		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_RADIOSIGNALS,
 		.NVIC_IRQChannelSubPriority = 0
 	};
 	NVIC_Init(&NVIC_InitStructure);
-	/* Configure SPI peripheral */
-	SPI_InitStructure = (SPI_InitTypeDef){
-		.SPI_Direction = SPI_Direction_2Lines_FullDuplex,
-		.SPI_Mode = SPI_Mode_Master,
-		.SPI_DataSize = SPI_DataSize_8b,
-		.SPI_CPOL = SPI_CPOL_Low,
-		.SPI_CPHA = SPI_CPHA_1Edge,
-		.SPI_NSS = SPI_NSS_Soft,
-		.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_32,
-		.SPI_FirstBit = SPI_FirstBit_MSB,
-		.SPI_CRCPolynomial = 7
+	/* Configuring UART, no parity, 1 stop bit */
+	USART_InitStructure = (USART_InitTypeDef){
+		.USART_BaudRate = RADIO_USART_SPEED,
+		.USART_HardwareFlowControl = USART_HardwareFlowControl_None,
+		.USART_Mode = USART_Mode_Rx | USART_Mode_Tx,
+		.USART_Parity = USART_Parity_No,
+		.USART_StopBits = USART_StopBits_1,
+		.USART_WordLength = USART_WordLength_8b
 	};
-	SPI_Init(RADIO_SPI, &SPI_InitStructure);
-	/* Configure SPI interrupt */
+	USART_Init(RADIO_USART, &USART_InitStructure);
+	/* Configure USART NVIC */
 	NVIC_InitStructure = (NVIC_InitTypeDef){
-		.NVIC_IRQChannel = RADIO_SPI_IRQn,
+		.NVIC_IRQChannel = RADIO_USART_NVIC_CHANNEL,
 		.NVIC_IRQChannelCmd = ENABLE,
-		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_RADIOSPI,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_RADIOUSART,
 		.NVIC_IRQChannelSubPriority = 0
 	};
 	NVIC_Init(&NVIC_InitStructure);
-	/* Configure DMA for receiving */
-	/* Set common DMA settings - these will not change at all */
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&(RADIO_SPI->DR));
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-	DMA_InitStructure.DMA_Channel = RADIO_RX_DMA_CHANNEL;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	/* Add some values to pass assert - these will change */
-	DMA_InitStructure.DMA_Memory0BaseAddr = 0;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Disable;
-	DMA_InitStructure.DMA_BufferSize = 1;
-	/* Configure RX DMA stream */
-	DMA_Init(RADIO_RX_DMA_STREAM, &DMA_InitStructure);
-	/* Configure interrupt for DMA */
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_RADIOSPI;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-	NVIC_InitStructure.NVIC_IRQChannel = RADIO_RX_DMA_NVIC_IRQn;
+	/* Configure Rx interrupt */
+	USART_ITConfig(RADIO_USART, USART_IT_RXNE, ENABLE);
+	/* Enabling clock for DMA */
+	RCC_AHB1PeriphClockCmd(RADIO_DMA_CLOCK, ENABLE);
+	/*
+	 * Configuring DMA stream for transmission over UART
+	 * This stream should upload data from memory buffer to Tx peripheral
+	 * Memory burst and FIFO are enabled to minimize DMA events
+	 */
+	DMA_InitStructure = (DMA_InitTypeDef){
+		.DMA_FIFOMode = DMA_FIFOMode_Enable,
+		.DMA_FIFOThreshold = DMA_FIFOThreshold_Full,
+		.DMA_MemoryBurst = DMA_MemoryBurst_INC16,
+		.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte,
+		.DMA_MemoryInc = DMA_MemoryInc_Enable,
+		.DMA_Memory0BaseAddr = 0, // temporary
+		.DMA_Mode = DMA_Mode_Normal,
+		.DMA_PeripheralBaseAddr = (uint32_t) (&RADIO_USART -> DR),
+		.DMA_PeripheralBurst = DMA_PeripheralBurst_Single,
+		.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte,
+		.DMA_PeripheralInc = DMA_PeripheralInc_Disable,
+		.DMA_Priority = DMA_Priority_High,
+		.DMA_Channel = RADIO_DMA_TX_CHANNEL,
+		.DMA_DIR = DMA_DIR_MemoryToPeripheral,
+		.DMA_BufferSize = 1 // temporary
+	};
+	DMA_Init(RADIO_DMA_TX_STREAM, &DMA_InitStructure);
+	/* Disabling double buffer mode */
+	DMA_DoubleBufferModeCmd(RADIO_DMA_TX_STREAM, DISABLE);
+	/* Enabling interrupt after finished transmission */
+	NVIC_InitStructure = (NVIC_InitTypeDef){
+		.NVIC_IRQChannel = RADIO_DMA_TX_NVIC_IRQn,
+		.NVIC_IRQChannelCmd = ENABLE,
+		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_RADIODMATX,
+		.NVIC_IRQChannelSubPriority = 0
+	};
 	NVIC_Init(&NVIC_InitStructure);
-	/* Enable SPI */
-	SPI_Cmd(RADIO_SPI, ENABLE);
+	DMA_ITConfig(RADIO_DMA_TX_STREAM, DMA_IT_TC, ENABLE);
+	/* Enabling UART */
+	USART_Cmd(RADIO_USART, ENABLE);
 
 
 	/* Configuring GPIOs for motors */

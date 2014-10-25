@@ -4,10 +4,8 @@
 #include "hardware.h"
 
 void radioSetup();
-
-void radioDRDYInterruptFromISR();
-void radioSPI_TXE_FromISR();
-void radioSPI_RXDMA_TCIF_FromISR();
+void RadioUSARTInterrupt();
+void RadioDMATxCompleteInterrupt();
 
 void radioDisable();
 void radioEnable();

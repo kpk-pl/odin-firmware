@@ -164,7 +164,7 @@ void EXTI9_5_IRQHandler(void) {
 }
 
 void EXTI15_10_IRQHandler(void) {
-	/* Mesure first duration to validate the RC5 frame */
+	/* Measure first duration to validate the RC5 frame */
 	if (EXTI_GetFlagStatus(RC5_EXTI_LINE) == SET) {
 		RC5_MeasureFirstLowDuration();
 	}
@@ -183,14 +183,14 @@ void EXTI15_10_IRQHandler(void) {
 		SWITCH_TIM_RESTART();
 		EXTI_ClearITPendingBit(SWITCHES_EXTI_4_LINE);
 	}*/
-	else if (EXTI_GetFlagStatus(RADIO_EXTI_VSYNC_LINE) == SET) {
-		EXTI_ClearITPendingBit(RADIO_EXTI_VSYNC_LINE);
+	else if (EXTI_GetFlagStatus(RADIO_GPIO_EXTI_VSYNC_LINE) == SET) {
+		EXTI_ClearITPendingBit(RADIO_GPIO_EXTI_VSYNC_LINE);
 		extern void radioCameraVSYNCHandlerFromISR(void);
 		radioCameraVSYNCHandlerFromISR();
 	}
-	else if (EXTI_GetFlagStatus(RADIO_EXTI_DRDY_LINE) == SET) {
-		EXTI_ClearITPendingBit(RADIO_EXTI_DRDY_LINE);
-		radioDRDYInterruptFromISR();
+	else if (EXTI_GetFlagStatus(EXTI_Line11) == SET) {
+		EXTI_ClearITPendingBit(EXTI_Line11);
+		// do nothing
 	}
 	else if (EXTI_GetFlagStatus(SWITCHES_EXTI_3_LINE) == SET) {
 		EXTI_ClearITPendingBit(SWITCHES_EXTI_3_LINE);
@@ -281,9 +281,10 @@ void CPUUSAGE_BASE_TIM_IRQHANDLER(void) {
 	TIM_ClearFlag(CPUUSAGE_BASE_TIM, TIM_FLAG_Update);
 }
 
-void RADIO_RX_DMA_IRQHANDLER(void) {
-	if (DMA_GetITStatus(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_ITFLAG_TCIF) == SET) {
-		DMA_ClearFlag(RADIO_RX_DMA_STREAM, RADIO_RX_DMA_FLAG_TCIF);
-		radioSPI_RXDMA_TCIF_FromISR();
-	}
+void RADIO_USART_IRQHANDLER(void) {
+	RadioUSARTInterrupt();
+}
+
+void RADIO_DMA_TX_IRQHANDLER(void) {
+	RadioDMATxCompleteInterrupt();
 }
