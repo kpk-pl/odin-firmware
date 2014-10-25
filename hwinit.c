@@ -226,7 +226,7 @@ void Initialize() {
 	USART_Cmd(WIFI_USART, ENABLE);
 
 
-	/* Configuring SPI for radio card receiver */
+	/* Configuring UART for radio card receiver */
 	/* Enabling clock for GPIO */
 	RCC_AHB1PeriphClockCmd(RADIO_GPIO_CLOCK, ENABLE);
 	/* Enabling clock for SPI */
@@ -765,18 +765,6 @@ void Initialize() {
 	/* Do not enable timer - will be done in enableLantern call */
 	/* Init lantern properly to be on or off at startup */
 	enableLantern(getSwitchStatus(6) == OFF ? DISABLE : ENABLE);
-
-
-	/* Configure general-purpose output pins */
-	GP_GPIO1_CLOCK_FUN(GP_GPIO1_CLOCK, ENABLE);
-	GPIO_InitStructure = (GPIO_InitTypeDef){
-		.GPIO_Mode = GPIO_Mode_OUT,
-		.GPIO_Pin = GP_GPIO1_PIN,
-		.GPIO_PuPd = GPIO_PuPd_NOPULL,
-		.GPIO_Speed = GPIO_Speed_2MHz,
-		.GPIO_OType = GPIO_OType_PP
-	};
-	GPIO_Init(GP_GPIO1_GPIO, &GPIO_InitStructure);
 }
 
 void InitializeWiFiUART(uint32_t speed) {
