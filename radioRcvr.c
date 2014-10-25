@@ -51,7 +51,7 @@ void radioSetup() {
 		radioDMADoneSemaphore = xSemaphoreCreateBinary();
 	}
 	if (!radioWatchdogTimer) {
-		radioWatchdogTimer = xTimerCreate(NULL, 50/portTICK_RATE_MS, pdFALSE, NULL, radioWatchdogOverrun);
+		radioWatchdogTimer = xTimerCreate(NULL, 2/portTICK_RATE_MS, pdFALSE, NULL, radioWatchdogOverrun);
 	}
 }
 

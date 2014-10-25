@@ -92,9 +92,12 @@ void TaskTelemetry(void * p) {
 				currentComplementaryConstant = 1.0f - currentFilterConstant;
 				taskENTER_CRITICAL();
 				{
-					globalTelemetryData.X = currentFilterConstant * globalTelemetryData.X + currentComplementaryConstant * tempData.X;
-					globalTelemetryData.Y = currentFilterConstant * globalTelemetryData.Y + currentComplementaryConstant * tempData.Y;
-					globalTelemetryData.O = currentFilterConstant * globalTelemetryData.O + currentComplementaryConstant * tempData.O;
+					//globalTelemetryData.X += (currentFilterConstant * tempData.X + currentComplementaryConstant * update.dX) - tempData.X;
+					//globalTelemetryData.Y += (currentFilterConstant * tempData.Y + currentComplementaryConstant * update.dY) - tempData.Y;
+					//globalTelemetryData.O += (currentFilterConstant * tempData.O + currentComplementaryConstant * update.dO) - tempData.O;
+					globalTelemetryData.X += currentComplementaryConstant * (update.dX - tempData.X);
+					globalTelemetryData.Y += currentComplementaryConstant * (update.dY - tempData.Y);
+					globalTelemetryData.O += currentComplementaryConstant * (update.dO - tempData.O);
 					tempData = globalTelemetryData;
 				}
 				taskEXIT_CRITICAL();
@@ -102,7 +105,14 @@ void TaskTelemetry(void * p) {
 				safeLog(Log_Type_Error, 46, "Cannot find timestamp in history, retv = %d\n", returnCode);
 				continue;
 			}
-			safeLog(Log_Type_Camera, 60, "Radio position %.3f %.3f %.3f at %ld\n", update.dX, update.dY, update.dO, globalVSYNCTimestamp);
+			safeLog(Log_Type_Camera, 120, "Radio: %.3f %.3f %.3f "
+					"Odo: %.3f %.3f %.3f "
+					"Filt: %.3f %.3f %.3f "
+					"Time: %ld\n",
+					update.dX, update.dY, update.dO,
+					odometryData.X, odometryData.Y, odometryData.O,
+					tempData.X, tempData.Y, tempData.O,
+					globalVSYNCTimestamp);
 			break;
 		default:
 			safeLog(Log_Type_Error, 37, "Invalid telemetry update type: %d\n", update.Source);
