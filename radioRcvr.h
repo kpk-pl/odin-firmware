@@ -5,7 +5,6 @@
 
 void radioSetup();
 void RadioUSARTInterrupt();
-void RadioDMATxCompleteInterrupt();
 
 void radioDisable();
 void radioEnable();

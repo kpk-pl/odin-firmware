@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <stm32f4xx.h>
 
@@ -15,83 +16,102 @@
 
 #define RADIO_BUFFER_LEN 20
 
-#define RADIO_MSG_TYPE_READ_RADIO_BUFFER 	'R'
-#define RADIO_MSG_TYPE_CONST_0xE5 			'c'
-#define RADIO_MSG_TYPE_RADIO_OFF 			'o'
-#define RADIO_MSG_TYPE_RADIO_ON 			'O'
-#define RADIO_MSG_TYPE_RESET				'x'
-#define RADIO_MSG_TYPE_RESET_INDICATOR		'i'
+#define RADIO_MSG_TYPE_READ_TELEMETRY	'U'
 
-static volatile uint8_t radioIncommingBuffer[RADIO_BUFFER_LEN];
-static volatile uint8_t radioOutgoingBuffer[RADIO_BUFFER_LEN];
+static volatile uint8_t radioIncommingBuffer[RADIO_BUFFER_LEN+1];
+static volatile uint8_t radioOutgoingBuffer[RADIO_BUFFER_LEN+1];
 static volatile uint8_t radioTransmitCounter = 0;
-static volatile uint8_t radioTransactionLength = 0;
-static volatile bool isBlockingTransaction = false;
+static volatile uint8_t radioReceiveCounter = 0;
 
-static xSemaphoreHandle radioSPIMutex = NULL;
+static xSemaphoreHandle radioCommMutex = NULL;
+static xSemaphoreHandle radioTransmissionCompletedSemaphore = NULL;
+
+static void memvcpy(volatile void *to, volatile const void *from, const size_t length);
 
 ///////////// GLOBALLY ACCESSIBLE FUNCTIONS ////////////////
 
 void radioSetup() {
-	if (!radioSPIMutex) {
-		radioSPIMutex = xSemaphoreCreateMutex();
+	if (!radioCommMutex) {
+		radioCommMutex = xSemaphoreCreateMutex();
+	}
+	if (!radioTransmissionCompletedSemaphore) {
+		radioTransmissionCompletedSemaphore = xSemaphoreCreateBinary();
 	}
 }
 
 void radioDisable() {
-	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
-
-	xSemaphoreGive(radioSPIMutex);
 }
 
 void radioEnable() {
-	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
-
-	xSemaphoreGive(radioSPIMutex);
 }
 
 void radioTestCommand() {
-	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
-
-	xSemaphoreGive(radioSPIMutex);
+	xSemaphoreTake(radioCommMutex, portMAX_DELAY);
+	memvcpy(radioOutgoingBuffer, "T", 2);
+	radioTransmitCounter = 0;
+	USART_ITConfig(RADIO_USART, USART_IT_TXE, ENABLE); // now interrupt will fire immediately
+	xSemaphoreTake(radioTransmissionCompletedSemaphore, portMAX_DELAY);
+	xSemaphoreGive(radioCommMutex);
 }
 
 
 void radioResetIndicatorCommand() {
-	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
-
-	xSemaphoreGive(radioSPIMutex);
 }
 
 void radioResetCommand() {
-	xSemaphoreTake(radioSPIMutex, portMAX_DELAY);
-
-	xSemaphoreGive(radioSPIMutex);
 }
 
 ///////////// INTERNAL FUNCTIONS //////////////////////
 
-void RadioUSARTInterrupt() {
-	portBASE_TYPE contextSwitch = pdFALSE;
-
-	if (USART_GetITStatus(RADIO_USART, USART_IT_RXNE) == SET) {
-		uint8_t in = USART_ReceiveData(RADIO_USART);
-		// so something
-		USART_ClearFlag(WIFI_USART, USART_FLAG_RXNE);
+static void memvcpy(volatile void *to, volatile const void *from, const size_t length) {
+	size_t i;
+	volatile const uint8_t *_from = (uint8_t*)from;
+	volatile uint8_t *_to = (uint8_t*)to;
+	for(i = 0; i<length; ++i) {
+		_to[i] = _from[i];
 	}
-	else if (USART_GetITStatus(RADIO_USART, USART_IT_TC) == SET) {
-		//xSemaphoreGiveFromISR(wifiUSARTTCSemaphore, &contextSwitch);
-		// do something
-		USART_ITConfig(RADIO_USART, USART_IT_TC, DISABLE);
-		USART_ClearFlag(RADIO_USART, USART_FLAG_TC);
-	}
-
-	portEND_SWITCHING_ISR(contextSwitch);
 }
 
-void RadioDMATxCompleteInterrupt() {
+void RadioUSARTInterrupt() {
 	portBASE_TYPE contextSwitch = pdFALSE;
-	//xSemaphoreGiveFromISR(wifiDMATCSemaphore, &contextSwitch);
-	DMA_ClearFlag(RADIO_DMA_TX_STREAM, RADIO_DMA_TX_FLAG_TCIF);
+	static bool command = false;
+
+	if (USART_GetITStatus(RADIO_USART, USART_IT_RXNE) == SET) {
+		uint8_t in = USART_ReceiveData(RADIO_USART); // this clears the IT flag
+		if (!command && in == '<') {
+			command = true;
+		} else if (command && in == '>') {
+			command = false;
+			radioReceiveCounter = 0;
+		} else if (command && radioReceiveCounter < sizeof(radioIncommingBuffer)) {
+			radioIncommingBuffer[radioReceiveCounter++] = in;
+		}
+
+		switch (radioIncommingBuffer[0]) {
+		case RADIO_MSG_TYPE_READ_TELEMETRY:
+			if (radioReceiveCounter == 13) {
+				TelemetryUpdate_Struct update = (TelemetryUpdate_Struct) {
+					.Source = TelemetryUpdate_Source_Camera,
+					.Timestamp = xTaskGetTickCountFromISR()
+				};
+				memvcpy(&update.Data, radioIncommingBuffer+1, 12);
+				xQueueSendToBackFromISR(telemetryQueue, &update, &contextSwitch);
+				radioReceiveCounter = 0;
+			}
+			break;
+		default:
+			radioReceiveCounter = 0; // discard unrecognized commands
+		}
+	}
+	else if (USART_GetITStatus(RADIO_USART, USART_IT_TXE) == SET) {
+		if (radioOutgoingBuffer[radioTransmitCounter] == '\0') {
+			USART_ITConfig(RADIO_USART, USART_IT_TXE, DISABLE);
+			xSemaphoreGiveFromISR(radioTransmissionCompletedSemaphore, &contextSwitch);
+		}
+		else {
+			USART_SendData(RADIO_USART, radioOutgoingBuffer[radioTransmitCounter++]); // this clears the IT flag
+		}
+	}
+
 	portEND_SWITCHING_ISR(contextSwitch);
 }

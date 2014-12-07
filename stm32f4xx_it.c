@@ -284,7 +284,3 @@ void CPUUSAGE_BASE_TIM_IRQHANDLER(void) {
 void RADIO_USART_IRQHANDLER(void) {
 	RadioUSARTInterrupt();
 }
-
-void RADIO_DMA_TX_IRQHANDLER(void) {
-	RadioDMATxCompleteInterrupt();
-}

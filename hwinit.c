@@ -290,42 +290,6 @@ void Initialize() {
 	NVIC_Init(&NVIC_InitStructure);
 	/* Configure Rx interrupt */
 	USART_ITConfig(RADIO_USART, USART_IT_RXNE, ENABLE);
-	/* Enabling clock for DMA */
-	RCC_AHB1PeriphClockCmd(RADIO_DMA_CLOCK, ENABLE);
-	/*
-	 * Configuring DMA stream for transmission over UART
-	 * This stream should upload data from memory buffer to Tx peripheral
-	 * Memory burst and FIFO are enabled to minimize DMA events
-	 */
-	DMA_InitStructure = (DMA_InitTypeDef){
-		.DMA_FIFOMode = DMA_FIFOMode_Enable,
-		.DMA_FIFOThreshold = DMA_FIFOThreshold_Full,
-		.DMA_MemoryBurst = DMA_MemoryBurst_INC16,
-		.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte,
-		.DMA_MemoryInc = DMA_MemoryInc_Enable,
-		.DMA_Memory0BaseAddr = 0, // temporary
-		.DMA_Mode = DMA_Mode_Normal,
-		.DMA_PeripheralBaseAddr = (uint32_t) (&RADIO_USART -> DR),
-		.DMA_PeripheralBurst = DMA_PeripheralBurst_Single,
-		.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte,
-		.DMA_PeripheralInc = DMA_PeripheralInc_Disable,
-		.DMA_Priority = DMA_Priority_High,
-		.DMA_Channel = RADIO_DMA_TX_CHANNEL,
-		.DMA_DIR = DMA_DIR_MemoryToPeripheral,
-		.DMA_BufferSize = 1 // temporary
-	};
-	DMA_Init(RADIO_DMA_TX_STREAM, &DMA_InitStructure);
-	/* Disabling double buffer mode */
-	DMA_DoubleBufferModeCmd(RADIO_DMA_TX_STREAM, DISABLE);
-	/* Enabling interrupt after finished transmission */
-	NVIC_InitStructure = (NVIC_InitTypeDef){
-		.NVIC_IRQChannel = RADIO_DMA_TX_NVIC_IRQn,
-		.NVIC_IRQChannelCmd = ENABLE,
-		.NVIC_IRQChannelPreemptionPriority = PRIORITY_ISR_RADIODMATX,
-		.NVIC_IRQChannelSubPriority = 0
-	};
-	NVIC_Init(&NVIC_InitStructure);
-	DMA_ITConfig(RADIO_DMA_TX_STREAM, DMA_IT_TC, ENABLE);
 	/* Enabling UART */
 	USART_Cmd(RADIO_USART, ENABLE);
 
