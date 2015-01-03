@@ -19,7 +19,7 @@ typedef struct {
 } TimestampedTelemetryData_Struct;
 
 static void telemetrySaveToHistory(const TelemetryData_Struct *data, const portTickType timestamp);
-static int32_t telemetrySearchHistoryTimestamp(const portTickType timestamp, TelemetryData_Struct *outResult);
+static int32_t telemetrySearchHistoryTimestamp(portTickType timestamp, TelemetryData_Struct *outResult);
 
 /**
  * Delay between time when camera captures the frame and when this firmware receives VSYNC impulse
@@ -36,13 +36,13 @@ volatile float globalPositionScale = 1.0f;					/*!< Scale for position; if set t
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
 xTaskHandle telemetryTask;						/*!< This task's handle */
 
-static bool globalMovedSinceReset = false;
+static volatile bool globalMovedSinceReset = false;
 static volatile portTickType globalVSYNCTimestamp = 0; 		/*!< Timestamp of the last camera VSYNC pulse */
 
 #define TELEMETRY_HISTORY_BUFFER_LEN 2000
 static CCMEM TimestampedTelemetryData_Struct globalTelemetryHistory[TELEMETRY_HISTORY_BUFFER_LEN];  /*!< Circular buffer for historical telemetry data based on odometry updates */
-static uint32_t globalTelemetryHistoryIterator = 0;			/*!< Iterator for telemetry history buffer, points to the next free element */
-static bool globalTelemetryHistoryRollover = false;			/*!< True if the whole buffer was filled at least once */
+static volatile uint32_t globalTelemetryHistoryIterator = 0;  /*!< Iterator for telemetry history buffer, points to the next free element */
+static volatile bool globalTelemetryHistoryRollover = false;  /*!< True if the whole buffer was filled at least once */
 
 /**
  * \brief Global variable that holds current up-to-date telemetry data.
@@ -132,7 +132,7 @@ void TaskTelemetry(void * p) {
 }
 
 void TaskTelemetryConstructor() {
-	xTaskCreate(TaskTelemetry, NULL, TASKTELEMETRY_STACKSPACE, NULL,	PRIORITY_TASK_TELEMETRY, &telemetryTask);
+	xTaskCreate(TaskTelemetry, NULL, TASKTELEMETRY_STACKSPACE, NULL, PRIORITY_TASK_TELEMETRY, &telemetryTask);
 	telemetryQueue = xQueueCreate(30, sizeof(TelemetryUpdate_Struct));
 }
 
@@ -206,7 +206,7 @@ void getTelemetry(TelemetryData_Struct *data, TelemetryStyle_Type style) {
 }
 
 void radioCameraVSYNCHandlerFromISR() {
-	globalVSYNCTimestamp = xTaskGetTickCountFromISR() - (int32_t)(globalCameraTransmissionDelayMs/(float)portTICK_RATE_MS);
+	globalVSYNCTimestamp = xTaskGetTickCountFromISR();
 }
 
 void telemetrySaveToHistory(const TelemetryData_Struct *data, const portTickType timestamp) {
@@ -222,11 +222,13 @@ void telemetrySaveToHistory(const TelemetryData_Struct *data, const portTickType
 	}
 }
 
-int32_t telemetrySearchHistoryTimestamp(const portTickType timestamp, TelemetryData_Struct *outResult) {
+int32_t telemetrySearchHistoryTimestamp(portTickType timestamp, TelemetryData_Struct *outResult) {
 	/* Cannot assign globalTelemetryHistoryIterator-1 if there was not a rollover */
 	if (globalTelemetryHistoryIterator == 0 && !globalTelemetryHistoryRollover) {
 		return -1;
 	}
+
+	timestamp -= globalCameraTransmissionDelayMs/(float)portTICK_RATE_MS;
 
 	uint32_t iterator = (globalTelemetryHistoryIterator - 1) % TELEMETRY_HISTORY_BUFFER_LEN;
 	while (globalTelemetryHistory[iterator].Timestamp > timestamp) {

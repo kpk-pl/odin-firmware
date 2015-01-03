@@ -176,7 +176,7 @@ static const CLI_Command_Definition_t telemetryComDef = {
     (const int8_t*)"telemetry",
     (const int8_t*)"telemetry [raw|<scaled [raw]>]\n"
              "\tcamera <filter|delay> [#value]\n"
-             "\todometry <scale|correction> [#value]",
+             "\todometry <scale|correction> [#value]\n",
     telemetryCommand,
     -1
 };
