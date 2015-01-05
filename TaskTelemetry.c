@@ -30,7 +30,7 @@ static int32_t telemetrySearchHistoryTimestamp(portTickType timestamp, Telemetry
  * - time between interrupt generation and interrupt reception and handling in this firmware
  */
 volatile float globalCameraTransmissionDelayMs = 0.0f;
-volatile float globalCameraTelemetryFilterConstant = 0.97f;	/*!< Complementary filter for camera telemetry updates */
+volatile float globalCameraTelemetryFilterConstant = 0.97f;	/*!< Complementary filter for camera telemetry updates, set for one to disable camera integration */
 volatile float globalOdometryCorrectionGain = 1.0049f;		/*!< Gain that is used to correct odometry data (turning angle) */
 volatile float globalPositionScale = 1.0f;					/*!< Scale for position; if set to 2 then robot will drive 80cm when told to drive 40cm */
 xQueueHandle telemetryQueue;					/*!< Queue to which telemetry updates are sent to */
@@ -55,7 +55,7 @@ volatile TelemetryData_Struct globalTelemetryData = {0.0f, 0.0f, 0.0f};
 void TaskTelemetry(void * p) {
 	TelemetryUpdate_Struct update;
 	TelemetryData_Struct odometryData = {0.0f, 0.0f, 0.0f};
-	TelemetryData_Struct tempData;
+	TelemetryData_Struct tempData, predData;
 	float correctedOrientation;
 	int32_t returnCode;
 	float currentFilterConstant, currentComplementaryConstant;
@@ -86,18 +86,15 @@ void TaskTelemetry(void * p) {
 			telemetrySaveToHistory(&tempData, update.Timestamp);
 			break;
 		case TelemetryUpdate_Source_Camera:
-			returnCode = telemetrySearchHistoryTimestamp(globalVSYNCTimestamp, &tempData);
+			returnCode = telemetrySearchHistoryTimestamp(globalVSYNCTimestamp, &predData);
 			if (returnCode == 0) {
 				currentFilterConstant = globalCameraTelemetryFilterConstant;
 				currentComplementaryConstant = 1.0f - currentFilterConstant;
 				taskENTER_CRITICAL();
 				{
-					//globalTelemetryData.X += (currentFilterConstant * tempData.X + currentComplementaryConstant * update.dX) - tempData.X;
-					//globalTelemetryData.Y += (currentFilterConstant * tempData.Y + currentComplementaryConstant * update.dY) - tempData.Y;
-					//globalTelemetryData.O += (currentFilterConstant * tempData.O + currentComplementaryConstant * update.dO) - tempData.O;
-					globalTelemetryData.X += currentComplementaryConstant * (update.dX - tempData.X);
-					globalTelemetryData.Y += currentComplementaryConstant * (update.dY - tempData.Y);
-					globalTelemetryData.O += currentComplementaryConstant * (update.dO - tempData.O);
+					globalTelemetryData.X += currentComplementaryConstant * (update.dX - predData.X);
+					globalTelemetryData.Y += currentComplementaryConstant * (update.dY - predData.Y);
+					globalTelemetryData.O += currentComplementaryConstant * (update.dO - predData.O);
 					tempData = globalTelemetryData;
 				}
 				taskEXIT_CRITICAL();
@@ -105,13 +102,15 @@ void TaskTelemetry(void * p) {
 				safeLog(Log_Type_Error, 46, "Cannot find timestamp in history, retv = %d\n", returnCode);
 				continue;
 			}
-			safeLog(Log_Type_Camera, 120, "Radio: %.3f %.3f %.3f "
-					"Odo: %.3f %.3f %.3f "
-					"Filt: %.3f %.3f %.3f "
+			safeLog(Log_Type_Camera, 144, "Radio: %.2f %.2f %.3f "
+					"Pred: %.2f %.2f %.3f "
+					"Odo: %.2f %.2f %.3f "
+					"Filt: %.2f %.2f %.3f "
 					"Time: %ld\n",
-					update.dX, update.dY, update.dO,
-					odometryData.X, odometryData.Y, odometryData.O,
-					tempData.X, tempData.Y, tempData.O,
+					update.dX, update.dY, update.dO, // data received from radio, raw
+					predData.X, predData.Y, predData.O, // predicted telemetry data at time of camera update
+					odometryData.X, odometryData.Y, odometryData.O, // pure odometry data, now
+					tempData.X, tempData.Y, tempData.O, // filtered telemetry data, odometry and camera integrated, now
 					globalVSYNCTimestamp);
 			break;
 		default:
